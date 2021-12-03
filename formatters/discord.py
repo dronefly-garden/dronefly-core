@@ -1,7 +1,8 @@
 """Discord formatters."""
-from functools import wraps
+from typing import List
 
-from ..utils.decorators import make_decorator
+from .generic import format_taxon_names as generic_format_taxon_names
+from ..models.taxon import Taxon
 
 EMBED_COLOR = 0x90EE90
 # From https://discordapp.com/developers/docs/resources/channel#embed-limits
@@ -23,13 +24,11 @@ MAX_EMBED_FILE_LEN = 8000000
 # DOUBLE_BAR_LIT = "\\|\\|"
 
 
-@make_decorator
-def format_items_for_embed(function, max_len=MAX_EMBED_NAME_LEN):
-    """Format items as delimited list not exceeding Discord length limits."""
-
-    @wraps(function)
-    def wrap_format_items_for_embed(*args, **kwargs):
-        kwargs["max_len"] = max_len
-        return function(*args, **kwargs)
-
-    return wrap_format_items_for_embed
+def format_taxon_names(
+    taxa: List[Taxon],
+    with_term=False,
+    names_format="%s",
+    max_len=MAX_EMBED_NAME_LEN,
+    hierarchy=False,
+):
+    return generic_format_taxon_names(taxa, with_term, names_format, max_len, hierarchy)

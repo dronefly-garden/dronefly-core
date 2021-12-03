@@ -72,12 +72,6 @@ TRINOMIAL_ABBR = {"variety": "var.", "subspecies": "ssp.", "form": "f."}
 # - note: also needs EstablishmentMeansPartial and ConservationStatus)
 # - use pyinaturalist models
 # - resolve unnecessary divergences from API response attribute names
-# - consider moving Taxon.format_name out of the model into a separate
-#   formatters module.
-#   - Currently we format as Discord-flavored markdown, but that should be
-#     made chat-platform-agnostic for core.
-#   - Other output formats will likely be desired soon: plain text, ANSI
-#     colored text, html.
 
 
 # pylint: disable=invalid-name disable=too-many-instance-attributes
