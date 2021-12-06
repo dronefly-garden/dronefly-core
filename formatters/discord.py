@@ -1,9 +1,9 @@
 """Discord formatters."""
 from typing import List
 
-from .constants import WWW_BASE_URL
+from pyinaturalist.models import Taxon
+
 from .generic import format_taxon_name, format_taxon_names as generic_format_taxon_names
-from ..models.taxon import Taxon
 
 EMBED_COLOR = 0x90EE90
 # From https://discordapp.com/developers/docs/resources/channel#embed-limits
@@ -43,7 +43,7 @@ def format_taxon_image_embed(
     embed = {
         "color": EMBED_COLOR,
         "title": taxon.name,
-        "url": f"{WWW_BASE_URL}/taxa/{taxon.id}",
+        "url": taxon.url,
         "description": format_taxon_name(taxon),
     }
     default_photo = taxon.default_photo
