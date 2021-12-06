@@ -1,7 +1,8 @@
 """Discord formatters."""
 from typing import List
 
-from .generic import format_taxon_names as generic_format_taxon_names
+from .constants import WWW_BASE_URL
+from .generic import format_taxon_name, format_taxon_names as generic_format_taxon_names
 from ..models.taxon import Taxon
 
 EMBED_COLOR = 0x90EE90
@@ -31,4 +32,28 @@ def format_taxon_names(
     max_len=MAX_EMBED_NAME_LEN,
     hierarchy=False,
 ):
+    """Format list of names of taxa, not exceeding max Discord name length."""
     return generic_format_taxon_names(taxa, with_term, names_format, max_len, hierarchy)
+
+
+def format_taxon_image_embed(
+    taxon: Taxon,
+):
+    """Format taxon as Discord embed dict."""
+    embed = {
+        "color": EMBED_COLOR,
+        "title": taxon.name,
+        "url": f"{WWW_BASE_URL}/taxa/{taxon.id}",
+        "description": format_taxon_name(taxon),
+    }
+    default_photo = taxon.default_photo
+    if default_photo:
+        medium_url = default_photo.medium_url
+        if medium_url:
+            embed["image"] = {
+                "url": medium_url,
+            }
+            embed["footer"] = {
+                "text": default_photo.attribution,
+            }
+    return embed
