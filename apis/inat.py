@@ -1,4 +1,4 @@
-"""Module to access iNaturalist API."""
+"""Module to access iNaturalist API (deprecated)."""
 import logging
 from time import time
 from types import SimpleNamespace
