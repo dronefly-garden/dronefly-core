@@ -9,7 +9,7 @@ from ..formatters.discord import format_taxon_names
 
 
 @pytest.fixture
-def taxon():
+def birds():
     return Taxon(
         id=3,
         name="Aves",
@@ -96,9 +96,119 @@ def taxon():
     )
 
 
-def test_taxon_is_a_taxon(taxon):
-    assert isinstance(taxon, Taxon)
+@pytest.fixture
+def myrtle_warbler():
+    return Taxon(
+        id=132704,
+        name="Setophaga coronata coronata",
+        matched_term="Myrtle Warbler",
+        rank="subspecies",
+        ancestor_ranks=[
+            "stateofmatter",
+            "kingdom",
+            "phylum",
+            "class",
+            "order",
+            "family",
+            "genus",
+            "species",
+        ],
+        ancestor_ids=[48460, 1, 2, 355675, 3, 7251, 71349, 10246, 145245],
+        preferred_common_name="Myrtle Warbler",
+        observations_count=8866,
+        is_active=True,
+        listed_taxa=[],
+        names=[],
+    )
 
 
-def test_taxon_names_list(taxon):
-    assert format_taxon_names([taxon]) == "Class Aves (Birds)"
+@pytest.fixture
+def yellow_rumped_warbler():
+    return Taxon(
+        id=145245,
+        name="Setophaga coronata",
+        matched_term="Yellow-rumped Warbler",
+        rank="species",
+        ancestor_ranks=[
+            "stateofmatter",
+            "kingdom",
+            "phylum",
+            "class",
+            "order",
+            "family",
+            "genus",
+        ],
+        ancestor_ids=[48460, 1, 2, 355675, 3, 7251, 71349, 10246],
+        preferred_common_name="Yellow-rumped Warbler",
+        observations_count=75339,
+        is_active=True,
+        listed_taxa=[],
+        names=[],
+    )
+
+
+@pytest.fixture
+def setophaga_warblers():
+    return Taxon(
+        id=10246,
+        name="Setophaga",
+        matched_term="Setophaga",
+        rank="genus",
+        ancestor_ranks=[
+            "stateofmatter",
+            "kingdom",
+            "phylum",
+            "class",
+            "order",
+            "family",
+        ],
+        ancestor_ids=[48460, 1, 2, 355675, 3, 7251, 71349],
+        preferred_common_name="Setophaga Warblers",
+        observations_count=233584,
+        is_active=True,
+        listed_taxa=[],
+        names=[],
+    )
+
+
+@pytest.fixture
+def new_world_warblers():
+    return Taxon(
+        id=145245,
+        name="Parulidae",
+        matched_term="New World Warblers",
+        rank="family",
+        ancestor_ranks=["stateofmatter", "kingdom", "phylum", "class", "order"],
+        ancestor_ids=[48460, 1, 2, 355675, 3, 7251],
+        preferred_common_name="New World Warblers",
+        observations_count=372094,
+        is_active=True,
+        listed_taxa=[],
+        names=[],
+    )
+
+
+@pytest.fixture
+def myrtle_warbler_ancestors(
+    birds, new_world_warblers, setophaga_warblers, yellow_rumped_warbler
+):
+    """A slightly condensed list of ancestors (only class, family, genus, and species)."""
+    return [birds, new_world_warblers, setophaga_warblers, yellow_rumped_warbler]
+
+
+def test_taxon_is_a_taxon(birds):
+    assert isinstance(birds, Taxon)
+
+
+def test_taxon_names_list(birds, myrtle_warbler):
+    assert (
+        format_taxon_names([birds, myrtle_warbler])
+        == "Class Aves (Birds), *Setophaga coronata* ssp. *coronata* (Myrtle Warbler)"
+    )
+
+
+def test_taxon_names_hierarchy(myrtle_warbler_ancestors):
+    assert (
+        format_taxon_names(myrtle_warbler_ancestors, hierarchy=True)
+        == "\n> **Aves** > \n> **Parulidae** > *Setophaga* > *Setophaga coronata*"
+    )

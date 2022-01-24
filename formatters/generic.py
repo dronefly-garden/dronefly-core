@@ -136,7 +136,7 @@ def format_taxon_name(
         elif with_rank:
             name = f"{rank.capitalize()} {name}"
     else:
-        if rank in TRINOMIAL_ABBR.keys():
+        if rank in TRINOMIAL_ABBR:
             tri = name.split(" ")
             if len(tri) == 3:
                 # Note: name already italicized, so close/reopen italics around insertion.
