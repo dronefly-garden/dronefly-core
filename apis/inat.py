@@ -2,7 +2,7 @@
 import logging
 from time import time
 from types import SimpleNamespace
-from typing import Union
+from typing import List, Optional, Union
 
 from aiohttp import (
     ClientConnectorError,
@@ -302,11 +302,11 @@ class INatAPI:
             return self.projects_cache[first_project_id]
         return None
 
-    async def get_project_observers_stats(self, **kwargs):
-        """Query API for user counts & rankings in a project."""
+    async def get_observers_stats(self, **kwargs):
+        """Query API for user counts & rankings."""
         request = "/v1/observations/observers"
         # TODO: validate kwargs includes project_id
-        # TODO: support projects with > 500 observers (one page, default)
+        # TODO: support queries with > 500 observers (one page, default)
         full_url = f"{API_BASE_URL}{request}"
         return await self._get_rate_limited(full_url, **kwargs)
 
@@ -409,31 +409,59 @@ class INatAPI:
             return self.users_cache[user_id]
         return None
 
-    async def get_observers_from_projects(self, project_ids: list):
+    async def get_observers_from_projects(
+        self, project_ids: Optional[List] = None, user_ids: Optional[List] = None
+    ):
         """Get observers for a list of project ids.
 
         Since the cache is filled as a side effect, this method can be
         used to prime the cache prior to fetching multiple users at once
         by id.
+
+        Users may also be specified, and in that case, project ids may be
+        omitted. The cache will then be primed from a list of user ids.
         """
-        if not project_ids:
+        if not (project_ids or user_ids):
             return
 
-        response = await self.get_observations(
-            "observers", project_id=",".join(map(str, project_ids))
-        )
+        page = 1
+        more = True
         users = []
-        results = response.get("results") or []
-        for observer in results:
-            user = observer.get("user")
-            if user:
-                user_id = user.get("id")
-                if user_id:
-                    # Synthesize a single result as if returned by a get_users
-                    # lookup of a single user_id, and cache it:
-                    user_json = {}
-                    user_json["results"] = [user]
-                    self.users_cache[user_id] = user_json
-                    self.users_login_cache[user["login"]] = user_id
+        # Note: This will only handle up to 10,000 users. Anything more
+        # needs to set id_above and id_below. With luck, we won't ever
+        # need to deal with projects this big!
+        while more:
+            params = {"page": page}
+            if project_ids:
+                params["project_id"] = ",".join(map(str, project_ids))
+            if user_ids:
+                params["user_id"] = ",".join(map(str, user_ids))
+            response = await self.get_observations("observers", **params)
+            results = response.get("results") or []
+            for observer in results:
+                user = observer.get("user")
+                if user:
+                    user_id = user.get("id")
+                    if user_id:
+                        # Synthesize a single result as if returned by a get_users
+                        # lookup of a single user_id, and cache it:
+                        user_json = {}
+                        user_json["results"] = [user]
+                        users.append(user)
+                        self.users_cache[user_id] = user_json
+                        self.users_login_cache[user["login"]] = user_id
+            # default values provided defensively to exit loop if missing
+            per_page = response.get("per_page") or len(results)
+            total_results = response.get("total_results") or len(results)
+            if results and (page * per_page < total_results):
+                page += 1
+            else:
+                more = False
 
-        return users
+        # return all user results as a single page
+        return {
+            "total_results": len(users),
+            "pages": 1,
+            "per_page": len(users),
+            "results": users,
+        }
