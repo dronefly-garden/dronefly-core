@@ -3,7 +3,7 @@ from typing import List
 
 from pyinaturalist.models import Taxon
 
-from .generic import format_taxon_name, format_taxon_names as generic_format_taxon_names
+from formatters.generic import format_taxon_name, format_taxon_names as generic_format_taxon_names
 
 EMBED_COLOR = 0x90EE90
 # From https://discordapp.com/developers/docs/resources/channel#embed-limits

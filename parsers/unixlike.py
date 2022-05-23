@@ -6,10 +6,10 @@ from typing import Optional
 import shlex
 import dateparser
 
-from ..models.taxon import RANK_EQUIVALENTS
-from ..parsers.url import PAT_TAXON_LINK
-from ..query.query import Query, TaxonQuery
-from .constants import ARGPARSE_ARGS
+from models.taxon import RANK_EQUIVALENTS
+from query.query import Query, TaxonQuery
+from parsers.constants import ARGPARSE_ARGS
+from parsers.url import PAT_TAXON_LINK
 
 
 class NoExitParser(argparse.ArgumentParser):

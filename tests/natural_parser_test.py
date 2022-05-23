@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from ..parsers.natural import NaturalParser
+from parsers.natural import NaturalParser
 
 
 @pytest.fixture

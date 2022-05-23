@@ -5,7 +5,7 @@ which is then fairly easy to render to other formats as needed.
 """
 from typing import List
 
-from ..models.taxon import Taxon, TAXON_PRIMARY_RANKS, TRINOMIAL_ABBR, RANK_LEVELS
+from models.taxon import Taxon, TAXON_PRIMARY_RANKS, TRINOMIAL_ABBR, RANK_LEVELS
 
 TAXON_LIST_DELIMITER = [", ", " > "]
 
