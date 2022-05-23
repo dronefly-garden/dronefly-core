@@ -8,9 +8,9 @@ except ModuleNotFoundError:
     class BadArgument(Exception):
         """Argument error (for compatibility with Discord exceptions)."""
 
-from parsers.constants import ARGPARSE_ARGS, MACROS, REMAINING_ARGS
-from parsers.unixlike import UnixlikeParser
-from parsers.url import PAT_OBS_LINK
+from dronefly.core.parsers.constants import ARGPARSE_ARGS, MACROS, REMAINING_ARGS
+from dronefly.core.parsers.unixlike import UnixlikeParser
+from dronefly.core.parsers.url import PAT_OBS_LINK
 
 
 class NaturalParser(UnixlikeParser):

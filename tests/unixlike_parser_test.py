@@ -5,7 +5,7 @@ import re
 
 import pytest
 
-from parsers.unixlike import UnixlikeParser
+from dronefly.core.parsers.unixlike import UnixlikeParser
 
 
 @pytest.fixture

@@ -5,6 +5,9 @@ description = "Core dronefly components"
 authors = ["Ben Armstrong <synrg@debian.org>"]
 license = "AGPL-3.0-or-later"
 readme = "README.md"
+packages = [
+	{ include = "dronefly/core" },
+]
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<3.10"

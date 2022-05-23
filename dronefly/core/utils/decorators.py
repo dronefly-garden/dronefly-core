@@ -1,7 +1,7 @@
 """Decorator utilities."""
 from functools import wraps
 
-from formatters.discord import MAX_EMBED_NAME_LEN
+from dronefly.core.formatters.discord import MAX_EMBED_NAME_LEN
 
 
 def make_decorator(function):

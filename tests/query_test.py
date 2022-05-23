@@ -1,7 +1,7 @@
 """Tests for query module."""
 from datetime import datetime
 
-from query.query import Query, TaxonQuery
+from dronefly.core.query.query import Query, TaxonQuery
 
 
 # pylint: disable=missing-class-docstring disable=no-self-use disable=missing-function-docstring

@@ -4,8 +4,8 @@
 
 import pytest
 
-from models.taxon import Taxon
-from formatters.discord import format_taxon_names
+from dronefly.core.models.taxon import Taxon
+from dronefly.core.formatters.discord import format_taxon_names
 
 
 @pytest.fixture

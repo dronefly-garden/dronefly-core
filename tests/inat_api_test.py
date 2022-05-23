@@ -1,6 +1,6 @@
 """Test INatAPI."""
 import pytest
-from apis.inat import INatAPI
+from dronefly.core.apis.inat import INatAPI
 
 # pylint: disable=missing-function-docstring
 
