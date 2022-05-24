@@ -60,8 +60,8 @@ class TestUnixlikeParser:
         assert str(parsed) == "per species"
 
     def test_project(self, parser):
-        parsed = parser.parse("in prj arthropods on snow")
-        assert str(parsed) == "in prj arthropods on snow"
+        parsed = parser.parse('in prj "arthropods on snow"')
+        assert str(parsed) == 'in prj "arthropods on snow"'
 
     def test_options(self, parser):
         parsed = parser.parse("opt sounds popular")
