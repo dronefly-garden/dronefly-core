@@ -33,35 +33,35 @@ class TestUnixlikeParser:
 
     def test_user(self, parser):
         parsed = parser.parse("--by benarmstrong")
-        assert str(parsed == "by benarmstrong")
+        assert str(parsed) == "by benarmstrong"
 
     def test_place(self, parser):
         parsed = parser.parse("--from nova scotia")
-        assert str(parsed == "from nova scotia")
+        assert str(parsed) == "from nova scotia"
 
     def test_with(self, parser):
         parsed = parser.parse("--with sex f")
-        assert str(parsed == "with sex f")
+        assert str(parsed) == "with sex f"
 
     def test_unobserved_by(self, parser):
         parsed = parser.parse("--not-by me")
-        assert str(parsed == "not by me")
+        assert str(parsed) == "not by me"
 
     def test_except_by(self, parser):
         parsed = parser.parse("--except-by me")
-        assert str(parsed == "except by me")
+        assert str(parsed) == "except by me"
 
     def test_id_by(self, parser):
         parsed = parser.parse("--id-by me")
-        assert str(parsed == "id by me")
+        assert str(parsed) == "id by me"
 
     def test_per(self, parser):
         parsed = parser.parse("--per species")
-        assert str(parsed == "per species")
+        assert str(parsed) == "per species"
 
     def test_project(self, parser):
         parsed = parser.parse("--in-prj arthropods on snow")
-        assert str(parsed == "in prj arthropods on snow")
+        assert str(parsed) == "in prj arthropods on snow"
 
     def test_options(self, parser):
         parsed = parser.parse("--opt sounds popular")
