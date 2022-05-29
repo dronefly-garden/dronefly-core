@@ -17,7 +17,6 @@ def birds():
         rank="class",
         ancestor_ids=[48460, 1, 2, 355675, 3],
         observations_count=11645562,
-        ancestor_ranks=["stateofmatter", "kingdom", "phylum", "class"],
         is_active=True,
         listed_taxa=[
             {
@@ -90,9 +89,42 @@ def birds():
             {"is_valid": True, "name": "Птицы", "position": 6, "locale": "ru"},
         ],
         preferred_common_name="Birds",
-        thumbnail="https://inaturalist-open-data.s3.amazonaws.com/photos/222/square.jpg?1553973240",  # noqa: E501
-        image="https://inaturalist-open-data.s3.amazonaws.com/photos/222/original.jpg?1553973240",  # noqa: E501
-        image_attribution="(c) Kenny P., some rights reserved (CC BY-NC)",
+        ancestors=[
+            {"observations_count":56143048,"taxon_schemes_count":2,"is_active":True,"ancestry":"48460",
+            "flag_counts":{"resolved":11,"unresolved":0},"wikipedia_url":"http://en.wikipedia.org/wiki/Animal",
+            "current_synonymous_taxon_ids":None,"iconic_taxon_id":1,"rank_level":70,"taxon_changes_count":6,
+            "atlas_id":None,"complete_species_count":None,"parent_id":48460,"complete_rank":"order",
+            "name":"Animalia","rank":"kingdom","extinct":False,"id":1,
+            "default_photo":{"id":80678745,"license_code":"cc0","attribution":"no rights reserved, uploaded by Abhas Misraraj",
+            "url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80678745/square.jpg",
+            "original_dimensions":{"height":2000,"width":2000},"flags":[],
+            "square_url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80678745/square.jpg",
+            "medium_url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80678745/medium.jpg"},
+            "ancestor_ids":[48460,1],"iconic_taxon_name":"Animalia","preferred_common_name":"Animals"},
+            {"observations_count":23905219,"taxon_schemes_count":2,"is_active":True,"ancestry":"48460/1",
+            "flag_counts":{"resolved":0,"unresolved":0},"wikipedia_url":"http://en.wikipedia.org/wiki/Chordate",
+            "current_synonymous_taxon_ids":None,"iconic_taxon_id":1,"rank_level":60,"taxon_changes_count":0,
+            "atlas_id":None,"complete_species_count":76302,"parent_id":1,"complete_rank":"species",
+            "name":"Chordata","rank":"phylum","extinct":False,"id":2,
+            "default_photo":{"id":80551845,"license_code":"cc0","attribution":"no rights reserved, uploaded by Abhas Misraraj",
+            "url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80551845/square.jpg",
+            "original_dimensions":{"height":2000,"width":2000},"flags":[],
+            "square_url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80551845/square.jpg",
+            "medium_url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80551845/medium.jpg"},
+            "ancestor_ids":[48460,1,2],"iconic_taxon_name":"Animalia","preferred_common_name":"Chordates"},
+            {"observations_count":23868230,"taxon_schemes_count":1,"is_active":True,"ancestry":"48460/1/2",
+            "flag_counts":{"resolved":2,"unresolved":0},"wikipedia_url":"http://en.wikipedia.org/wiki/Vertebrate",
+            "current_synonymous_taxon_ids":None,"iconic_taxon_id":1,"rank_level":57,"taxon_changes_count":1,
+            "atlas_id":None,"complete_species_count":73180,"parent_id":2,"complete_rank":"species",
+            "name":"Vertebrata","rank":"subphylum","extinct":False,"id":355675,
+            "default_photo":{"id":80551642,"license_code":"cc0","attribution":"no rights reserved, uploaded by Abhas Misraraj",
+            "url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80551642/square.jpg",
+            "original_dimensions":{"height":2000,"width":2000},"flags":[],
+            "square_url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80551642/square.jpg",
+            "medium_url":"https://inaturalist-open-data.s3.amazonaws.com/photos/80551642/medium.jpg"},
+            "ancestor_ids":[48460,1,2,355675],"iconic_taxon_name":"Animalia","preferred_common_name":"Vertebrates"
+            }
+        ],
     )
 
 
@@ -103,16 +135,6 @@ def myrtle_warbler():
         name="Setophaga coronata coronata",
         matched_term="Myrtle Warbler",
         rank="subspecies",
-        ancestor_ranks=[
-            "stateofmatter",
-            "kingdom",
-            "phylum",
-            "class",
-            "order",
-            "family",
-            "genus",
-            "species",
-        ],
         ancestor_ids=[48460, 1, 2, 355675, 3, 7251, 71349, 10246, 145245],
         preferred_common_name="Myrtle Warbler",
         observations_count=8866,
@@ -129,15 +151,6 @@ def yellow_rumped_warbler():
         name="Setophaga coronata",
         matched_term="Yellow-rumped Warbler",
         rank="species",
-        ancestor_ranks=[
-            "stateofmatter",
-            "kingdom",
-            "phylum",
-            "class",
-            "order",
-            "family",
-            "genus",
-        ],
         ancestor_ids=[48460, 1, 2, 355675, 3, 7251, 71349, 10246],
         preferred_common_name="Yellow-rumped Warbler",
         observations_count=75339,
@@ -154,14 +167,6 @@ def setophaga_warblers():
         name="Setophaga",
         matched_term="Setophaga",
         rank="genus",
-        ancestor_ranks=[
-            "stateofmatter",
-            "kingdom",
-            "phylum",
-            "class",
-            "order",
-            "family",
-        ],
         ancestor_ids=[48460, 1, 2, 355675, 3, 7251, 71349],
         preferred_common_name="Setophaga Warblers",
         observations_count=233584,
@@ -178,7 +183,6 @@ def new_world_warblers():
         name="Parulidae",
         matched_term="New World Warblers",
         rank="family",
-        ancestor_ranks=["stateofmatter", "kingdom", "phylum", "class", "order"],
         ancestor_ids=[48460, 1, 2, 355675, 3, 7251],
         preferred_common_name="New World Warblers",
         observations_count=372094,
@@ -198,6 +202,10 @@ def myrtle_warbler_ancestors(
 
 def test_taxon_is_a_taxon(birds):
     assert isinstance(birds, Taxon)
+
+
+def test_taxon_ancestor_ranks(birds):
+    assert birds.ancestor_ranks() == ['stateofmatter', 'kingdom', 'phylum', 'subphylum']
 
 
 def test_taxon_names_list(birds, myrtle_warbler):

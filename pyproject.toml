@@ -11,7 +11,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<3.10"
-pyinaturalist = "^0.17.0"
+pyinaturalist = { path = "../pyinaturalist" }
 pytest-mock = "^3.6.1"
 dateparser = "^1.1.1"
 

@@ -31,9 +31,10 @@ def format_taxon_names(
     names_format="%s",
     max_len=MAX_EMBED_NAME_LEN,
     hierarchy=False,
+    lang=None,
 ):
     """Format list of names of taxa, not exceeding max Discord name length."""
-    return generic_format_taxon_names(taxa, with_term, names_format, max_len, hierarchy)
+    return generic_format_taxon_names(taxa, with_term, names_format, max_len, hierarchy, lang)
 
 
 def format_taxon_image_embed(

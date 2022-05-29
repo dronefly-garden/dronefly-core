@@ -1,6 +1,5 @@
 """Taxon model module."""
-from dataclasses import dataclass
-from typing import Optional
+from pyinaturalist.models import Taxon as PyiNatTaxon
 
 PLANTAE_ID = 47126
 
@@ -68,39 +67,13 @@ RANK_KEYWORDS = tuple(RANK_LEVELS.keys()) + tuple(RANK_EQUIVALENTS.keys())
 TAXON_PRIMARY_RANKS = ["kingdom", "phylum", "class", "order", "family"]
 TRINOMIAL_ABBR = {"variety": "var.", "subspecies": "ssp.", "form": "f."}
 
-# TODO: move Taxon here from base_classes
-# - note: also needs EstablishmentMeansPartial and ConservationStatus)
-# - use pyinaturalist models
-# - resolve unnecessary divergences from API response attribute names
 
-
-# pylint: disable=invalid-name disable=too-many-instance-attributes
-@dataclass
-class TaxonBase:
-    """Base class for standard fields of Taxon."""
-
-    id: int
-    is_active: bool
-    matched_term: str
-    name: str
-    observations_count: int
-    rank: str
-    ancestor_ids: list
-    ancestor_ranks: list
-    listed_taxa: list
-    names: list
-
-
-@dataclass
-class TaxonDefaultsBase:
-    """Base class for optional fields of Taxon."""
-
-    preferred_common_name: Optional[str] = None
-    thumbnail: Optional[str] = None
-    image: Optional[str] = None
-    image_attribution: Optional[str] = None
-
-
-@dataclass
-class Taxon(TaxonDefaultsBase, TaxonBase):
+class Taxon(PyiNatTaxon):
     """Public class for Taxon model."""
+
+    def ancestor_ranks(self):
+        return (
+            ["stateofmatter"] + [ancestor.rank for ancestor in self.ancestors]
+            if self.ancestors
+            else []
+        )

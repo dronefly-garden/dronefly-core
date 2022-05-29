@@ -11,7 +11,7 @@ TAXON_LIST_DELIMITER = [", ", " > "]
 
 
 def format_taxon_names(
-    taxa: List[Taxon], with_term=False, names_format="%s", max_len=0, hierarchy=False
+    taxa: List[Taxon], with_term=False, names_format="%s", max_len=0, hierarchy=False, lang=None
 ):
     """Format names of taxa from matched records.
 
@@ -32,6 +32,10 @@ def format_taxon_names(
         If specified, formats a hierarchy list of scientific names with
         primary ranks bolded & starting on a new line, and delimited with
         angle-brackets instead of commas.
+    lang: str, optional
+        If specified, prefer the first name with its locale == lang instead of
+        the preferred_common_name.
+
 
     Returns
     -------
@@ -42,7 +46,7 @@ def format_taxon_names(
     delimiter = TAXON_LIST_DELIMITER[int(hierarchy)]
 
     names = [
-        format_taxon_name(taxon, with_term=with_term, hierarchy=hierarchy)
+        format_taxon_name(taxon, with_term=with_term, hierarchy=hierarchy, lang=lang)
         for taxon in taxa
     ]
 
@@ -79,7 +83,7 @@ def format_taxon_names(
 
 
 def format_taxon_name(
-    taxon: Taxon, with_term=False, hierarchy=False, with_rank=True, with_common=True
+    taxon: Taxon, with_term=False, hierarchy=False, with_rank=True, with_common=True, lang=None
 ):
     """Format taxon name.
 
@@ -95,6 +99,9 @@ def format_taxon_name(
         If specified and hierarchy=False, includes the rank for ranks higher than species.
     with_common: bool, optional
         If specified, include common name in parentheses after scientific name.
+    lang: str, optional
+        If specified, prefer the first name with its locale == lang instead of
+        the preferred_common_name.
 
     Returns
     -------
@@ -111,17 +118,24 @@ def format_taxon_name(
     """
 
     if with_common:
+        preferred_common_name = None
+        if lang and taxon.names:
+            name = next(iter([name for name in taxon.names if name.get("locale") == lang]), None)
+            if name:
+                preferred_common_name = name.get("name")
+        if not preferred_common_name:
+            preferred_common_name = taxon.preferred_common_name
         if with_term:
             common = (
                 taxon.matched_term
-                if taxon.matched_term not in (taxon.name, taxon.preferred_common_name)
-                else taxon.preferred_common_name
+                if taxon.matched_term not in (None, taxon.name, preferred_common_name)
+                else preferred_common_name
             )
         else:
             if hierarchy:
                 common = None
             else:
-                common = taxon.preferred_common_name
+                common = preferred_common_name
     else:
         common = None
     name = taxon.name
