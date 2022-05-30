@@ -5,10 +5,59 @@ which is then fairly easy to render to other formats as needed.
 """
 from typing import List
 
+from dronefly.core.formatters.constants import WWW_BASE_URL
 from dronefly.core.models.taxon import Taxon, TAXON_PRIMARY_RANKS, TRINOMIAL_ABBR, RANK_LEVELS
+from pyinaturalist.models import EstablishmentMeans
+
+MEANS_LABEL_DESC = {
+    "endemic": "endemic to",
+    "native": "native in",
+    "introduced": "introduced to",
+}
+
+MEANS_LABEL_EMOJI = {
+    "endemic": ":sparkle:",
+    "native": ":green_square:",
+    "introduced": ":arrow_up_small:",
+}
 
 TAXON_LIST_DELIMITER = [", ", " > "]
 
+
+def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=False):
+    """Format the estalishment means for a taxon for a given place.
+
+    Parameters:
+    -----------
+    means: EstablishmentMeans
+        The EstablishmentMeans for the taxon at the given place.
+    all_means: bool
+        Whether or not to include means that normally are not shown (e.g. unknown)
+
+    Returns:
+    --------
+    str
+        A Markdown-formatted string containing the means, if shown, with emoji
+        and link to establishment means on the web.
+    """
+    description = means.establishment_means_description
+    _description = MEANS_LABEL_DESC.get(description)
+    if _description is None:
+        if not all_means:
+            return None
+        full_description = f"Establishment means {description} in {means.place.display_name}"
+    else:
+        full_description = f"{_description} {means.place.display_name}"
+    try:
+        emoji = MEANS_LABEL_EMOJI[means.establishment_means] + "\u202f"
+    except KeyError:
+        emoji = ""
+    return (
+        f"{emoji}[{full_description}]({WWW_BASE_URL}/listed_taxa/{means.id})"
+    )
+
+def format_taxon_conservation_status():
+    pass
 
 def format_taxon_names(
     taxa: List[Taxon], with_term=False, names_format="%s", max_len=0, hierarchy=False, lang=None
