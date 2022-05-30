@@ -40,14 +40,14 @@ def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=
         A Markdown-formatted string containing the means, if shown, with emoji
         and link to establishment means on the web.
     """
-    description = means.establishment_means_description
-    _description = MEANS_LABEL_DESC.get(description)
-    if _description is None:
+    label = means.establishment_means
+    description = MEANS_LABEL_DESC.get(label)
+    if description is None:
         if not all_means:
             return None
-        full_description = f"Establishment means {description} in {means.place.display_name}"
+        full_description = f"Establishment means {label} in {means.place.display_name}"
     else:
-        full_description = f"{_description} {means.place.display_name}"
+        full_description = f"{description} {means.place.display_name}"
     try:
         emoji = MEANS_LABEL_EMOJI[means.establishment_means] + "\u202f"
     except KeyError:
