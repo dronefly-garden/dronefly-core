@@ -3,11 +3,11 @@
 Anything more complicated than plain text can be rendered in Markdown,
 which is then fairly easy to render to other formats as needed.
 """
-from typing import List
+from typing import List, Union
 
 from dronefly.core.formatters.constants import WWW_BASE_URL
 from dronefly.core.models.taxon import Taxon, TAXON_PRIMARY_RANKS, TRINOMIAL_ABBR, RANK_LEVELS
-from pyinaturalist.models import EstablishmentMeans
+from pyinaturalist.models import EstablishmentMeans, ListedTaxon
 
 MEANS_LABEL_DESC = {
     "endemic": "endemic to",
@@ -24,7 +24,7 @@ MEANS_LABEL_EMOJI = {
 TAXON_LIST_DELIMITER = [", ", " > "]
 
 
-def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=False):
+def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=False, list_title: bool=False):
     """Format the estalishment means for a taxon for a given place.
 
     Parameters:
@@ -32,7 +32,9 @@ def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=
     means: EstablishmentMeans
         The EstablishmentMeans for the taxon at the given place.
     all_means: bool
-        Whether or not to include means that normally are not shown (e.g. unknown)
+        Whether or not to include means that normally are not shown (e.g. unknown).
+    list_title: bool
+        Whether or not to include the list title.
 
     Returns:
     --------
@@ -52,9 +54,14 @@ def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=
         emoji = MEANS_LABEL_EMOJI[means.establishment_means] + "\u202f"
     except KeyError:
         emoji = ""
-    return (
-        f"{emoji}[{full_description}]({WWW_BASE_URL}/listed_taxa/{means.id})"
-    )
+    url = f"{WWW_BASE_URL}/listed_taxa/{means.id}"
+    # TODO: probably should just be means.list_title. Waiting to hear from
+    # Jordan on this one.
+    if list_title and isinstance(means, ListedTaxon) and means.list['title']:
+        _means = f"{emoji}{full_description} [{means.list['title']}]({url})"
+    else:
+        _means = f"{emoji}[{full_description}]({url})"
+    return _means
 
 def format_taxon_conservation_status():
     pass
