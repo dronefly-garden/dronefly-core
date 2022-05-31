@@ -3,7 +3,10 @@ from typing import List
 
 from pyinaturalist.models import Taxon
 
-from dronefly.core.formatters.generic import format_taxon_name, format_taxon_names as generic_format_taxon_names
+from dronefly.core.formatters.generic import (
+    format_taxon_name,
+    format_taxon_names as generic_format_taxon_names,
+)
 
 EMBED_COLOR = 0x90EE90
 # From https://discordapp.com/developers/docs/resources/channel#embed-limits
@@ -34,7 +37,9 @@ def format_taxon_names(
     lang=None,
 ):
     """Format list of names of taxa, not exceeding max Discord name length."""
-    return generic_format_taxon_names(taxa, with_term, names_format, max_len, hierarchy, lang)
+    return generic_format_taxon_names(
+        taxa, with_term, names_format, max_len, hierarchy, lang
+    )
 
 
 def format_taxon_image_embed(

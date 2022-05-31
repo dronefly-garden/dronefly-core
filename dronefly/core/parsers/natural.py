@@ -5,8 +5,10 @@ import shlex
 try:
     from redbot.core.commands import BadArgument
 except ModuleNotFoundError:
+
     class BadArgument(Exception):
         """Argument error (for compatibility with Discord exceptions)."""
+
 
 from dronefly.core.parsers.constants import ARGPARSE_ARGS, MACROS, REMAINING_ARGS
 from dronefly.core.parsers.unixlike import UnixlikeParser

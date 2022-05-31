@@ -7,7 +7,12 @@ import re
 from typing import List, Union
 
 from dronefly.core.formatters.constants import WWW_BASE_URL
-from dronefly.core.models.taxon import Taxon, TAXON_PRIMARY_RANKS, TRINOMIAL_ABBR, RANK_LEVELS
+from dronefly.core.models.taxon import (
+    Taxon,
+    TAXON_PRIMARY_RANKS,
+    TRINOMIAL_ABBR,
+    RANK_LEVELS,
+)
 import inflect
 from pyinaturalist.models import EstablishmentMeans, ListedTaxon, ConservationStatus
 
@@ -27,7 +32,12 @@ TAXON_LIST_DELIMITER = [", ", " > "]
 
 p = inflect.engine()
 
-def format_taxon_establishment_means(means: Union[EstablishmentMeans, ListedTaxon], all_means: bool=False, list_title: bool=False):
+
+def format_taxon_establishment_means(
+    means: Union[EstablishmentMeans, ListedTaxon],
+    all_means: bool = False,
+    list_title: bool = False,
+):
     """Format the estalishment means for a taxon for a given place.
 
     Parameters:
@@ -60,13 +70,16 @@ def format_taxon_establishment_means(means: Union[EstablishmentMeans, ListedTaxo
     url = f"{WWW_BASE_URL}/listed_taxa/{means.id}"
     # TODO: probably should just be means.list_title. Waiting to hear from
     # Jordan on this one.
-    if list_title and isinstance(means, ListedTaxon) and means.list['title']:
+    if list_title and isinstance(means, ListedTaxon) and means.list["title"]:
         _means = f"{emoji}{full_description} [{means.list['title']}]({url})"
     else:
         _means = f"{emoji}[{full_description}]({url})"
     return _means
 
-def format_taxon_conservation_status(status: ConservationStatus, brief: bool=False, inflect: bool=False):
+
+def format_taxon_conservation_status(
+    status: ConservationStatus, brief: bool = False, inflect: bool = False
+):
     """Format the conservation status for a taxon for a given place.
 
     Parameters:
@@ -103,13 +116,13 @@ def format_taxon_conservation_status(status: ConservationStatus, brief: bool=Fal
     else:
         description = status_uc if len(status.status) > 6 else status_lc
 
-    _description = f"{description} in {status.place.display_name}" if status.place else description
+    _description = (
+        f"{description} in {status.place.display_name}" if status.place else description
+    )
 
     if brief:
         linked_status = (
-            "[{}]({})".format(_description, status.url)
-            if status.url
-            else _description
+            "[{}]({})".format(_description, status.url) if status.url else _description
         )
         if inflect:
             # inflect statuses with single digits in them correctly
@@ -123,14 +136,21 @@ def format_taxon_conservation_status(status: ConservationStatus, brief: bool=Fal
         else:
             full_description = linked_status
     else:
-        linked_status = f"[{status.authority}]({status.url})" if status.url else status.authority 
+        linked_status = (
+            f"[{status.authority}]({status.url})" if status.url else status.authority
+        )
         full_description = f"{_description} ({linked_status})"
 
     return full_description
 
 
 def format_taxon_names(
-    taxa: List[Taxon], with_term=False, names_format="%s", max_len=0, hierarchy=False, lang=None
+    taxa: List[Taxon],
+    with_term=False,
+    names_format="%s",
+    max_len=0,
+    hierarchy=False,
+    lang=None,
 ):
     """Format names of taxa from matched records.
 
@@ -202,7 +222,12 @@ def format_taxon_names(
 
 
 def format_taxon_name(
-    taxon: Taxon, with_term=False, hierarchy=False, with_rank=True, with_common=True, lang=None
+    taxon: Taxon,
+    with_term=False,
+    hierarchy=False,
+    with_rank=True,
+    with_common=True,
+    lang=None,
 ):
     """Format taxon name.
 
@@ -239,7 +264,9 @@ def format_taxon_name(
     if with_common:
         preferred_common_name = None
         if lang and taxon.names:
-            name = next(iter([name for name in taxon.names if name.get("locale") == lang]), None)
+            name = next(
+                iter([name for name in taxon.names if name.get("locale") == lang]), None
+            )
             if name:
                 preferred_common_name = name.get("name")
         if not preferred_common_name:
