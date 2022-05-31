@@ -3,11 +3,13 @@
 Anything more complicated than plain text can be rendered in Markdown,
 which is then fairly easy to render to other formats as needed.
 """
+import re
 from typing import List, Union
 
 from dronefly.core.formatters.constants import WWW_BASE_URL
 from dronefly.core.models.taxon import Taxon, TAXON_PRIMARY_RANKS, TRINOMIAL_ABBR, RANK_LEVELS
-from pyinaturalist.models import EstablishmentMeans, ListedTaxon
+import inflect
+from pyinaturalist.models import EstablishmentMeans, ListedTaxon, ConservationStatus
 
 MEANS_LABEL_DESC = {
     "endemic": "endemic to",
@@ -23,8 +25,9 @@ MEANS_LABEL_EMOJI = {
 
 TAXON_LIST_DELIMITER = [", ", " > "]
 
+p = inflect.engine()
 
-def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=False, list_title: bool=False):
+def format_taxon_establishment_means(means: Union[EstablishmentMeans, ListedTaxon], all_means: bool=False, list_title: bool=False):
     """Format the estalishment means for a taxon for a given place.
 
     Parameters:
@@ -63,8 +66,68 @@ def format_taxon_establishment_means(means: EstablishmentMeans, all_means: bool=
         _means = f"{emoji}[{full_description}]({url})"
     return _means
 
-def format_taxon_conservation_status():
-    pass
+def format_taxon_conservation_status(status: ConservationStatus, brief: bool=False, inflect: bool=False):
+    """Format the conservation status for a taxon for a given place.
+
+    Parameters:
+    -----------
+    status: ConservationStatus
+        The ConservationStatus for the taxon at the given place.
+    brief: bool
+        Whether to return brief format for use in brief taxon description
+        or full format that also includes the name of the authority.
+    inflect: bool
+        Whether to inflect first word in status and precede with indefinite
+        article for use in a sentence, e.g. "an endangered", "a secure", etc.
+
+    Returns:
+    --------
+    str
+        A Markdown-formatted string containing the conservation status
+        with link to the status on the web.
+    """
+    status_lc = status.status.lower()
+    status_uc = status.status.upper()
+    # Avoid cases where showing both the name and code
+    # adds no new information, e.g.
+    # - "extinct (EXTINCT)" and "threatened (THREATENED)"
+    # - return "extinct" or "threatened" instead
+    if status_lc == status.status_name.lower():
+        description = status_lc
+    elif status.status_name:
+        description = f"{status.status_name} ({status_uc})"
+    # Avoid "shouting" status codes when no name is given and
+    # they are long (i.e. they're probably names, not actual
+    # status codes)
+    # - e.g. "EXTINCT" or "THREATENED"
+    else:
+        description = status_uc if len(status.status) > 6 else status_lc
+
+    _description = f"{description} in {status.place.display_name}" if status.place else description
+
+    if brief:
+        linked_status = (
+            "[{}]({})".format(_description, status.url)
+            if status.url
+            else _description
+        )
+        if inflect:
+            # inflect statuses with single digits in them correctly
+            first_word = re.sub(
+                r"[0-9]",
+                " {0} ".format(p.number_to_words(r"\1")),
+                _description,
+            ).split()[0]
+            article = p.a(first_word).split()[0]
+            full_description = " ".join((article, linked_status))
+        else:
+            full_description = linked_status
+    else:
+        linked_status = f"[{status.authority}]({status.url})" if status.url else status.authority 
+        full_description = f"{_description} ({linked_status})"
+
+    return full_description
+
 
 def format_taxon_names(
     taxa: List[Taxon], with_term=False, names_format="%s", max_len=0, hierarchy=False, lang=None
