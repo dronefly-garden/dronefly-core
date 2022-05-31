@@ -68,10 +68,8 @@ def format_taxon_establishment_means(
     except KeyError:
         emoji = ""
     url = f"{WWW_BASE_URL}/listed_taxa/{means.id}"
-    # TODO: probably should just be means.list_title. Waiting to hear from
-    # Jordan on this one.
-    if list_title and isinstance(means, ListedTaxon) and means.list["title"]:
-        _means = f"{emoji}{full_description} [{means.list['title']}]({url})"
+    if list_title and isinstance(means, ListedTaxon) and means.list.title:
+        _means = f"{emoji}{full_description} [{means.list.title}]({url})"
     else:
         _means = f"{emoji}[{full_description}]({url})"
     return _means
