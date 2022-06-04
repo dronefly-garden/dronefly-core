@@ -98,12 +98,13 @@ def format_taxon_conservation_status(
         with link to the status on the web.
     """
     status_lc = status.status.lower()
+    status_name_lc = status.status_name.lower() if status.status_name else ""
     status_uc = status.status.upper()
     # Avoid cases where showing both the name and code
     # adds no new information, e.g.
     # - "extinct (EXTINCT)" and "threatened (THREATENED)"
     # - return "extinct" or "threatened" instead
-    if status_lc == status.status_name.lower():
+    if status_lc == status_name_lc:
         description = status_lc
     elif status.status_name:
         description = f"{status.status_name} ({status_uc})"
