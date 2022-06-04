@@ -12,7 +12,6 @@ except ModuleNotFoundError:
 
 from dronefly.core.parsers.constants import ARGPARSE_ARGS, MACROS, REMAINING_ARGS
 from dronefly.core.parsers.unixlike import UnixlikeParser
-from dronefly.core.parsers.url import PAT_OBS_LINK
 
 
 class NaturalParser(UnixlikeParser):
@@ -20,9 +19,6 @@ class NaturalParser(UnixlikeParser):
 
     def parse(self, argument: str):
         """Parse natural language argument list."""
-        mat = re.search(PAT_OBS_LINK, argument)
-        if mat and mat["url"]:
-            return argument
         try:
             arg_normalized = re.sub(
                 r"((^| )(id|not|except)) ?by ", r"\2\3-by ", argument, re.I
