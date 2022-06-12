@@ -67,13 +67,15 @@ class Query:
 
     Options governing "what":
 
-    - "of" identifies data matching a taxon query
+    - "of" matches taxon names or id numbers
     - the taxon query can further be qualified by:
         - double-quoted phrases to express exact phrase match for some or
           all of the name
-        - rank keywords to only match taxa of the specified rank(s)
-    - "in" is an ancestor taxon that the target taxon ("of") must be
-      a child of in the hierarchy to match
+    - "rank" returns only taxa matching the specified rank or ranks
+        - can be combined with "in" to return child taxa of taxon,
+          with or without "of" to match specific names
+    - "in" specifies the ancestor taxon of child taxa matching the
+      "of" and/or "in" options
     - "with" are controlled terms that select only data with particular
       attributes
     - A "per" option influences which entities or groupings of entities
