@@ -3,7 +3,7 @@ from functools import partial
 import logging
 from time import time
 
-from pyinaturalist import get_taxa_autocomplete
+from pyinaturalist import ClientSession, get_taxa_autocomplete, iNatClient
 
 # FIXME: learn how Logging hierarchical loggers work and implement
 LOG = logging.getLogger("red.dronefly.inatcog")
