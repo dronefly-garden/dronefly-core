@@ -5,9 +5,7 @@ from time import time
 
 from pyinaturalist import ClientSession, get_taxa_autocomplete, iNatClient
 
-# FIXME: learn how Logging hierarchical loggers work and implement
-LOG = logging.getLogger("red.dronefly.inatcog")
-
+logger = logging.getLogger(__name__)
 
 class INatAPI:
     """Access the iNat API and assets via (api|static).inaturalist.org."""
@@ -22,7 +20,7 @@ class INatAPI:
             safe_kwargs["access_token"] = "***REDACTED***"
         else:
             safe_kwargs = kwargs
-        LOG.info(
+        logger.debug(
             "_pyinaturalist_endpoint(%s, %s, %s)",
             endpoint.__name__,
             repr(args),
