@@ -2,6 +2,7 @@
 from pyinaturalist.models import Taxon as PyiNatTaxon
 
 PLANTAE_ID = 47126
+TRACHEOPHYTA_ID = 211194
 
 # RANK_LEVELS and RANK_EQUIVALENTS are from:
 # - https://github.com/inaturalist/inaturalist/blob/master/app/models/taxon.rb
