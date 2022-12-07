@@ -10,7 +10,7 @@ def cmd():
     return Commands()
 
 def test_taxon_with_result(cmd):
-    assert cmd.taxon('birds') == 'Class Aves (Birds)'
+    assert cmd.taxon('birds') == 'Class Aves (Birds) \n> **Animalia** > \n> **Chordata** > Vertebrata'
 
 def test_taxon_with_no_result(cmd):
     assert cmd.taxon('xyzzy') == 'Nothing found'
