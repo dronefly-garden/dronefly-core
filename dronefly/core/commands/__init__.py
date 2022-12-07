@@ -23,8 +23,8 @@ class Commands:
     def _parse(self, query_str):
         return self.parser.parse(query_str)
 
-    def taxon(self, query_str: str):
-        query = self._parse(query_str)
+    def taxon(self, *args):
+        query = self._parse(' '.join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
         main_query_str = " ".join(query.main.terms)
