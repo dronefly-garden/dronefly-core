@@ -4,10 +4,32 @@ from dronefly.core import Commands, Format
 from rich import print
 
 commands = Commands(format=Format.rich)
-command_arg = sys.argv[1]
-command = getattr(commands, command_arg, None)
-if not callable(command):
-    print(f"No such command: {command_arg}")
-    exit(1)
-args = ' '.join(sys.argv[2:])
-print(command(args))
+
+def do_command(command_str, args):
+    command = getattr(commands, command_str, None)
+    if not callable(command):
+        raise(NameError(command_str))
+    print(command(args))
+
+if len(sys.argv) == 1:
+    while True:
+        _line = input('≡) ').rstrip().lower()
+        if _line in ('q', 'quit'):
+            break
+        try:
+            (command, args) = _line.split(' ', 2)
+        except ValueError:
+            print('Missing command argument')
+            continue
+        try:
+            do_command(command, args)
+        except NameError:
+            print(f'No such command: {command}')
+
+else:
+    command = sys.argv[1]
+    args = ' '.join(sys.argv[2:])
+    try:
+        do_command(command, args)
+    except NameError:
+        print(f'No such command: {command}')
