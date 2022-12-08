@@ -9,6 +9,7 @@ from dronefly.core import Commands
 def cmd():
     return Commands()
 
+# TODO: Mock communication with iNatClient
 def test_taxon_with_result(cmd):
     assert cmd.taxon('birds') == 'Class Aves (Birds) \n> **Animalia** > \n> **Chordata** > Vertebrata'
 
