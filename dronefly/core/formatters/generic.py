@@ -232,6 +232,8 @@ def format_taxon_name(
 
     Parameters
     ----------
+    taxon: Taxon
+        The taxon to format.
     with_term: bool, optional
         When with_common=True, non-common / non-name matching term is put in
         parentheses in place of common name.
@@ -306,3 +308,48 @@ def format_taxon_name(
     if not taxon.is_active:
         full_name += " :exclamation: Inactive Taxon"
     return full_name
+
+def format_taxon_title(taxon: Taxon, lang=None):
+    """Format taxon title.
+
+    Parameters
+    ----------
+    taxon: Taxon
+        The taxon to format.
+
+    lang: str, optional
+        If specified, prefer the first name with its locale == lang instead of
+        the preferred_common_name.
+
+    Returns
+    -------
+    str
+        Like format_taxon_name(), except:
+
+        - Append the matching term in its own parentheses after the common name
+          in parentheses if the matching term is neither the scientific name nor
+          common name, e.g.
+          - "Pissenlits" -> "Genus *Taraxacum* (dandelions) (Pissenlits)"
+        - Apply strikethrough style if the name is invalid, e.g.
+          - "Picoides pubescens" ->
+            "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
+    """
+    title = format_taxon_name(taxon, lang=lang)
+    matched = taxon.matched_term
+    preferred_common_name = taxon.preferred_common_name
+    if lang and taxon.names:
+        name = next(
+            iter([name for name in taxon.names if name.get("locale") == lang]), None
+        )
+        if name:
+            preferred_common_name = name.get("name")
+    if matched not in (None, taxon.name, preferred_common_name):
+        invalid_names = (
+            [name["name"] for name in taxon.names if not name["is_valid"]]
+            if taxon.names
+            else []
+        )
+        if matched in invalid_names:
+            matched = f"~~{matched}~~"
+        title += f" ({matched})"
+    return title

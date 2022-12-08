@@ -5,6 +5,7 @@ from pyinaturalist.models import Taxon
 
 from dronefly.core.formatters.generic import (
     format_taxon_name,
+    format_taxon_title,
     format_taxon_names as generic_format_taxon_names,
 )
 
