@@ -6,6 +6,8 @@ project_root = os.path.realpath(os.path.join(os.path.realpath(os.path.dirname(__
 sys.path.insert(0, project_root)
 from dronefly.core import Commands, Format
 from rich import print
+from rich.console import Console
+console = Console()
 
 commands = Commands(format=Format.rich)
 
@@ -20,7 +22,7 @@ def do_command(command_str, *args):
 if len(sys.argv) == 1:
     try:
         while True:
-            _line = input('≡) ').rstrip()
+            _line = console.input('[bold gold1](≡)[/bold gold1] ').rstrip()
             if not _line:
                 continue
             if _line.lower() in ('q', 'quit'):
