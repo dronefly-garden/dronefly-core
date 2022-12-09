@@ -11,7 +11,7 @@ def cmd():
 
 # TODO: Mock communication with iNatClient
 def test_taxon_with_result(cmd):
-    assert cmd.taxon('birds') == 'Class Aves (Birds) \n> **Animalia** > \n> **Chordata** > Vertebrata'
+    assert cmd.taxon('birds') == '[Class Aves (Birds)](https://www.inaturalist.org/taxa/3) \n> **Animalia** > \n> **Chordata** > Vertebrata'
 
 def test_taxon_with_no_result(cmd):
     assert cmd.taxon('xyzzy') == 'Nothing found'
