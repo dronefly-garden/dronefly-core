@@ -46,11 +46,11 @@ class Commands:
         main_query_str = " ".join(query.main.terms)
         taxon = self.inat_client.taxa.autocomplete(q=main_query_str, all_names=True).one()
         if taxon:
+            taxon.load_full_record()
             taxon_title = '[{title}]({url})'.format(
                 title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale']),
                 url=taxon.url,
             )
-            taxon.load_full_record()
             taxon_hierarchy = format_taxon_names(taxon.ancestors, hierarchy=True)
             response = ' '.join([taxon_title, taxon_hierarchy])
             if (self.format == Format.rich):
