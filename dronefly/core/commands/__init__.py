@@ -27,10 +27,6 @@ INAT_DEFAULTS = {'locale': 'en', 'preferred_place_id': 1}
 #      to do strikethrough, etc.
 #      - consider using Rich's own markup, e.g. [strike]Invalid name[/strike]
 class Commands:
-    # TODO: apply any ctx-specific parameters that may override client defaults
-    # - we need a Context class of our own for all of this
-    #   - the defaults belong in that class, not here
-    #   - the client would be associated with the context, not the command
     def __init__(
         self,
         inat_client=iNatClient(default_params=INAT_DEFAULTS),
@@ -57,7 +53,6 @@ class Commands:
             taxon.load_full_record()
             taxon_hierarchy = format_taxon_names(taxon.ancestors, hierarchy=True)
             response = ' '.join([taxon_title, taxon_hierarchy])
-            # TODO: refactor for reuse in other commands
             if (self.format == Format.rich):
               rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r'\1\\\n', response)
               response = Markdown(rich_markdown)
