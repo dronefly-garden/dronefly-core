@@ -496,7 +496,7 @@ docs = ["furo (>=2022.9,<2023.0)", "ipython (>=7.25.0,<8.0.0)", "linkify-it-py (
 type = "git"
 url = "https://github.com/pyinat/pyinaturalist"
 reference = "HEAD"
-resolved_reference = "812cb15259f2b4f238198a055bfdbb14abf37baa"
+resolved_reference = "f3c978c5c9bf9579d67943bc60c96913553868c2"
 
 [[package]]
 name = "pylint"
