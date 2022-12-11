@@ -1,4 +1,9 @@
 """Taxon model module."""
+#TODO: I am unconvinced Dronefly should be a model of its own. This is
+#really just a loose collection of things to deal with iNat models. As
+#such, it could actually work better as functions that operate on
+#pyinaturalist models.
+
 from pyinaturalist.models import Taxon as PyiNatTaxon
 
 PLANTAE_ID = 47126
