@@ -22,7 +22,7 @@ def do_command(command_str, *args):
 if len(sys.argv) == 1:
     try:
         while True:
-            _line = console.input('[bold gold1](≡)[/bold gold1] ').rstrip()
+            _line = console.input('[bold gold1](=)[/bold gold1] ').rstrip()
             if not _line:
                 continue
             if _line.lower() in ('q', 'quit'):
