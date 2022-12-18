@@ -5,6 +5,7 @@ from rich.markdown import Markdown
 
 from ..parsers import NaturalParser
 from ..formatters.discord import format_taxon_title, format_taxon_names
+from ..formatters.generic import format_taxon_establishment_means
 from ..models.user import User
 
 RICH_BQ_NEWLINE_PAT = re.compile(r'^(\>.*?)(\n)', re.MULTILINE)
@@ -51,15 +52,23 @@ class Commands:
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
         main_query_str = " ".join(query.main.terms)
-        taxon = self.inat_client.taxa.autocomplete(q=main_query_str, all_names=True).one()
+        params = {'all_names': True}
+        user = ctx.author
+        if user and user.inat_place_id:
+            params['preferred_place_id'] = user.inat_place_id
+        taxon = self.inat_client.taxa.autocomplete(q=main_query_str, **params).one()
         if taxon:
-            taxon.load_full_record()
+            # taxon.load_full_record()
+            taxon = self.inat_client.taxa(taxon.id, **params)
             taxon_title = '[{title}]({url})'.format(
                 title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale']),
                 url=taxon.url,
             )
-            taxon_hierarchy = format_taxon_names(taxon.ancestors, hierarchy=True)
-            response = ' '.join([taxon_title, taxon_hierarchy])
+            means = taxon.establishment_means
+            response = taxon_title
+            if means:
+                response += ' \\\n' + format_taxon_establishment_means(means)
+            response += ' ' + format_taxon_names(taxon.ancestors, hierarchy=True)
             if (self.format == Format.rich):
               rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r'\1\\\n', response)
               response = Markdown(rich_markdown)
