@@ -4,14 +4,19 @@
 
 import pytest
 from dronefly.core import Commands
+from dronefly.core.commands import Context
 
 @pytest.fixture
 def cmd():
     return Commands()
 
-# TODO: Mock communication with iNatClient
-def test_taxon_with_result(cmd):
-    assert cmd.taxon('birds') == '[Class Aves (Birds)](https://www.inaturalist.org/taxa/3) \n> **Animalia** > \n> **Chordata** > Vertebrata'
+@pytest.fixture
+def ctx():
+    return Context()
 
-def test_taxon_with_no_result(cmd):
-    assert cmd.taxon('xyzzy') == 'Nothing found'
+# TODO: Mock communication with iNatClient
+def test_taxon_with_result(cmd, ctx):
+    assert cmd.taxon(ctx, 'birds') == '[Class Aves (Birds)](https://www.inaturalist.org/taxa/3) \n> **Animalia** > \n> **Chordata** > Vertebrata'
+
+def test_taxon_with_no_result(cmd, ctx):
+    assert cmd.taxon(ctx, 'xyzzy') == 'Nothing found'
