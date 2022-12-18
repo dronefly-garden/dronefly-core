@@ -5,6 +5,7 @@ from rich.markdown import Markdown
 
 from ..parsers import NaturalParser
 from ..formatters.discord import format_taxon_title, format_taxon_names
+from ..models.user import User
 
 RICH_BQ_NEWLINE_PAT = re.compile(r'^(\>.*?)(\n)', re.MULTILINE)
 
@@ -13,6 +14,10 @@ class Format(Enum):
     rich = 2
 
 INAT_DEFAULTS = {'locale': 'en', 'preferred_place_id': 1}
+
+class Context:
+    author: User
+
 # TODO: everything below needs to be broken down into different layers
 # handling each thing:
 # - Context
@@ -27,6 +32,8 @@ INAT_DEFAULTS = {'locale': 'en', 'preferred_place_id': 1}
 #      to do strikethrough, etc.
 #      - consider using Rich's own markup, e.g. [strike]Invalid name[/strike]
 class Commands:
+    # TODO: platform: dronefly.Platform
+    # - e.g. discord, commandline, web
     def __init__(
         self,
         inat_client=iNatClient(default_params=INAT_DEFAULTS),
@@ -39,7 +46,7 @@ class Commands:
     def _parse(self, query_str):
         return self.parser.parse(query_str)
 
-    def taxon(self, *args):
+    def taxon(self, ctx: Context, *args):
         query = self._parse(' '.join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
