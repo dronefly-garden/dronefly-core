@@ -23,9 +23,9 @@ MEANS_LABEL_DESC = {
 }
 
 MEANS_LABEL_EMOJI = {
-    "endemic": ":sparkle:",
-    "native": ":green_square:",
-    "introduced": ":arrow_up_small:",
+    "endemic": "\N{SPARKLE}",
+    "native": "\N{LARGE GREEN SQUARE}",
+    "introduced": "\N{UP-POINTING SMALL RED TRIANGLE}",
 }
 
 TAXON_LIST_DELIMITER = [", ", " > "]
