@@ -76,7 +76,7 @@ def format_taxon_establishment_means(
 
 
 def format_taxon_conservation_status(
-    status: ConservationStatus, brief: bool = False, inflect: bool = False
+    status: ConservationStatus, brief: bool = False, inflect: bool = False, status_name: str = ''
 ):
     """Format the conservation status for a taxon for a given place.
 
@@ -90,6 +90,15 @@ def format_taxon_conservation_status(
     inflect: bool
         Whether to inflect first word in status and precede with indefinite
         article for use in a sentence, e.g. "an endangered", "a secure", etc.
+    status_name: str
+        Status name to use in place of the status.status_name
+        - Workaround for neither conservation_status record has both status_name
+          and url:
+          - /v1/taxa/autocomplete result has 'threatened' as status_name for
+            status 't' polar bear, but no URL
+          - /v1/taxa/# for polar bear has the URL, but no status_name 'threatened'
+          - therefore, our grubby hack is to allow the status_name from autocomplete
+            to be passed in here
 
     Returns:
     --------
@@ -98,7 +107,8 @@ def format_taxon_conservation_status(
         with link to the status on the web.
     """
     status_lc = status.status.lower()
-    status_name_lc = status.status_name.lower() if status.status_name else ""
+    _status_name = status_name or status.status_name
+    status_name_lc = _status_name.lower() if _status_name else ""
     status_uc = status.status.upper()
     # Avoid cases where showing both the name and code
     # adds no new information, e.g.
@@ -106,8 +116,8 @@ def format_taxon_conservation_status(
     # - return "extinct" or "threatened" instead
     if status_lc == status_name_lc:
         description = status_lc
-    elif status.status_name:
-        description = f"{status.status_name} ({status_uc})"
+    elif _status_name:
+        description = f"{_status_name} ({status_uc})"
     # Avoid "shouting" status codes when no name is given and
     # they are long (i.e. they're probably names, not actual
     # status codes)

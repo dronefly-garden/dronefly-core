@@ -5,7 +5,7 @@ from rich.markdown import Markdown
 
 from ..parsers import NaturalParser
 from ..formatters.discord import format_taxon_title, format_taxon_names
-from ..formatters.generic import format_taxon_establishment_means
+from ..formatters.generic import format_taxon_conservation_status, format_taxon_establishment_means
 from ..models.user import User
 
 RICH_BQ_NEWLINE_PAT = re.compile(r'^(\>.*?)(\n)', re.MULTILINE)
@@ -57,6 +57,15 @@ class Commands:
         if user and user.inat_place_id:
             params['preferred_place_id'] = user.inat_place_id
         taxon = self.inat_client.taxa.autocomplete(q=main_query_str, **params).one()
+        # FIXME: this is to workaround pyinat currently raising when this is
+        # not set instead of returning None
+        try:
+            status = taxon.conservation_status
+        except AttributeError:
+            status = None
+        status_name = None
+        if status:
+            status_name = status.status_name
         if taxon:
             # taxon.load_full_record()
             taxon = self.inat_client.taxa(taxon.id, **params)
@@ -64,8 +73,10 @@ class Commands:
                 title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale']),
                 url=taxon.url,
             )
-            means = taxon.establishment_means
             response = taxon_title
+            if status:
+                response += ' \\\n' + format_taxon_conservation_status(status, brief=True, status_name=status_name)
+            means = taxon.establishment_means
             if means:
                 response += ' \\\n' + format_taxon_establishment_means(means)
             response += ' ' + format_taxon_names(taxon.ancestors, hierarchy=True)
