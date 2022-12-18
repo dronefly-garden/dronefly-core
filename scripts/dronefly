@@ -51,7 +51,7 @@ else:
     command = sys.argv[1]
     args = sys.argv[2:]
     try:
-        do_command(command, *args)
+        do_command(command, ctx, *args)
     except NameError:
         print(f'No such command: {command}')
     except ValueError as err:
