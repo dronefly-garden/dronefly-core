@@ -17,7 +17,7 @@ class Format(Enum):
 INAT_DEFAULTS = {'locale': 'en', 'preferred_place_id': 1}
 
 class Context:
-    author: User
+    author: User = User()
 
 # TODO: everything below needs to be broken down into different layers
 # handling each thing:

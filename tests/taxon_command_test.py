@@ -4,6 +4,7 @@
 
 import pytest
 from dronefly.core import Commands
+from dronefly.core.models.user import User
 from dronefly.core.commands import Context
 
 @pytest.fixture
