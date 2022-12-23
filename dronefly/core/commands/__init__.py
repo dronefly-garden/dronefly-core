@@ -56,32 +56,33 @@ class Commands:
         user = ctx.author
         if user and user.inat_place_id:
             params['preferred_place_id'] = user.inat_place_id
+
         taxon = self.inat_client.taxa.autocomplete(q=main_query_str, **params).one()
-        # FIXME: this is to workaround pyinat currently raising when this is
-        # not set instead of returning None
-        try:
-            status = taxon.conservation_status
-        except AttributeError:
-            status = None
+
+        if not taxon:
+            return "Nothing found"
+
+        status = taxon.conservation_status
         status_name = None
         if status:
             status_name = status.status_name
-        if taxon:
-            # taxon.load_full_record()
-            taxon = self.inat_client.taxa(taxon.id, **params)
-            taxon_title = '[{title}]({url})'.format(
-                title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale']),
-                url=taxon.url,
-            )
-            response = taxon_title
-            if status:
-                response += ' \\\n' + format_taxon_conservation_status(status, brief=True, status_name=status_name)
-            means = taxon.establishment_means
-            if means:
-                response += ' \\\n' + format_taxon_establishment_means(means)
-            response += ' ' + format_taxon_names(taxon.ancestors, hierarchy=True)
-            if (self.format == Format.rich):
-              rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r'\1\\\n', response)
-              response = Markdown(rich_markdown)
-            return response
-        return "Nothing found"
+
+        # taxon.load_full_record()
+        taxon = self.inat_client.taxa(taxon.id, **params)
+
+        taxon_title = '[{title}]({url})'.format(
+            title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale']),
+            url=taxon.url,
+        )
+        response = taxon_title
+        if status:
+            response += ' \\\n' + format_taxon_conservation_status(status, brief=True, status_name=status_name)
+        means = taxon.establishment_means
+        if means:
+            response += ' \\\n' + format_taxon_establishment_means(means)
+        response += ' ' + format_taxon_names(taxon.ancestors, hierarchy=True)
+        if (self.format == Format.rich):
+            rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r'\1\\\n', response)
+            response = Markdown(rich_markdown)
+
+        return response
