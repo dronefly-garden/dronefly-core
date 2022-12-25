@@ -319,7 +319,7 @@ def format_taxon_name(
         full_name += " :exclamation: Inactive Taxon"
     return full_name
 
-def format_taxon_title(taxon: Taxon, lang=None):
+def format_taxon_title(taxon: Taxon, lang=None, matched_term=None):
     """Format taxon title.
 
     Parameters
@@ -345,7 +345,9 @@ def format_taxon_title(taxon: Taxon, lang=None):
             "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
     """
     title = format_taxon_name(taxon, lang=lang)
-    matched = taxon.matched_term
+    # TODO: Remove workaround for outstanding pyinat issue #448 when it is resolved:
+    # - https://github.com/pyinat/pyinaturalist/issues/448
+    matched = matched_term or taxon.matched_term
     preferred_common_name = taxon.preferred_common_name
     if lang and taxon.names:
         name = next(

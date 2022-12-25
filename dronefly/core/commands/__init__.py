@@ -51,9 +51,15 @@ class Commands:
         query = self._parse(' '.join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
+        # TODO: Remove workarounds for issues linked below
         main_query_str = " ".join(query.main.terms)
-        params = {'all_names': True}
         user = ctx.author
+        # - https://github.com/pyinat/pyinaturalist/issues/446
+        #   - all_names and preferred_place_id can be provided
+        #     via default_params after #446 is fixed
+        #   - we'll also need to supplement any default params
+        #     on the client with default params from the ctx.user
+        params = {'all_names': True}
         if user and user.inat_place_id:
             params['preferred_place_id'] = user.inat_place_id
 
@@ -62,16 +68,24 @@ class Commands:
         if not taxon:
             return "Nothing found"
 
+        # - https://github.com/pyinat/pyinaturalist/issues/447
         status = taxon.conservation_status
         status_name = None
         if status:
             status_name = status.status_name
+        # - https://github.com/pyinat/pyinaturalist/issues/448
+        matched_term = taxon.matched_term
 
+        # - https://github.com/pyinat/pyinaturalist/issues/446
         # taxon.load_full_record()
         taxon = self.inat_client.taxa(taxon.id, **params)
 
+        # TODO: move the following into formatters as format_taxon_embed()
+        # - kept here for now, as we have temporarily complicated the
+        #   call signatures to pass extra arugments for the various
+        #   outstanding pyinat issues
         taxon_title = '[{title}]({url})'.format(
-            title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale']),
+            title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale'], matched_term=matched_term),
             url=taxon.url,
         )
         response = taxon_title
