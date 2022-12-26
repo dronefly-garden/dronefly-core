@@ -7,9 +7,15 @@ sys.path.insert(0, project_root)
 from dronefly.core import Commands, Format
 from dronefly.core.models.user import User
 from dronefly.core.commands import Context
-from rich import print
 from rich.console import Console
-console = Console()
+from rich.theme import Theme
+from rich.style import Style
+# Possible future support for strikethrough. See:
+# - https://github.com/Textualize/rich/pull/2439#issuecomment-1365091396
+our_theme = Theme({
+    "markdown.s": Style(strike=True),
+})
+console = Console(theme=our_theme)
 
 user = User()
 user.id = 1
@@ -26,7 +32,7 @@ def do_command(command_str: str, ctx: Context, *args):
         raise(NameError(command_str))
     if not args:
         raise(ValueError('No arguments'))
-    print(command(ctx, *args))
+    console.print(command(ctx, *args))
 
 if len(sys.argv) == 1:
     try:
@@ -42,17 +48,17 @@ if len(sys.argv) == 1:
             try:
                 do_command(command, ctx, *args)
             except NameError:
-                print(f'No such command: {command}')
+                console.print(f'No such command: {command}')
             except ValueError as err:
-                print(err)
+                console.print(err)
     except (KeyboardInterrupt, EOFError):
-        print()
+        console.print()
 else:
     command = sys.argv[1]
     args = sys.argv[2:]
     try:
         do_command(command, ctx, *args)
     except NameError:
-        print(f'No such command: {command}')
+        console.print(f'No such command: {command}')
     except ValueError as err:
-        print(err)
+        console.print(err)
