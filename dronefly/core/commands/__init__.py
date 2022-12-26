@@ -1,8 +1,8 @@
 from enum import Enum
 import re
-from pyinat import iNatClient
 from rich.markdown import Markdown
 
+from ..clients.inat import iNatClient
 from ..parsers import NaturalParser
 from ..formatters.discord import format_taxon
 from ..models.user import User
@@ -39,7 +39,7 @@ class Commands:
         return self.parser.parse(query_str)
 
     def taxon(self, ctx: Context, *args):
-        def _pyinat_workarounds(taxon):
+        def _pyinat_workarounds(client, taxon, **kwargs):
             # - https://github.com/pyinat/pyinaturalist/issues/447
             status = taxon.conservation_status
             status_name = None
@@ -50,7 +50,7 @@ class Commands:
 
             # - https://github.com/pyinat/pyinaturalist/issues/446
             # taxon.load_full_record()
-            taxon = self.inat_client.taxa(taxon.id, **params)
+            taxon = client.taxa(taxon.id, **kwargs)
             return (taxon, status, status_name, matched_term)
 
         query = self._parse(' '.join(args))
@@ -58,26 +58,20 @@ class Commands:
         # TODO: Doesn't do any ranking or filtering of results
         # TODO: Remove workarounds for issues linked below
         main_query_str = " ".join(query.main.terms)
-        user = ctx.author
         # - https://github.com/pyinat/pyinaturalist/issues/446
-        #   - all_names and preferred_place_id can be provided
-        #     via default_params after #446 is fixed
-        #   - we'll also need to supplement any default params
-        #     on the client with default params from the ctx.user
-        params = {'all_names': True}
-        if user and user.inat_place_id:
-            params['preferred_place_id'] = user.inat_place_id
+        #   - all_names can be provided via default_params after #446 is fixed
+        kwargs = {'all_names': True}
 
-        taxon = self.inat_client.taxa.autocomplete(q=main_query_str, **params).one()
-        (
-            taxon,
-            status,
-            status_name,
-            matched_term,
-        ) = _pyinat_workarounds(taxon)
-
-        if not taxon:
-            return "Nothing found"
+        with self.inat_client.set_ctx(ctx) as client:
+            taxon = client.taxa.autocomplete(q=main_query_str, **kwargs).one()
+            if not taxon:
+                return "Nothing found"
+            (
+                taxon,
+                status,
+                status_name,
+                matched_term,
+            ) = _pyinat_workarounds(client, taxon, **kwargs)
 
         response = format_taxon(
             taxon,
