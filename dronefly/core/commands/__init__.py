@@ -84,10 +84,7 @@ class Commands:
         # - kept here for now, as we have temporarily complicated the
         #   call signatures to pass extra arugments for the various
         #   outstanding pyinat issues
-        taxon_title = '[{title}]({url})'.format(
-            title=format_taxon_title(taxon, lang=INAT_DEFAULTS['locale'], matched_term=matched_term),
-            url=taxon.url,
-        )
+        taxon_title = format_taxon_title(taxon, lang=INAT_DEFAULTS['locale'], matched_term=matched_term, with_url=True)
         response = taxon_title
         if status:
             response += ' \\\n' + format_taxon_conservation_status(status, brief=True, status_name=status_name)

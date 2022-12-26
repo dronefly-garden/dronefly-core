@@ -319,8 +319,8 @@ def format_taxon_name(
         full_name += " :exclamation: Inactive Taxon"
     return full_name
 
-def format_taxon_title(taxon: Taxon, lang=None, matched_term=None):
-    """Format taxon title.
+def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True):
+    """Format taxon title as Discord-like markdown.
 
     Parameters
     ----------
@@ -331,6 +331,12 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None):
         If specified, prefer the first name with its locale == lang instead of
         the preferred_common_name.
 
+    matched_term: str, optional
+        If specified, use instead of the taxon.matched_term.
+
+    with_url: bool, optional
+        When True, link the name to taxon.url.
+
     Returns
     -------
     str
@@ -340,6 +346,7 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None):
           in parentheses if the matching term is neither the scientific name nor
           common name, e.g.
           - "Pissenlits" -> "Genus *Taraxacum* (dandelions) (Pissenlits)"
+          - if with_url=True, the matched term is not included in the link
         - Apply strikethrough style if the name is invalid, e.g.
           - "Picoides pubescens" ->
             "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
@@ -355,6 +362,8 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None):
         )
         if name:
             preferred_common_name = name.get("name")
+    if with_url and taxon.url:
+        title = f"[{title}]({taxon.url})"
     if matched not in (None, taxon.name, preferred_common_name):
         invalid_names = (
             [name["name"] for name in taxon.names if not name["is_valid"]]
