@@ -374,3 +374,14 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True
             matched = f"~~{matched}~~"
         title += f" ({matched})"
     return title
+
+def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status=None, status_name=None, max_len=0):
+    response = format_taxon_title(taxon, lang=lang, matched_term=matched_term, with_url=with_url)
+    response
+    if status:
+        response += ' \\\n' + format_taxon_conservation_status(status, brief=True, status_name=status_name)
+    means = taxon.establishment_means
+    if means:
+        response += ' \\\n' + format_taxon_establishment_means(means)
+    response += ' ' + format_taxon_names(taxon.ancestors, hierarchy=True, max_len=max_len)
+    return response
