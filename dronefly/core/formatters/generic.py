@@ -316,7 +316,7 @@ def format_taxon_name(
                 name = f"{tri[0]} {tri[1]}* {TRINOMIAL_ABBR[rank]} *{tri[2]}"
     full_name = f"{name} ({common})" if common else name
     if not taxon.is_active:
-        full_name += " :exclamation: Inactive Taxon"
+        full_name += " \N{HEAVY EXCLAMATION MARK SYMBOL} Inactive Taxon"
     return full_name
 
 def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True):
