@@ -375,7 +375,7 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True
         title += f" ({matched})"
     return title
 
-def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status=None, status_name=None, max_len=0):
+def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status_name=None, max_len=0):
     """Format the taxon as markdown."""
     def _full_means(taxon):
         """Get the full establishment means for the place from listed taxa."""
@@ -383,12 +383,12 @@ def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, sta
         listed_taxa = taxon.listed_taxa
         if place and listed_taxa:
             return next(
-                listed_taxon for listed_taxon in listed_taxa if listed_taxon.place.id == place.id
+                listed_taxon for listed_taxon in listed_taxa if (listed_taxon.place and listed_taxon.place.id) == place.id
             )
 
     response = format_taxon_title(taxon, lang=lang, matched_term=matched_term, with_url=with_url)
-    if status:
-        response += ' \\\n' + format_taxon_conservation_status(status, brief=True, status_name=status_name)
+    if taxon.conservation_status:
+        response += ' \\\n' + format_taxon_conservation_status(taxon.conservation_status, brief=True, status_name=status_name)
 
     if taxon.establishment_means:
         response += ' \\\n' + format_taxon_establishment_means(_full_means(taxon) or taxon.establishment_means)

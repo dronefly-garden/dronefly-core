@@ -51,7 +51,7 @@ class Commands:
             # - https://github.com/pyinat/pyinaturalist/issues/446
             # taxon.load_full_record()
             taxon = client.taxa(taxon.id, **kwargs)
-            return (taxon, status, status_name, matched_term)
+            return (taxon, status_name, matched_term)
 
         query = self._parse(' '.join(args))
         # TODO: Handle all query clauses, not just main.terms
@@ -68,7 +68,6 @@ class Commands:
                 return "Nothing found"
             (
                 taxon,
-                status,
                 status_name,
                 matched_term,
             ) = _pyinat_workarounds(client, taxon, **kwargs)
@@ -77,7 +76,6 @@ class Commands:
             taxon,
             lang=INAT_DEFAULTS['locale'],
             matched_term=matched_term,
-            status=status,
             status_name=status_name,
             with_url=True,
         )
