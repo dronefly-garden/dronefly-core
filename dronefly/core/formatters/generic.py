@@ -375,23 +375,70 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True
         title += f" ({matched})"
     return title
 
-def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status_name=None, max_len=0):
-    """Format the taxon as markdown."""
-    def _full_means(taxon):
-        """Get the full establishment means for the place from listed taxa."""
-        place = taxon.establishment_means and taxon.establishment_means.place
-        listed_taxa = taxon.listed_taxa
-        if place and listed_taxa:
-            return next(
-                listed_taxon for listed_taxon in listed_taxa if (listed_taxon.place and listed_taxon.place.id) == place.id
-            )
+def _full_means(taxon):
+    """Get the full establishment means for the place from listed taxa."""
+    place = taxon.establishment_means and taxon.establishment_means.place
+    listed_taxa = taxon.listed_taxa
+    if place and listed_taxa:
+        return next(
+            listed_taxon for listed_taxon in listed_taxa if (listed_taxon.place and listed_taxon.place.id) == place.id
+        )
 
-    response = format_taxon_title(taxon, lang=lang, matched_term=matched_term, with_url=with_url)
+def format_taxon_description(taxon: Taxon, status_name=None):
+    """Format the taxon description including rank, status, observation count, and means."""
+    status_link = ""
+    means_fmtd = ""
+    status_link = ""
+
     if taxon.conservation_status:
-        response += ' \\\n' + format_taxon_conservation_status(taxon.conservation_status, brief=True, status_name=status_name)
+        status_link = format_taxon_conservation_status(taxon.conservation_status, brief=True, inflect=True, status_name=status_name)
+        descriptor = " ".join([status_link, taxon.rank])
+    else:
+        descriptor = p.a(taxon.rank)
+
+    obs_count = taxon.observations_count
+    obs_url = f"{WWW_BASE_URL}/observations?taxon_id={taxon.id}"
+    obs_link = f"[{obs_count:,}]({obs_url})"
+    description = f"is {descriptor} with {obs_link} {p.plural('observation', obs_count)}"
 
     if taxon.establishment_means:
-        response += ' \\\n' + format_taxon_establishment_means(_full_means(taxon) or taxon.establishment_means)
+        means_fmtd = format_taxon_establishment_means(_full_means(taxon) or taxon.establishment_means)
+    if means_fmtd:
+        description += f" {means_fmtd}"
 
-    response += ' ' + format_taxon_names(taxon.ancestors, hierarchy=True, max_len=max_len)
+    return description
+
+def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status_name=None, max_len=0):
+    """Format the taxon as markdown."""
+    response = format_taxon_title(taxon, lang=lang, matched_term=matched_term, with_url=with_url)
+    response += ' \\\n'
+    response += format_taxon_description(taxon, status_name=status_name)
+    if taxon.ancestors:
+        response += ' in: ' + format_taxon_names(taxon.ancestors, hierarchy=True, max_len=max_len)
+    else:
+        response += '.'
     return response
+
+def format_quality_grade(options: dict={}):
+    """Format as markdown a list of adjectives for quality grade options."""
+    adjectives = []
+    quality_grade = (options.get("quality_grade") or "").split(",")
+    verifiable = options.get("verifiable")
+    if "any" not in quality_grade:
+        research = "research" in quality_grade
+        needsid = "needs_id" in quality_grade
+    # If specified, will override any quality_grade set already:
+    if verifiable:
+        if verifiable in ["true", ""]:
+            research = True
+            needsid = True
+    if verifiable == "false":
+        adjectives.append("*not Verifiable*")
+    elif research and needsid:
+        adjectives.append("*Verifiable*")
+    else:
+        if research:
+            adjectives.append("*Research Grade*")
+        if needsid:
+            adjectives.append("*Needs ID*")
+    return adjectives

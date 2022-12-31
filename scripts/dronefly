@@ -58,7 +58,5 @@ else:
     args = sys.argv[2:]
     try:
         do_command(command, ctx, *args)
-    except NameError:
-        console.print(f'No such command: {command}')
     except ValueError as err:
         console.print(err)
