@@ -32,8 +32,10 @@ TAXON_LIST_DELIMITER = [", ", " > "]
 
 p = inflect.engine()
 
-def format_link(link_text:str, url:str):
+
+def format_link(link_text: str, url: str):
     return f"[{link_text}]({url})" if url else link_text
+
 
 def format_taxon_establishment_means(
     means: Union[EstablishmentMeans, ListedTaxon],
@@ -78,7 +80,10 @@ def format_taxon_establishment_means(
 
 
 def format_taxon_conservation_status(
-    status: ConservationStatus, brief: bool = False, inflect: bool = False, status_name: str = ''
+    status: ConservationStatus,
+    brief: bool = False,
+    inflect: bool = False,
+    status_name: str = "",
 ):
     """Format the conservation status for a taxon for a given place.
 
@@ -317,6 +322,7 @@ def format_taxon_name(
         full_name += " \N{HEAVY EXCLAMATION MARK SYMBOL} Inactive Taxon"
     return full_name
 
+
 def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True):
     """Format taxon title as Discord-like markdown.
 
@@ -373,47 +379,85 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True
         title += f" ({matched})"
     return title
 
+
 def _full_means(taxon):
     """Get the full establishment means for the place from listed taxa."""
     place = taxon.establishment_means and taxon.establishment_means.place
     listed_taxa = taxon.listed_taxa
     if place and listed_taxa:
         return next(
-            listed_taxon for listed_taxon in listed_taxa if (listed_taxon.place and listed_taxon.place.id) == place.id
+            listed_taxon
+            for listed_taxon in listed_taxa
+            if (listed_taxon.place and listed_taxon.place.id) == place.id
         )
 
-def format_taxon_description(taxon: Taxon, status_name=None):
-    """Format the taxon description including rank, status, observation count, and means."""
-    status_link = ""
-    means_fmtd = ""
-    status_link = ""
 
-    if taxon.conservation_status:
-        status_link = format_taxon_conservation_status(taxon.conservation_status, brief=True, inflect=True, status_name=status_name)
-        descriptor = " ".join([status_link, taxon.rank])
-    else:
-        descriptor = p.a(taxon.rank)
-
+# TODO: support other entities relating to taxon that can counted
+# (identifications, species, leaf node taxa).
+def format_taxon_count_link(taxon: Taxon, entity: str):
+    """Format the entity count, optionally suffixed with inflected entity."""
     obs_count = taxon.observations_count
     obs_url = f"{WWW_BASE_URL}/observations?taxon_id={taxon.id}"
-    obs_link = format_link(f"{obs_count:,}", obs_url)
-    description = f"is {descriptor} with {obs_link} {p.plural('observation', obs_count)}"
+    count = format_link(f"{obs_count:,}", obs_url)
+    if entity:
+        count = f"{count} {p.plural(entity, obs_count)}"
+    return count
 
+
+def format_taxon_status_rank(taxon: Taxon, status_name: str = None, inflect=False):
+    """Format the taxon rank with optional status, optionally prefixed with inflected article (a/an)."""
+    if taxon.conservation_status:
+        a_status = format_taxon_conservation_status(
+            taxon.conservation_status,
+            brief=True,
+            inflect=inflect,
+            status_name=status_name,
+        )
+        a_status_rank = f"{a_status} {taxon.rank}"
+    else:
+        a_status_rank = p.a(taxon.rank)
+    return a_status_rank
+
+
+def format_taxon_description(taxon: Taxon, status_name: str = None):
+    """Format the taxon description including rank, status, observation count, and means."""
+    a_status_rank = format_taxon_status_rank(taxon, status_name, inflect=True)
+    n_observations = format_taxon_count_link(taxon, entity="observation")
     if taxon.establishment_means:
-        means_fmtd = format_taxon_establishment_means(_full_means(taxon) or taxon.establishment_means)
-    if means_fmtd:
-        description += f" {means_fmtd}"
+        listed_taxon = _full_means(taxon) or taxon.establishment_means
+        established_in_place = " " + format_taxon_establishment_means(listed_taxon)
+    else:
+        established_in_place = ""
+    return f"is {a_status_rank} with {n_observations}{established_in_place}"
 
-    return description
 
-def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status_name=None, max_len=0):
+def format_taxon(
+    taxon: Taxon,
+    lang=None,
+    with_url=False,
+    matched_term=None,
+    status_name=None,
+    max_len=0,
+):
     """Format the taxon as markdown."""
-    title = format_taxon_title(taxon, lang=lang, matched_term=matched_term, with_url=with_url)
+    title = format_taxon_title(
+        taxon, lang=lang, matched_term=matched_term, with_url=with_url
+    )
     description = format_taxon_description(taxon, status_name=status_name)
-    taxonomy = " in: " + format_taxon_names(taxon.ancestors, hierarchy=True, max_len=max_len) if taxon.ancestors else "."
+    taxonomy = (
+        " in: "
+        + format_taxon_names(
+            taxon.ancestors,
+            hierarchy=True,
+            max_len=max_len,
+        )
+        if taxon.ancestors
+        else "."
+    )
     return f"{title} \\\n{description}{taxonomy}"
 
-def format_quality_grade(options: dict={}):
+
+def format_quality_grade(options: dict = {}):
     """Format as markdown a list of adjectives for quality grade options."""
     adjectives = []
     quality_grade = (options.get("quality_grade") or "").split(",")
