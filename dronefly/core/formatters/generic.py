@@ -32,6 +32,8 @@ TAXON_LIST_DELIMITER = [", ", " > "]
 
 p = inflect.engine()
 
+def format_link(link_text:str, url:str):
+    return f"[{link_text}]({url})" if url else link_text
 
 def format_taxon_establishment_means(
     means: Union[EstablishmentMeans, ListedTaxon],
@@ -69,9 +71,9 @@ def format_taxon_establishment_means(
         emoji = ""
     url = f"{WWW_BASE_URL}/listed_taxa/{means.id}"
     if list_title and isinstance(means, ListedTaxon) and means.list.title:
-        _means = f"{emoji}{full_description} [{means.list.title}]({url})"
+        _means = f"{emoji}{full_description} {format_link(means.list.title, url)}"
     else:
-        _means = f"{emoji}[{full_description}]({url})"
+        _means = f"{emoji}{format_link(full_description, url)}"
     return _means
 
 
@@ -130,9 +132,7 @@ def format_taxon_conservation_status(
     )
 
     if brief:
-        linked_status = (
-            "[{}]({})".format(_description, status.url) if status.url else _description
-        )
+        linked_status = format_link(_description, status.url)
         if inflect:
             # inflect statuses with single digits in them correctly
             first_word = re.sub(
@@ -145,9 +145,7 @@ def format_taxon_conservation_status(
         else:
             full_description = linked_status
     else:
-        linked_status = (
-            f"[{status.authority}]({status.url})" if status.url else status.authority
-        )
+        linked_status = format_link(status.authority, status.url)
         full_description = f"{_description} ({linked_status})"
 
     return full_description
@@ -352,6 +350,8 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True
             "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
     """
     title = format_taxon_name(taxon, lang=lang)
+    if with_url and taxon.url:
+        title = format_link(title, taxon.url)
     # TODO: Remove workaround for outstanding pyinat issue #448 when it is resolved:
     # - https://github.com/pyinat/pyinaturalist/issues/448
     matched = matched_term or taxon.matched_term
@@ -362,8 +362,6 @@ def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True
         )
         if name:
             preferred_common_name = name.get("name")
-    if with_url and taxon.url:
-        title = f"[{title}]({taxon.url})"
     if matched not in (None, taxon.name, preferred_common_name):
         invalid_names = (
             [name["name"] for name in taxon.names if not name["is_valid"]]
@@ -398,7 +396,7 @@ def format_taxon_description(taxon: Taxon, status_name=None):
 
     obs_count = taxon.observations_count
     obs_url = f"{WWW_BASE_URL}/observations?taxon_id={taxon.id}"
-    obs_link = f"[{obs_count:,}]({obs_url})"
+    obs_link = format_link(f"{obs_count:,}", obs_url)
     description = f"is {descriptor} with {obs_link} {p.plural('observation', obs_count)}"
 
     if taxon.establishment_means:
@@ -410,14 +408,10 @@ def format_taxon_description(taxon: Taxon, status_name=None):
 
 def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status_name=None, max_len=0):
     """Format the taxon as markdown."""
-    response = format_taxon_title(taxon, lang=lang, matched_term=matched_term, with_url=with_url)
-    response += ' \\\n'
-    response += format_taxon_description(taxon, status_name=status_name)
-    if taxon.ancestors:
-        response += ' in: ' + format_taxon_names(taxon.ancestors, hierarchy=True, max_len=max_len)
-    else:
-        response += '.'
-    return response
+    title = format_taxon_title(taxon, lang=lang, matched_term=matched_term, with_url=with_url)
+    description = format_taxon_description(taxon, status_name=status_name)
+    taxonomy = " in: " + format_taxon_names(taxon.ancestors, hierarchy=True, max_len=max_len) if taxon.ancestors else "."
+    return f"{title} \\\n{description}{taxonomy}"
 
 def format_quality_grade(options: dict={}):
     """Format as markdown a list of adjectives for quality grade options."""
