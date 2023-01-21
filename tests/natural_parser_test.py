@@ -110,3 +110,35 @@ class TestUnixlikeParser:
     def test_change_only_arg_keyword_case(self, parser):
         parsed = parser.parse("BY SyntheticBee")
         assert str(parsed) == "by SyntheticBee"
+
+    def test_macro(self, parser):
+        parsed = parser.parse("my myrtle warbler")
+        assert str(parsed) == "myrtle warbler by me"
+
+    def test_macros_combined(self, parser):
+        parsed = parser.parse("my home birds")
+        assert str(parsed) == "birds from home by me"
+
+    def test_group_opt(self, parser):
+        parsed = parser.parse("herps")
+        assert str(parsed) == "opt taxon_ids=20978,26036"
+
+    def test_macro_group_and_opt(self, parser):
+        parsed = parser.parse("rg herps opt taxon_geoprivacy=open")
+        assert str(parsed) == "opt quality_grade=research taxon_ids=20978,26036 taxon_geoprivacy=open"
+
+    def test_group_and_macro(self, parser):
+        parsed = parser.parse("my herps")
+        assert str(parsed) == "by me opt taxon_ids=20978,26036"
+
+    def test_group_and_opt_macro(self, parser):
+        parsed = parser.parse("rg herps")
+        assert str(parsed) == "opt quality_grade=research taxon_ids=20978,26036"
+
+    def test_group_ignored_second_word(self, parser):
+        parsed = parser.parse("my green herps")
+        assert str(parsed) == "green herps by me"
+
+    def test_group_ignored_first_of_two_words(self, parser):
+        parsed = parser.parse("my herps green")
+        assert str(parsed) == "herps green by me"
