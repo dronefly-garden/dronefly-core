@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dronefly-core"
-version = "0.3.0.dev1"
+version = "0.3.0"
 description = "Core dronefly components"
 authors = ["Ben Armstrong <synrg@debian.org>"]
 license = "AGPL-3.0-or-later"
