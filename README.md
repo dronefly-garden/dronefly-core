@@ -1,16 +1,19 @@
-[![Red cogs](https://img.shields.io/badge/Red--DiscordBot-cogs-red.svg)](https://github.com/Cog-Creators/Red-DiscordBot/tree/V3/develop)
-[![discord.py](https://img.shields.io/badge/discord-py-blue.svg)](https://github.com/Rapptz/discord.py)
-[![ReadTheDocs](https://img.shields.io/readthedocs/dronefly/latest?label=documentation)](https://dronefly.readthedocs.io)
-
 # Dronefly core
 
-This branch contains an incomplete rewrite of Dronefly bot's core components,
-and as such is not yet suitable for production use. Please use dronefly's main
-branch instead, which includes the stable version of Dronefly core.
+This is an incomplete rewrite of [Dronefly](https://dronefly.readthedocs.io)
+Discord bot's core components. We're not yet making version guarantees until
+it is more usable.
 
-# Dronefly bot
+# Related packages
 
-Dronefly is a bot for naturalists that gives users access to
-[iNaturalist](https://www.inaturalist.org) on [Discord](https://discord.com)
-chat.
+## Dronefly command-line client
 
+The [dronefly-cli](https://github.com/dronefly-garden/dronefly-cli) command-line
+client will provide a standalone text user interface that can perform a usable
+subset of Dronefly Discord bot's capabilities, built solely with Dronefly core.
+
+## Dronefly Discord bot
+
+Dronefly Discord bot brings [iNaturalist](https://www.inaturalist.org) taxa,
+observations, and other data from the site into conversations on the
+[Discord](https://discord.com) chat platform.
