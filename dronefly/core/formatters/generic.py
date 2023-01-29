@@ -405,7 +405,10 @@ def format_taxon_count_link(taxon: Taxon, entity: str):
 
 
 def format_taxon_status_rank(taxon: Taxon, status_name: str = None, inflect=False):
-    """Format the taxon rank with optional status, optionally prefixed with inflected article (a/an)."""
+    """
+    Format the taxon rank with optional status, optionally prefixed with
+    inflected article (a/an).
+    """
     if taxon.conservation_status:
         a_status = format_taxon_conservation_status(
             taxon.conservation_status,

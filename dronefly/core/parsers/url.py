@@ -4,10 +4,23 @@ import re
 # Match any iNaturalist partner URL
 # See https://www.inaturalist.org/pages/network
 # - each partner domain matches one of the four schemes below
+WWW_SUBDOMAINS = [
+    "www",
+    "columbia",
+    "costarica",
+    "panama",
+    "ecuador",
+    "israel",
+    "greece",
+    "uk",
+    "guatamela",
+    "taiwan",
+]
 WWW_URL_PAT = (
-    r"https?://("
+    r"https?://((("
     # <partner>.inaturalist.org and the main site [www.]inaturalist.org
-    r"((www|colombia|costarica|panama|ecuador|israel|greece|uk|guatemala|taiwan)\.)?inaturalist\.org"
+    f"{'|'.join(WWW_SUBDOMAINS)}"
+    r")\.)?inaturalist\.org"
     # inaturalist.<partner>.<tld>
     r"|inaturalist\.(ala\.org\.au|laji\.fi|mma\.gob\.cl)"
     r"|(www\.)?("

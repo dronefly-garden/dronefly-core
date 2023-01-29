@@ -1,1 +1,1 @@
-from .commands import Commands, Format
+from .commands import Commands, Format  # noqa: F401

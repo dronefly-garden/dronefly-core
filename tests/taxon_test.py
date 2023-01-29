@@ -1,11 +1,13 @@
 """Tests for Taxon."""
 # pylint: disable=missing-class-docstring, no-self-use, missing-function-docstring
 # pylint: disable=redefined-outer-name
-
 import pytest
 
 from dronefly.core.models.taxon import Taxon
 from dronefly.core.formatters.discord import format_taxon_names
+
+
+PHOTOS_URL = "https://inaturalist-open-data.s3.amazonaws.com/photos"
 
 
 @pytest.fixture
@@ -113,11 +115,11 @@ def birds():
                     "id": 80678745,
                     "license_code": "cc0",
                     "attribution": "no rights reserved, uploaded by Abhas Misraraj",
-                    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80678745/square.jpg",
+                    "url": f"{PHOTOS_URL}/80678745/square.jpg",
                     "original_dimensions": {"height": 2000, "width": 2000},
                     "flags": [],
-                    "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80678745/square.jpg",
-                    "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80678745/medium.jpg",
+                    "square_url": f"{PHOTOS_URL}/80678745/square.jpg",
+                    "medium_url": f"{PHOTOS_URL}/80678745/medium.jpg",
                 },
                 "ancestor_ids": [48460, 1],
                 "iconic_taxon_name": "Animalia",
@@ -146,11 +148,11 @@ def birds():
                     "id": 80551845,
                     "license_code": "cc0",
                     "attribution": "no rights reserved, uploaded by Abhas Misraraj",
-                    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80551845/square.jpg",
+                    "url": f"{PHOTOS_URL}/80551845/square.jpg",
                     "original_dimensions": {"height": 2000, "width": 2000},
                     "flags": [],
-                    "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80551845/square.jpg",
-                    "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80551845/medium.jpg",
+                    "square_url": f"{PHOTOS_URL}/80551845/square.jpg",
+                    "medium_url": f"{PHOTOS_URL}/80551845/medium.jpg",
                 },
                 "ancestor_ids": [48460, 1, 2],
                 "iconic_taxon_name": "Animalia",
@@ -179,11 +181,11 @@ def birds():
                     "id": 80551642,
                     "license_code": "cc0",
                     "attribution": "no rights reserved, uploaded by Abhas Misraraj",
-                    "url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80551642/square.jpg",
+                    "url": f"{PHOTOS_URL}/80551642/square.jpg",
                     "original_dimensions": {"height": 2000, "width": 2000},
                     "flags": [],
-                    "square_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80551642/square.jpg",
-                    "medium_url": "https://inaturalist-open-data.s3.amazonaws.com/photos/80551642/medium.jpg",
+                    "square_url": f"{PHOTOS_URL}/80551642/square.jpg",
+                    "medium_url": f"{PHOTOS_URL}/80551642/medium.jpg",
                 },
                 "ancestor_ids": [48460, 1, 2, 355675],
                 "iconic_taxon_name": "Animalia",

@@ -41,7 +41,7 @@ class NaturalParser(UnixlikeParser):
             return (_params, _opts)
 
         def parse_group(tok, groups, params={}, opts=[], expanded_tokens=[]):
-            if not tok in groups:
+            if tok not in groups:
                 return (False, params, opts, expanded_tokens)
 
             _expanded_tokens = [*expanded_tokens]

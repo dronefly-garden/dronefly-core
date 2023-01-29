@@ -1,1 +1,1 @@
-from .natural import NaturalParser
+from .natural import NaturalParser  # noqa: F401
