@@ -42,7 +42,15 @@ def format_taxon_names(
         taxa, with_term, names_format, max_len, hierarchy, lang
     )
 
-def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, status_name=None, max_len=0):
+
+def format_taxon(
+    taxon: Taxon,
+    lang=None,
+    with_url=False,
+    matched_term=None,
+    status_name=None,
+    max_len=0,
+):
     return generic_format_taxon(
         taxon=taxon,
         lang=lang,
@@ -51,6 +59,7 @@ def format_taxon(taxon: Taxon, lang=None, with_url=False, matched_term=None, sta
         status_name=status_name,
         max_len=max_len,
     )
+
 
 def format_taxon_image_embed(
     taxon: Taxon,

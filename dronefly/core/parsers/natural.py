@@ -10,7 +10,12 @@ except ModuleNotFoundError:
         """Argument error (for compatibility with Discord exceptions)."""
 
 
-from dronefly.core.parsers.constants import ARGPARSE_ARGS, GROUP_MACROS, MACROS, REMAINING_ARGS
+from dronefly.core.parsers.constants import (
+    ARGPARSE_ARGS,
+    GROUP_MACROS,
+    MACROS,
+    REMAINING_ARGS,
+)
 from dronefly.core.parsers.unixlike import UnixlikeParser
 
 
@@ -19,6 +24,7 @@ class NaturalParser(UnixlikeParser):
 
     def parse(self, argument: str):
         """Parse natural language argument list."""
+
         def parse_macro(tok, macros, params={}, opts=[]):
             macro = macros.get(tok)
             if not macro:
@@ -28,7 +34,7 @@ class NaturalParser(UnixlikeParser):
             if "opt" in macro:
                 _opts.extend(macro["opt"])
             # Macros expanding to any other arguments supersede earlier values:
-            _params= {**params}
+            _params = {**params}
             for key in macro:
                 if key != "opt":
                     _params[key] = macro[key]
@@ -39,9 +45,9 @@ class NaturalParser(UnixlikeParser):
                 return (False, params, opts, expanded_tokens)
 
             _expanded_tokens = [*expanded_tokens]
-            tok = _expanded_tokens.pop() # i.e. remove macro token to expand it
+            tok = _expanded_tokens.pop()  # i.e. remove macro token to expand it
             (_params, _opts) = parse_macro(tok, GROUP_MACROS, params, opts)
-            _expanded_tokens.pop() # i.e. remove --of token
+            _expanded_tokens.pop()  # i.e. remove --of token
             return (True, _params, _opts, _expanded_tokens)
 
         try:

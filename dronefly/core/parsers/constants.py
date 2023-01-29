@@ -32,7 +32,7 @@ MACROS = {
     "faves": {"opt": ["popular", "order_by=votes"]},
     "spp": {"opt": ["hrank=species"]},
     "species": {"opt": ["hrank=species"]},
-    "unseen": {"not by": "me", "from": "home"}
+    "unseen": {"not by": "me", "from": "home"},
 }
 # Groups of taxa:
 # - can't function in place of a single taxon, and are typically only used in

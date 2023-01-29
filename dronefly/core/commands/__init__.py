@@ -7,16 +7,20 @@ from ..parsers import NaturalParser
 from ..formatters.discord import format_taxon
 from ..models.user import User
 
-RICH_BQ_NEWLINE_PAT = re.compile(r'^(\>.*?)(\n)', re.MULTILINE)
+RICH_BQ_NEWLINE_PAT = re.compile(r"^(\>.*?)(\n)", re.MULTILINE)
+
 
 class Format(Enum):
     discord_markdown = 1
     rich = 2
 
-INAT_DEFAULTS = {'locale': 'en', 'preferred_place_id': 1}
+
+INAT_DEFAULTS = {"locale": "en", "preferred_place_id": 1}
+
 
 class Context:
     author: User = User()
+
 
 # TODO: everything below needs to be broken down into different layers
 # handling each thing:
@@ -53,14 +57,14 @@ class Commands:
             taxon = client.taxa(taxon.id, **kwargs)
             return (taxon, status_name, matched_term)
 
-        query = self._parse(' '.join(args))
+        query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
         # TODO: Remove workarounds for issues linked below
         main_query_str = " ".join(query.main.terms)
         # - https://github.com/pyinat/pyinaturalist/issues/446
         #   - all_names can be provided via default_params after #446 is fixed
-        kwargs = {'all_names': True}
+        kwargs = {"all_names": True}
 
         with self.inat_client.set_ctx(ctx) as client:
             taxon = client.taxa.autocomplete(q=main_query_str, **kwargs).one()
@@ -74,13 +78,13 @@ class Commands:
 
         response = format_taxon(
             taxon,
-            lang=INAT_DEFAULTS['locale'],
+            lang=INAT_DEFAULTS["locale"],
             matched_term=matched_term,
             status_name=status_name,
             with_url=True,
         )
-        if (self.format == Format.rich):
-            rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r'\1\\\n', response)
+        if self.format == Format.rich:
+            rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r"\1\\\n", response)
             response = Markdown(rich_markdown)
 
         return response

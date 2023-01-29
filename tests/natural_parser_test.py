@@ -125,7 +125,10 @@ class TestUnixlikeParser:
 
     def test_macro_group_and_opt(self, parser):
         parsed = parser.parse("rg herps opt taxon_geoprivacy=open")
-        assert str(parsed) == "opt quality_grade=research taxon_ids=20978,26036 taxon_geoprivacy=open"
+        assert (
+            str(parsed)
+            == "opt quality_grade=research taxon_ids=20978,26036 taxon_geoprivacy=open"
+        )
 
     def test_group_and_macro(self, parser):
         parsed = parser.parse("my herps")
