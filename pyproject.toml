@@ -1,3 +1,6 @@
+[tool.bandit]
+exclude_dirs = ["tests"]
+
 [tool.poetry]
 name = "dronefly-core"
 version = "0.3.0"
