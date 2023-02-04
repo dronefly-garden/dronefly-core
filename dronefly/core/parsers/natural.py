@@ -4,7 +4,7 @@ import shlex
 
 try:
     from redbot.core.commands import BadArgument
-except ModuleNotFoundError:
+except (ImportError, ModuleNotFoundError):
 
     class BadArgument(Exception):
         """Argument error (for compatibility with Discord exceptions)."""
