@@ -21,7 +21,7 @@ def ctx():
 
 # TODO: Mock communication with iNatClient
 def test_taxon_with_result(cmd, ctx):
-    if not getattr(cmd.inat_client.taxa, "full_taxon", None):
+    if not getattr(cmd.inat_client.taxa, "full_record", None):
         pytest.skip(
             "Not yet supported by pyinaturalist: client.taxa.full_record(taxon)"
         )
