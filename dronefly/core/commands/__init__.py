@@ -63,7 +63,7 @@ class Commands:
             if not taxon:
                 return "Nothing found"
             status_name = _pyinat_workarounds(taxon)
-            taxon = client.taxa.full_record(taxon)
+            taxon = client.taxa.populate(taxon)
 
         response = format_taxon(
             taxon,
