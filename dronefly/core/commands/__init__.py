@@ -56,7 +56,7 @@ class Commands:
         query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
-        if not query.main or query.main.terms:
+        if not query.main or not query.main.terms:
             return "Not a taxon"
         main_query_str = " ".join(query.main.terms)
 
