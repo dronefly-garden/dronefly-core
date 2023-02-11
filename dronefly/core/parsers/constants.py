@@ -68,6 +68,9 @@ GROUP_MACROS = {
             ),
         ],
     },
+    "allfish": {
+        "opt": ["taxon_ids=47178,47273,797045,85497"],
+    },
 }
 VALID_OBS_OPTS = [
     "captive",
