@@ -56,6 +56,8 @@ class Commands:
         query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
+        if not query.main or query.main.terms:
+            return "Not a taxon"
         main_query_str = " ".join(query.main.terms)
 
         with self.inat_client.set_ctx(ctx) as client:
