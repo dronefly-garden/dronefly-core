@@ -33,3 +33,7 @@ def test_taxon_with_result(cmd, ctx):
 
 def test_taxon_with_no_result(cmd, ctx):
     assert cmd.taxon(ctx, "xyzzy") == "Nothing found"
+
+
+def test_taxon_with_group_macro(cmd, ctx):
+    assert cmd.taxon(ctx, "herps") == "Not a taxon"
