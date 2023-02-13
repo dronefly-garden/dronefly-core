@@ -1,9 +1,9 @@
 """Naturalist information system query module."""
 from typing import List, Optional
-from dataclasses import dataclass
+from attrs import define
 
 
-@dataclass
+@define
 class TaxonQuery:
     """A taxon query composed of terms and/or phrases or a code or taxon_id, filtered by ranks."""
 
@@ -35,7 +35,7 @@ class TaxonQuery:
         return self._query
 
 
-@dataclass
+@define
 class Query:
     """Naturalist information system query.
 
