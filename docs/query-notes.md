@@ -20,7 +20,9 @@ The tokenizer should:
 - return double-quote as a separate token
 - return any sequence of non-double-quote, non-blank characters as a separate token
 
-### TODO:
+## Draft language specification
+
+### TODO
 
 - handle "id", "not", "except", "in", "added" as OPTION_WORDS in the language
     - e.g.
@@ -29,7 +31,7 @@ The tokenizer should:
       `DOUBLE_OPTION_WORDS = { "id": ["by"], "not": ["by"], "except": ["by"], "in": ["prj"], "added": ["on", "since", "until"] }`
     - etc.
 
-### Draft language specification
+### Tokens
 
 `OPTION_WORDS = ["by", "id-by", "not-by", "except-by", "from", "in-prj", "on", "since", "until", "added-on", "added-since", "added-until", "opt", "rank", "with", "per"]`  
 
