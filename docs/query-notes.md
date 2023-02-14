@@ -20,12 +20,16 @@ The tokenizer should:
 - return double-quote as a separate token
 - return any sequence of non-double-quote, non-blank characters as a separate token
 
-# TODO:
-# - handle "id", "not", "except", "in", "added" as OPTION_WORDS in the language
-#   - e.g.
-#     `IdByOptionKeyword` is (`id` + `by`) or `idby` or `id-by`, etc.
-#   - but generalize this instead of a new named entity per? e.g.
-#     `DOUBLE_OPTION_WORDS = { "id": ["by"], "not": ["by"], "except": ["by"], "in": ["prj"], "added": ["on", "since", "until"] }`
+### TODO:
+
+- handle "id", "not", "except", "in", "added" as OPTION_WORDS in the language
+    - e.g.
+	  `IdByOptionKeyword` is (`id` + `by`) or `idby` or `id-by`, etc.
+    - but generalize this instead of a new named entity per? e.g.
+      `DOUBLE_OPTION_WORDS = { "id": ["by"], "not": ["by"], "except": ["by"], "in": ["prj"], "added": ["on", "since", "until"] }`
+    - etc.
+
+### Draft language specification
 
 `OPTION_WORDS = ["by", "id-by", "not-by", "except-by", "from", "in-prj", "on", "since", "until", "added-on", "added-since", "added-until", "opt", "rank", "with", "per"]`  
 
