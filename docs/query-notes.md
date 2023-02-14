@@ -81,10 +81,6 @@ A `QuotedWords` is:
 
 - `"` + (one or more `UnquotedWord`) + `"`
 
-An `UnquotedNonkeywords` is:
-
-- one or more `UnquotedNonkeyword`
-
 An `OptionWords` is:
 
 - one or more (`QuotedWords` OR `UnquotedNonkeyword`)
