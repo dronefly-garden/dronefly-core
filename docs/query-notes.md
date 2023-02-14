@@ -15,6 +15,18 @@ Currently expressed informally in English, but should be expressed in formally. 
 
 ### Tokens
 
+The tokenizer should:
+
+- return double-quote as a separate token
+- return any sequence of non-double-quote, non-blank characters as a separate token
+
+# TODO:
+# - handle "id", "not", "except", "in", "added" as OPTION_WORDS in the language
+#   - e.g.
+#     `IdByOptionKeyword` is (`id` + `by`) or `idby` or `id-by`, etc.
+#   - but generalize this instead of a new named entity per? e.g.
+#     `DOUBLE_OPTION_WORDS = { "id": ["by"], "not": ["by"], "except": ["by"], "in": ["prj"], "added": ["on", "since", "until"] }`
+
 `OPTION_WORDS = ["by", "id-by", "not-by", "except-by", "from", "in-prj", "on", "since", "until", "added-on", "added-since", "added-until", "opt", "rank", "with", "per"]`  
 
 `MACRO_WORDS = ["rg", "nid", "oldest", "newest", "reverse", "my", "home", "faves", "spp", "species", "unseen"]`  
@@ -23,7 +35,7 @@ Currently expressed informally in English, but should be expressed in formally. 
 
 `KEYWORDS = OPTION_WORDS + MACRO_WORDS + GROUP_WORDS`
 
-A `Word` is:
+A `PlainWord` is:
 
 - one or more non-blank, non-comma, non-equals characters
 
@@ -39,9 +51,13 @@ An `AlphaDashWord` is:
 
 - an alphabetic character + (zero or more `AlphaDash`)
 
+A `Word` is:
+
+- an `AlphaWord` OR `AlphaDashWord` OR `PlainWord`
+
 An `UnquotedWord` is:
 
-- a `Word` that does not start or end with a double-quote `"`
+- a `Word` that is not a double-quote `"`
 
 An `Id` is:
 
@@ -65,7 +81,7 @@ A `NonKeyword` is:
 
 An `UnquotedNonkeyword` is:
 
-- a `NonKeyword` that does not start or end with a double-quote `"`
+- a `NonKeyword` that is not a double-quote `"`
   
 An `AlphaNonKeyword` is:
 
@@ -108,7 +124,7 @@ An `Option` is:
 
 A `Query` is:  
   
-- (zero or more `MacroWord`) + (zero or one `TaxonSelector`) + (zero or more `Option`)
+- (zero or more `MacroKeyword`) + (zero or one `TaxonSelector`) + (zero or more `Option`)
 - that is non-empty
 
 ## Query object  
