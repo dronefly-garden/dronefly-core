@@ -1,0 +1,36 @@
+%import common.INT
+%import common.LETTER
+%import unicode.WS
+
+OPTION_KEYWORD: /by|id-by|not-by|except-by|from|in-prj|on|since|until|added-on|added-since|added-until|opt|rank|with|per/i
+MACRO: /rg|nid|oldest|newest|reverse|my|home|faves|spp|species|unseen/i
+GROUP: /unknown|waspsonly|mothsonly|herps|lichenish|nonflowering|nonvascular|inverts|seaslugs|allfish/i
+KEYWORDS: OPTION_KEYWORD | MACRO | GROUP
+UNQUOTED_WORD: /\w+/ui
+FOUR_LETTER_CODE: LETTER ~ 4
+
+start: macros (WS taxon_selector_list)? (WS options)? | options | taxon_selector_list (WS options)*
+
+macros: MACRO (WS MACRO)*
+
+options: option (WS option)*
+
+option: MACRO | GROUP | (OPTION_KEYWORD WS option_words)
+
+taxon_selector_list: taxon_selector ("," taxon_selector)*
+
+taxon_selector: id | GROUP | (taxon_words (WS in_selector)?)
+
+taxon_words: FOUR_LETTER_CODE | option_words
+
+option_words: phrase_or_word (WS phrase_or_word)*
+
+phrase_or_word: phrase | UNQUOTED_WORD
+
+id: INT
+
+in_selector: "in" WS taxon_words
+
+phrase: "\"" words? "\""
+
+words: UNQUOTED_WORD (WS UNQUOTED_WORD)*
