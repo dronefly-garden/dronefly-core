@@ -48,7 +48,6 @@ def format_taxon(
     lang=None,
     with_url=False,
     matched_term=None,
-    status_name=None,
     max_len=0,
 ):
     return generic_format_taxon(
@@ -56,7 +55,6 @@ def format_taxon(
         lang=lang,
         with_url=with_url,
         matched_term=matched_term,
-        status_name=status_name,
         max_len=max_len,
     )
 

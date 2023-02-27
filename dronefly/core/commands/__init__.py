@@ -43,16 +43,6 @@ class Commands:
         return self.parser.parse(query_str)
 
     def taxon(self, ctx: Context, *args):
-        # TODO: Remove conservation status workaround once there's a solution
-        # provided by pyinat
-        def _pyinat_workarounds(taxon):
-            # - https://github.com/pyinat/pyinaturalist/issues/447
-            status = taxon.conservation_status
-            status_name = None
-            if status:
-                status_name = status.status_name
-            return status_name
-
         query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
@@ -64,13 +54,11 @@ class Commands:
             taxon = client.taxa.autocomplete(q=main_query_str).one()
             if not taxon:
                 return "Nothing found"
-            status_name = _pyinat_workarounds(taxon)
             taxon = client.taxa.populate(taxon)
 
         response = format_taxon(
             taxon,
             lang=INAT_DEFAULTS["locale"],
-            status_name=status_name,
             with_url=True,
         )
         if self.format == Format.rich:

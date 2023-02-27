@@ -83,7 +83,6 @@ def format_taxon_conservation_status(
     status: ConservationStatus,
     brief: bool = False,
     inflect: bool = False,
-    status_name: str = "",
 ):
     """Format the conservation status for a taxon for a given place.
 
@@ -97,15 +96,6 @@ def format_taxon_conservation_status(
     inflect: bool
         Whether to inflect first word in status and precede with indefinite
         article for use in a sentence, e.g. "an endangered", "a secure", etc.
-    status_name: str
-        Status name to use in place of the status.status_name
-        - Workaround for neither conservation_status record has both status_name
-          and url:
-          - /v1/taxa/autocomplete result has 'threatened' as status_name for
-            status 't' polar bear, but no URL
-          - /v1/taxa/# for polar bear has the URL, but no status_name 'threatened'
-          - therefore, our grubby hack is to allow the status_name from autocomplete
-            to be passed in here
 
     Returns:
     --------
@@ -113,37 +103,16 @@ def format_taxon_conservation_status(
         A Markdown-formatted string containing the conservation status
         with link to the status on the web.
     """
-    status_lc = status.status.lower()
-    _status_name = status_name or status.status_name
-    status_name_lc = _status_name.lower() if _status_name else ""
-    status_uc = status.status.upper()
-    # Avoid cases where showing both the name and code
-    # adds no new information, e.g.
-    # - "extinct (EXTINCT)" and "threatened (THREATENED)"
-    # - return "extinct" or "threatened" instead
-    if status_lc == status_name_lc:
-        description = status_lc
-    elif _status_name:
-        description = f"{_status_name} ({status_uc})"
-    # Avoid "shouting" status codes when no name is given and
-    # they are long (i.e. they're probably names, not actual
-    # status codes)
-    # - e.g. "EXTINCT" or "THREATENED"
-    else:
-        description = status_uc if len(status.status) > 6 else status_lc
-
-    _description = (
-        f"{description} in {status.place.display_name}" if status.place else description
-    )
+    description = status.display_name
 
     if brief:
-        linked_status = format_link(_description, status.url)
+        linked_status = format_link(description, status.url)
         if inflect:
             # inflect statuses with single digits in them correctly
             first_word = re.sub(
                 r"[0-9]",
                 " {0} ".format(p.number_to_words(r"\1")),
-                _description,
+                description,
             ).split()[0]
             article = p.a(first_word).split()[0]
             full_description = " ".join((article, linked_status))
@@ -151,7 +120,7 @@ def format_taxon_conservation_status(
             full_description = linked_status
     else:
         linked_status = format_link(status.authority, status.url)
-        full_description = f"{_description} ({linked_status})"
+        full_description = f"{description} ({linked_status})"
 
     return full_description
 
@@ -404,7 +373,7 @@ def format_taxon_count_link(taxon: Taxon, entity: str):
     return count
 
 
-def format_taxon_status_rank(taxon: Taxon, status_name: str = None, inflect=False):
+def format_taxon_status_rank(taxon: Taxon, inflect=False):
     """
     Format the taxon rank with optional status, optionally prefixed with
     inflected article (a/an).
@@ -414,7 +383,6 @@ def format_taxon_status_rank(taxon: Taxon, status_name: str = None, inflect=Fals
             taxon.conservation_status,
             brief=True,
             inflect=inflect,
-            status_name=status_name,
         )
         a_status_rank = f"{a_status} {taxon.rank}"
     else:
@@ -422,9 +390,9 @@ def format_taxon_status_rank(taxon: Taxon, status_name: str = None, inflect=Fals
     return a_status_rank
 
 
-def format_taxon_description(taxon: Taxon, status_name: str = None):
+def format_taxon_description(taxon: Taxon):
     """Format the taxon description including rank, status, observation count, and means."""
-    a_status_rank = format_taxon_status_rank(taxon, status_name, inflect=True)
+    a_status_rank = format_taxon_status_rank(taxon, inflect=True)
     n_observations = format_taxon_count_link(taxon, entity="observation")
     if taxon.establishment_means:
         listed_taxon = _full_means(taxon) or taxon.establishment_means
@@ -439,14 +407,13 @@ def format_taxon(
     lang=None,
     with_url=False,
     matched_term=None,
-    status_name=None,
     max_len=0,
 ):
     """Format the taxon as markdown."""
     title = format_taxon_title(
         taxon, lang=lang, matched_term=matched_term, with_url=with_url
     )
-    description = format_taxon_description(taxon, status_name=status_name)
+    description = format_taxon_description(taxon)
     taxonomy = (
         " in: "
         + format_taxon_names(
