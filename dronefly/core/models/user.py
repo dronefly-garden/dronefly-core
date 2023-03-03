@@ -1,3 +1,7 @@
+from attrs import define
+
+
+@define
 class User:
     """Public class for User model."""
 

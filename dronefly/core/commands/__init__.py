@@ -1,5 +1,7 @@
 from enum import Enum
 import re
+
+from attrs import define
 from rich.markdown import Markdown
 
 from ..clients.inat import iNatClient
@@ -18,7 +20,10 @@ class Format(Enum):
 INAT_DEFAULTS = {"locale": "en", "preferred_place_id": 1, "all_names": True}
 
 
+@define
 class Context:
+    """A Dronefly command context."""
+
     author: User = User()
 
 
@@ -27,17 +32,16 @@ class Context:
 # - Context
 #   - user, channel, etc.
 #   - affects which settings are passed to inat (e.g. home place for conservation status)
+@define
 class Commands:
+    """A Dronefly command processor."""
+
     # TODO: platform: dronefly.Platform
     # - e.g. discord, commandline, web
-    def __init__(
-        self,
-        inat_client=iNatClient(default_params=INAT_DEFAULTS),
-        format=Format.discord_markdown,
-    ):
-        self.inat_client = inat_client
-        self.parser = NaturalParser()
-        self.format = format
+
+    inat_client: iNatClient = iNatClient(default_params=INAT_DEFAULTS)
+    parser: NaturalParser = NaturalParser()
+    format: Format = Format.discord_markdown
 
     def _parse(self, query_str):
         return self.parser.parse(query_str)
