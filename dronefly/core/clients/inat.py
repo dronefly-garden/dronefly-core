@@ -6,6 +6,8 @@ from typing import Optional
 from pyinaturalist import iNatClient as pyiNatClient
 from pyinaturalist.constants import RequestParams
 
+from ..constants import INAT_DEFAULTS
+
 
 class iNatClient(pyiNatClient):
     """iNat client based on pyinaturalist."""
@@ -18,12 +20,11 @@ class iNatClient(pyiNatClient):
     ):
         _kwargs = super().add_client_settings(request_function, kwargs, auth)
 
+        inat_defaults = self.ctx.get_inat_defaults() if self.ctx else INAT_DEFAULTS
         request_params = signature(request_function).parameters
-        if "all_names" in request_params:
-            _kwargs.setdefault("all_names", True)
-        user = self.ctx and self.ctx.author
-        if user and user.inat_place_id and "preferred_place_id" in request_params:
-            _kwargs.setdefault("preferred_place_id", user.inat_place_id)
+        for param in inat_defaults:
+            if param in request_params:
+                _kwargs.setdefault(param, inat_defaults[param])
 
         return _kwargs
 

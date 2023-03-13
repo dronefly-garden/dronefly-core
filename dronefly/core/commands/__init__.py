@@ -5,9 +5,11 @@ from attrs import define
 from rich.markdown import Markdown
 
 from ..clients.inat import iNatClient
+from ..constants import INAT_DEFAULTS, INAT_USER_DEFAULT_PARAMS
 from ..parsers import NaturalParser
 from ..formatters.discord import format_taxon
 from ..models.user import User
+
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\>.*?)(\n)", re.MULTILINE)
 
@@ -17,14 +19,32 @@ class Format(Enum):
     rich = 2
 
 
-INAT_DEFAULTS = {"locale": "en", "preferred_place_id": 1, "all_names": True}
-
-
 @define
 class Context:
     """A Dronefly command context."""
 
     author: User = User()
+
+    def get_inat_user_default(self, inat_param: str):
+        """Return iNat API default for user param default, if any, otherwise global default."""
+        if inat_param not in INAT_USER_DEFAULT_PARAMS:
+            return None
+        if self.author:
+            default = getattr(self.author, inat_param, None) or INAT_DEFAULTS.get(
+                inat_param
+            )
+        else:
+            default = INAT_DEFAULTS.get(inat_param)
+        return default
+
+    def get_inat_defaults(self):
+        """Return all iNat API defaults."""
+        defaults = {**INAT_DEFAULTS}
+        for user_param, inat_param in INAT_USER_DEFAULT_PARAMS.items():
+            default = self.get_inat_user_default(user_param)
+            if default is not None:
+                defaults[inat_param] = default
+        return defaults
 
 
 # TODO: everything below needs to be broken down into different layers
@@ -39,7 +59,7 @@ class Commands:
     # TODO: platform: dronefly.Platform
     # - e.g. discord, commandline, web
 
-    inat_client: iNatClient = iNatClient(default_params=INAT_DEFAULTS)
+    inat_client: iNatClient = iNatClient()
     parser: NaturalParser = NaturalParser()
     format: Format = Format.discord_markdown
 
@@ -62,7 +82,7 @@ class Commands:
 
         response = format_taxon(
             taxon,
-            lang=INAT_DEFAULTS["locale"],
+            lang=ctx.get_inat_user_default("inat_lang"),
             with_url=True,
         )
         if self.format == Format.rich:
