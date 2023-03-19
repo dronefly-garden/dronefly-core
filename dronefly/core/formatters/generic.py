@@ -6,15 +6,19 @@ which is then fairly easy to render to other formats as needed.
 import re
 from typing import List, Union
 
-from dronefly.core.formatters.constants import WWW_BASE_URL
-from dronefly.core.models.taxon import (
-    Taxon,
+from dronefly.core.constants import (
     TAXON_PRIMARY_RANKS,
     TRINOMIAL_ABBR,
     RANK_LEVELS,
 )
+from dronefly.core.formatters.constants import WWW_BASE_URL
 import inflect
-from pyinaturalist.models import EstablishmentMeans, ListedTaxon, ConservationStatus
+from pyinaturalist.models import (
+    ConservationStatus,
+    EstablishmentMeans,
+    ListedTaxon,
+    Taxon,
+)
 
 MEANS_LABEL_DESC = {
     "endemic": "endemic to",
