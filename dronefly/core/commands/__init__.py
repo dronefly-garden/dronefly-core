@@ -7,11 +7,12 @@ from rich.markdown import Markdown
 from ..clients.inat import iNatClient
 from ..constants import INAT_DEFAULTS, INAT_USER_DEFAULT_PARAMS
 from ..parsers import NaturalParser
-from ..formatters.discord import format_taxon
+from ..formatters.generic import TaxonFormatter
 from ..models.user import User
 
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\>.*?)(\n)", re.MULTILINE)
+RICH_NEWLINE = " \\\n"
 
 
 class Format(Enum):
@@ -80,11 +81,14 @@ class Commands:
                 return "Nothing found"
             taxon = client.taxa.populate(taxon)
 
-        response = format_taxon(
+        formatter = TaxonFormatter(
             taxon,
             lang=ctx.get_inat_user_default("inat_lang"),
             with_url=True,
+            newline=RICH_NEWLINE,
         )
+        response = formatter.format()
+
         if self.format == Format.rich:
             rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r"\1\\\n", response)
             response = Markdown(rich_markdown)

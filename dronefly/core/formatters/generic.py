@@ -13,7 +13,7 @@ from dronefly.core.constants import (
 )
 from dronefly.core.formatters.constants import WWW_BASE_URL
 import inflect
-from pyinaturalist.models import (
+from pyinaturalist import (
     ConservationStatus,
     EstablishmentMeans,
     ListedTaxon,
@@ -296,64 +296,7 @@ def format_taxon_name(
     return full_name
 
 
-def format_taxon_title(taxon: Taxon, lang=None, matched_term=None, with_url=True):
-    """Format taxon title as Discord-like markdown.
-
-    Parameters
-    ----------
-    taxon: Taxon
-        The taxon to format.
-
-    lang: str, optional
-        If specified, prefer the first name with its locale == lang instead of
-        the preferred_common_name.
-
-    matched_term: str, optional
-        If specified, use instead of the taxon.matched_term.
-
-    with_url: bool, optional
-        When True, link the name to taxon.url.
-
-    Returns
-    -------
-    str
-        Like format_taxon_name(), except:
-
-        - Append the matching term in its own parentheses after the common name
-          in parentheses if the matching term is neither the scientific name nor
-          common name, e.g.
-          - "Pissenlits" -> "Genus *Taraxacum* (dandelions) (Pissenlits)"
-          - if with_url=True, the matched term is not included in the link
-        - Apply strikethrough style if the name is invalid, e.g.
-          - "Picoides pubescens" ->
-            "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
-    """
-    title = format_taxon_name(taxon, lang=lang)
-    if with_url and taxon.url:
-        title = format_link(title, taxon.url)
-    # TODO: Remove workaround for outstanding pyinat issue #448 when it is resolved:
-    # - https://github.com/pyinat/pyinaturalist/issues/448
-    matched = matched_term or taxon.matched_term
-    preferred_common_name = taxon.preferred_common_name
-    if lang and taxon.names:
-        name = next(
-            iter([name for name in taxon.names if name.get("locale") == lang]), None
-        )
-        if name:
-            preferred_common_name = name.get("name")
-    if matched not in (None, taxon.name, preferred_common_name):
-        invalid_names = (
-            [name["name"] for name in taxon.names if not name["is_valid"]]
-            if taxon.names
-            else []
-        )
-        if matched in invalid_names:
-            matched = f"~~{matched}~~"
-        title += f" ({matched})"
-    return title
-
-
-def _full_means(taxon):
+def _full_means(taxon: Taxon):
     """Get the full establishment means for the place from listed taxa."""
     place = taxon.establishment_means and taxon.establishment_means.place
     listed_taxa = taxon.listed_taxa
@@ -363,72 +306,6 @@ def _full_means(taxon):
             for listed_taxon in listed_taxa
             if (listed_taxon.place and listed_taxon.place.id) == place.id
         )
-
-
-# TODO: support other entities relating to taxon that can counted
-# (identifications, species, leaf node taxa).
-def format_taxon_count_link(taxon: Taxon, entity: str):
-    """Format the entity count, optionally suffixed with inflected entity."""
-    obs_count = taxon.observations_count
-    obs_url = f"{WWW_BASE_URL}/observations?taxon_id={taxon.id}"
-    count = format_link(f"{obs_count:,}", obs_url)
-    if entity:
-        count = f"{count} {p.plural(entity, obs_count)}"
-    return count
-
-
-def format_taxon_status_rank(taxon: Taxon, inflect=False):
-    """
-    Format the taxon rank with optional status, optionally prefixed with
-    inflected article (a/an).
-    """
-    if taxon.conservation_status:
-        a_status = format_taxon_conservation_status(
-            taxon.conservation_status,
-            brief=True,
-            inflect=inflect,
-        )
-        a_status_rank = f"{a_status} {taxon.rank}"
-    else:
-        a_status_rank = p.a(taxon.rank)
-    return a_status_rank
-
-
-def format_taxon_description(taxon: Taxon):
-    """Format the taxon description including rank, status, observation count, and means."""
-    a_status_rank = format_taxon_status_rank(taxon, inflect=True)
-    n_observations = format_taxon_count_link(taxon, entity="observation")
-    if taxon.establishment_means:
-        listed_taxon = _full_means(taxon) or taxon.establishment_means
-        established_in_place = " " + format_taxon_establishment_means(listed_taxon)
-    else:
-        established_in_place = ""
-    return f"is {a_status_rank} with {n_observations}{established_in_place}"
-
-
-def format_taxon(
-    taxon: Taxon,
-    lang=None,
-    with_url=False,
-    matched_term=None,
-    max_len=0,
-):
-    """Format the taxon as markdown."""
-    title = format_taxon_title(
-        taxon, lang=lang, matched_term=matched_term, with_url=with_url
-    )
-    description = format_taxon_description(taxon)
-    taxonomy = (
-        " in: "
-        + format_taxon_names(
-            taxon.ancestors,
-            hierarchy=True,
-            max_len=max_len,
-        )
-        if taxon.ancestors
-        else "."
-    )
-    return f"{title} \\\n{description}{taxonomy}"
 
 
 def format_quality_grade(options: dict = {}):
@@ -454,3 +331,164 @@ def format_quality_grade(options: dict = {}):
         if needsid:
             adjectives.append("*Needs ID*")
     return adjectives
+
+
+class BaseFormatter:
+    def format():
+        raise NotImplementedError
+
+
+class BaseCountFormatter(BaseFormatter):
+    def count():
+        raise NotImplementedError
+
+    def description():
+        raise NotImplementedError
+
+
+class TaxonFormatter(BaseFormatter):
+    def __init__(
+        self,
+        taxon: Taxon,
+        lang: str = None,
+        with_url: bool = True,
+        matched_term: str = None,
+        max_len: int = 0,
+        newline: str = "\n",
+    ):
+        """
+        Parameters
+        ----------
+        taxon: Taxon
+            The taxon to format.
+
+        lang: str, optional
+            If specified, prefer the first name with its locale == lang instead of
+            the preferred_common_name.
+
+        matched_term: str, optional
+            If specified, use instead of the taxon.matched_term.
+
+        with_url: bool, optional
+            When True, link the name to taxon.url.
+        """
+        self.taxon = taxon
+        self.lang = lang
+        self.with_url = with_url
+        self.matched_term = matched_term
+        self.max_len = max_len
+        self.newline = newline
+        self.obs_count_formatter = self.ObsCountFormatter(taxon)
+
+    def format(self, with_ancestors: bool = True):
+        """Format the taxon as markdown.
+
+        with_ancestors: bool, optional
+            When False, omit ancestors
+        """
+        description = self.newline.join(
+            [self.format_title(), self.format_taxon_description()]
+        )
+        if with_ancestors and self.taxon.ancestors:
+            description += " in: " + format_taxon_names(
+                self.taxon.ancestors,
+                hierarchy=True,
+                max_len=self.max_len,
+            )
+        else:
+            description += "."
+        return description
+
+    def format_title(self):
+        """Format taxon title as Discord-like markdown.
+
+        Returns
+        -------
+        str
+            Like format_name(), except:
+
+            - Append the matching term in its own parentheses after the common name
+            in parentheses if the matching term is neither the scientific name nor
+            common name, e.g.
+            - "Pissenlits" -> "Genus *Taraxacum* (dandelions) (Pissenlits)"
+            - if with_url=True, the matched term is not included in the link
+            - Apply strikethrough style if the name is invalid, e.g.
+            - "Picoides pubescens" ->
+                "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
+        """
+        title = format_taxon_name(self.taxon, lang=self.lang)
+        if self.with_url and self.taxon.url:
+            title = format_link(title, self.taxon.url)
+        # TODO: Remove workaround for outstanding pyinat issue #448 when it is resolved:
+        # - https://github.com/pyinat/pyinaturalist/issues/448
+        matched = self.matched_term or self.taxon.matched_term
+        preferred_common_name = self.taxon.preferred_common_name
+        if self.lang and self.taxon.names:
+            name = next(
+                iter(
+                    [
+                        name
+                        for name in self.taxon.names
+                        if name.get("locale") == self.lang
+                    ]
+                ),
+                None,
+            )
+            if name:
+                preferred_common_name = name.get("name")
+        if matched not in (None, self.taxon.name, preferred_common_name):
+            invalid_names = (
+                [name["name"] for name in self.taxon.names if not name["is_valid"]]
+                if self.taxon.names
+                else []
+            )
+            if matched in invalid_names:
+                matched = f"~~{matched}~~"
+            title += f" ({matched})"
+        return title
+
+    def format_taxon_description(self):
+        """Format the taxon description including rank, status, observation count, and means."""
+        a_status_rank = self.format_taxon_status_rank()
+        n_observations = self.obs_count_formatter.description()
+        description = f"is {a_status_rank} with {n_observations}"
+        if self.taxon.establishment_means:
+            listed_taxon = _full_means(self.taxon) or self.taxon.establishment_means
+            established_in_place = format_taxon_establishment_means(listed_taxon)
+            if established_in_place:
+                description = f"{description} {established_in_place}"
+        return description
+
+    def format_taxon_status_rank(self):
+        """
+        Format the taxon rank with optional status.
+        """
+        if self.taxon.conservation_status:
+            status = self.taxon.conservation_status
+            a_status = format_taxon_conservation_status(
+                status, brief=True, inflect=True
+            )
+            a_status_rank = f"{a_status} {self.taxon.rank}"
+        else:
+            a_status_rank = p.a(self.taxon.rank)
+        return a_status_rank
+
+    class ObsCountFormatter(BaseCountFormatter):
+        def __init__(self, taxon: Taxon):
+            self.taxon = taxon
+
+        def count(self):
+            return self.taxon.observations_count
+
+        def description(self):
+            count = self.link()
+            return f"{count} {p.plural('observation', count)}"
+
+        def link(self):
+            obs_count = self.count()
+            obs_url = self.url()
+            count = format_link(f"{obs_count:,}", obs_url)
+            return count
+
+        def url(self):
+            return WWW_BASE_URL + f"/observations?taxon_id={self.taxon.id}"

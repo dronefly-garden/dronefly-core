@@ -1,13 +1,7 @@
 """Discord formatters."""
-from typing import List
-
 from pyinaturalist.models import Taxon
 
-from dronefly.core.formatters.generic import (
-    format_taxon_name,
-    format_taxon_names as generic_format_taxon_names,
-    format_taxon as generic_format_taxon,
-)
+from dronefly.core.formatters.generic import format_taxon_name
 
 EMBED_COLOR = 0x90EE90
 # From https://discordapp.com/developers/docs/resources/channel#embed-limits
@@ -27,36 +21,6 @@ MAX_EMBED_FILE_LEN = 8000000
 #   - images would be fetched, then uploaded with spoilers
 # SPOILER_PAT = re.compile(r"\|\|")
 # DOUBLE_BAR_LIT = "\\|\\|"
-
-
-def format_taxon_names(
-    taxa: List[Taxon],
-    with_term=False,
-    names_format="%s",
-    max_len=MAX_EMBED_NAME_LEN,
-    hierarchy=False,
-    lang=None,
-):
-    """Format list of names of taxa, not exceeding max Discord name length."""
-    return generic_format_taxon_names(
-        taxa, with_term, names_format, max_len, hierarchy, lang
-    )
-
-
-def format_taxon(
-    taxon: Taxon,
-    lang=None,
-    with_url=False,
-    matched_term=None,
-    max_len=0,
-):
-    return generic_format_taxon(
-        taxon=taxon,
-        lang=lang,
-        with_url=with_url,
-        matched_term=matched_term,
-        max_len=max_len,
-    )
 
 
 def format_taxon_image_embed(
