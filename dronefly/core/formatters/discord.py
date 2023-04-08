@@ -121,4 +121,4 @@ def format_user_url(user: User):
 
 def format_user_link(user: User):
     """Format user's profile link as Markdown."""
-    return f"[{format_user_name(user.name)}]({format_user_url(user)})"
+    return f"[{format_user_name(user)}]({format_user_url(user)})"
