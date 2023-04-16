@@ -6,7 +6,7 @@ Files: *
 Copyright: 2019-2023 Ben Armstrong
 License: AGPL-3+
 
-Files: dronefly/core/formatters/discord.py
+Files: dronefly/core/formatters/generic.py
 Copyright:
  2019-2023 Ben Armstrong
  2015-2023 Rapptz

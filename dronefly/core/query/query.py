@@ -5,8 +5,7 @@ import datetime as dt
 import re
 from typing import List, Optional, Union
 
-from dronefly.core.formatters.discord import format_user_name
-from dronefly.core.formatters.generic import format_taxon_name
+from dronefly.core.formatters.generic import format_taxon_name, format_user_name
 from dronefly.core.models.controlled_terms import ControlledTermSelector
 from pyinaturalist.models import Place, Project, Taxon, User
 

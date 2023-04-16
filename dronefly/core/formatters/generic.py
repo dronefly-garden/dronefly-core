@@ -3,6 +3,7 @@
 Anything more complicated than plain text can be rendered in Markdown,
 which is then fairly easy to render to other formats as needed.
 """
+from datetime import datetime as dt
 import re
 from typing import List, Union
 
@@ -11,13 +12,20 @@ from dronefly.core.constants import (
     TRINOMIAL_ABBR,
     RANK_LEVELS,
 )
-from dronefly.core.formatters.constants import WWW_BASE_URL
+from dronefly.core.formatters.constants import (
+    ICONS,
+    WWW_BASE_URL,
+)
+import html2markdown
 import inflect
 from pyinaturalist import (
     ConservationStatus,
     EstablishmentMeans,
     ListedTaxon,
+    Observation,
     Taxon,
+    TaxonSummary,
+    User,
 )
 
 MEANS_LABEL_DESC = {
@@ -34,7 +42,88 @@ MEANS_LABEL_EMOJI = {
 
 TAXON_LIST_DELIMITER = [", ", " > "]
 
+# TODO: the seed idea here is to act on & render spoilered commands and displays,
+#   e.g. `,obs my ||gory observation taxon||`
+#   - images would be fetched, then uploaded with spoilers
+# SPOILER_PAT = re.compile(r"\|\|")
+# DOUBLE_BAR_LIT = "\\|\\|"
+
+_MARKDOWN_ESCAPE_SUBREGEX = "|".join(
+    r"\{0}(?=([\s\S]*((?<!\{0})\{0})))".format(c) for c in ("*", "`", "_", "~", "|")
+)
+_MARKDOWN_ESCAPE_COMMON = r"^>(?:>>)?\s|\[.+\]\(.+\)"
+_MARKDOWN_ESCAPE_REGEX = re.compile(
+    rf"(?P<markdown>{_MARKDOWN_ESCAPE_SUBREGEX}|{_MARKDOWN_ESCAPE_COMMON})",
+    re.MULTILINE,
+)
+_URL_REGEX = r"(?P<url><[^: >]+:\/[^ >]+>|(?:https?|steam):\/\/[^\s<]+[^<.,:;\"\'\]\s])"
+_MARKDOWN_STOCK_REGEX = rf"(?P<markdown>[_\\~|\*`]|{_MARKDOWN_ESCAPE_COMMON})"
+
 p = inflect.engine()
+
+
+def escape_markdown(
+    text: str, *, as_needed: bool = False, ignore_links: bool = True
+) -> str:
+    r"""A helper function that escapes Discord's markdown.
+
+    Parameters
+    -----------
+    text: :class:`str`
+        The text to escape markdown from.
+    as_needed: :class:`bool`
+        Whether to escape the markdown characters as needed. This
+        means that it does not escape extraneous characters if it's
+        not necessary, e.g. ``**hello**`` is escaped into ``\*\*hello**``
+        instead of ``\*\*hello\*\*``. Note however that this can open
+        you up to some clever syntax abuse. Defaults to ``False``.
+    ignore_links: :class:`bool`
+        Whether to leave links alone when escaping markdown. For example,
+        if a URL in the text contains characters such as ``_`` then it will
+        be left alone. This option is not supported with ``as_needed``.
+        Defaults to ``True``.
+
+    Returns
+    --------
+    :class:`str`
+        The text with the markdown special characters escaped with a slash.
+
+    Taken from https://github.com/Rapptz/discord.py/blob/master/discord/utils.py
+    """
+
+    if not as_needed:
+
+        def replacement(match):
+            groupdict = match.groupdict()
+            is_url = groupdict.get("url")
+            if is_url:
+                return is_url
+            return "\\" + groupdict["markdown"]
+
+        regex = _MARKDOWN_STOCK_REGEX
+        if ignore_links:
+            regex = f"(?:{_URL_REGEX}|{regex})"
+        return re.sub(regex, replacement, text, 0, re.MULTILINE)
+    else:
+        text = re.sub(r"\\", r"\\\\", text)
+        return _MARKDOWN_ESCAPE_REGEX.sub(r"\\\1", text)
+
+
+def format_user_name(user: User):
+    """Format user's display name with Markdown special characters escaped."""
+    if user.name:
+        return f"{escape_markdown(user.name)} ({escape_markdown(user.login)})"
+    return escape_markdown(user.login)
+
+
+def format_user_url(user: User):
+    """Format user's profile url using their login name instead of user id."""
+    return f"{WWW_BASE_URL}/people/{user.login}" if user.login else ""
+
+
+def format_user_link(user: User):
+    """Format user's profile link as Markdown."""
+    return f"[{format_user_name(user)}]({format_user_url(user)})"
 
 
 def format_link(link_text: str, url: str):
@@ -302,9 +391,12 @@ def _full_means(taxon: Taxon):
     listed_taxa = taxon.listed_taxa
     if place and listed_taxa:
         return next(
-            listed_taxon
-            for listed_taxon in listed_taxa
-            if (listed_taxon.place and listed_taxon.place.id) == place.id
+            (
+                listed_taxon
+                for listed_taxon in listed_taxa
+                if (listed_taxon.place and listed_taxon.place.id) == place.id
+            ),
+            None,
         )
 
 
@@ -492,3 +584,223 @@ class TaxonFormatter(BaseFormatter):
 
         def url(self):
             return WWW_BASE_URL + f"/observations?taxon_id={self.taxon.id}"
+
+
+class ObservationFormatter(BaseFormatter):
+    def __init__(
+        self,
+        obs: Observation,
+        with_description=True,
+        with_link=False,
+        compact=False,
+        with_user=True,
+        taxon_summary: TaxonSummary = None,
+        community_taxon: Taxon = None,
+        community_taxon_summary: TaxonSummary = None,
+    ):
+        self.obs = obs
+        self.compact = compact
+        self.with_description = with_description
+        self.with_link = with_link
+        self.compact = compact
+        self.with_user = with_user
+        self.taxon_summary = taxon_summary
+        self.community_taxon = community_taxon
+        self.community_taxon_summary = community_taxon_summary
+
+    def format(self):
+        title = self.format_title()
+        summary = self.format_summary(self.obs.taxon, self.taxon_summary)
+        title, summary = self.format_community_id(
+            title, summary, self.community_taxon_summary
+        )
+        if not self.compact:
+            title += self.format_media_counts()
+            if self.with_link:
+                link_url = f"{WWW_BASE_URL}/observations/{self.obs.id}"
+                title = f"{title} [🔗]({link_url})"
+        return title + "\n> " + summary + "\n> "
+
+    def format_title(self):
+        title = ""
+        taxon_str = self.get_taxon_name(self.obs.taxon)
+        if self.with_link:
+            link_url = f"{WWW_BASE_URL}/observations/{self.obs.id}"
+            taxon_str = f"[{taxon_str}]({link_url})"
+        title += taxon_str
+        if not self.compact:
+            title += f" by {self.obs.user.login} " + ICONS[self.obs.quality_grade]
+            if self.obs.faves:
+                title += self.format_count("fave", len(self.obs.faves))
+            if self.obs.comments:
+                title += self.format_count("comment", len(self.obs.comments))
+        return title
+
+    def format_count(self, label, count):
+        delim = " " if self.compact else ", "
+        return f"{delim}{ICONS[label]}" + (str(count) if count > 1 else "")
+
+    def get_taxon_name(self, taxon):
+        if taxon:
+            taxon_str = format_taxon_name(
+                taxon, with_rank=not self.compact, with_common=False
+            )
+        else:
+            taxon_str = "Unknown"
+        return taxon_str
+
+    def format_summary(self, taxon, taxon_summary):
+        summary = ""
+        if not self.compact:
+            taxon_str = self.get_taxon_name(taxon)
+            if taxon:
+                common = (
+                    f" ({taxon.preferred_common_name})"
+                    if taxon.preferred_common_name
+                    else ""
+                )
+                link_url = f"{WWW_BASE_URL}/taxa/{taxon.id}"
+                taxon_str = f"[{taxon_str}]({link_url}){common}"
+            summary += f"Taxon: {taxon_str}\n"
+        if taxon_summary:
+            means = taxon_summary.listed_taxon
+            status = taxon_summary.conservation_status
+            if status:
+                formatted_status = format_taxon_conservation_status(status)
+                summary += f"Conservation Status: {formatted_status}\n"
+            if means:
+                summary += f"{format_taxon_establishment_means(means)}\n"
+        login = ""
+        if self.compact:
+            if self.with_user:
+                login = self.obs.user.login
+            summary += "\n"
+        else:
+            summary += "Observed by " + format_user_link(self.obs.user)
+        obs_on = ""
+        obs_at = ""
+        if self.obs.observed_on:
+            if self.compact:
+                if self.obs.observed_on.date() == dt.datetime.now().date():
+                    obs_on = self.obs.observed_on.strftime("%-I:%M%P")
+                elif self.obs.observed_on.year == dt.datetime.now().year:
+                    obs_on = self.obs.observed_on.strftime("%-d-%b")
+                else:
+                    obs_on = self.obs.observed_on.strftime("%b-%Y")
+            else:
+                obs_on = self.obs.observed_on.strftime("%a %b %-d, %Y · %-I:%M %P")
+                summary += " on " + obs_on
+        if self.obs.place_guess:
+            if self.compact:
+                obs_at = self.obs.place_guess
+            else:
+                summary += " at " + self.obs.place_guess
+        if self.compact:
+            line = " ".join((item for item in (login, obs_on, obs_at) if item))
+            if len(line) > 32:
+                line = line[0:31] + "…"
+            summary += "`{0: <32}`".format(line)
+            summary += ICONS[self.obs.quality_grade]
+            if self.obs.faves:
+                summary += self.format_count("fave", len(self.obs.faves))
+            if self.obs.comments:
+                summary += self.format_count("comment", len(self.obs.comments))
+            summary += self.format_media_counts(self.obs)
+        if self.with_description and self.obs.description:
+            # Contribute up to 10 lines from the description, and no more
+            # than 500 characters:
+            #
+            # TODO: if https://bugs.launchpad.net/beautifulsoup/+bug/1873787 is
+            # ever fixed, suppress the warning instead of adding this blank
+            # as a workaround.
+            text_description = html2markdown.convert(" " + self.obs.description)
+            lines = text_description.split("\n", 11)
+            description = "\n> %s" % "\n> ".join(lines[:10])
+            if len(lines) > 10:
+                description += "\n> …"
+            if len(description) > 500:
+                description = description[:498] + "…"
+            summary += description + "\n"
+        return summary
+
+    def format_community_id(self, title, summary, taxon_summary):
+        idents_count = ""
+        if self.obs.identifications_count:
+            if self.obs.community_taxon_id:
+                (idents_count, idents_agree) = self.count_community_id()
+                idents_count = f"{ICONS['community']} ({idents_agree}/{idents_count})"
+            else:
+                obs_idents_count = (
+                    self.obs.identifications_count
+                    if self.obs.identifications_count > 1
+                    else ""
+                )
+                idents_count = f"{ICONS['ident']}{obs_idents_count}"
+        if (
+            not self.compact
+            and self.obs.community_taxon_id
+            and self.obs.community_taxon_id != self.obs.taxon.id
+        ):
+            means_link = ""
+            status_link = ""
+            if taxon_summary:
+                means = taxon_summary.listed_taxon
+                status = taxon_summary.conservation_status
+                if status:
+                    status_link = (
+                        "\nConservation Status: "
+                        f"{format_taxon_conservation_status(status)}"
+                    )
+                if means:
+                    means_link = f"\n{format_taxon_establishment_means(means)}"
+            summary = (
+                f"{format_taxon_name(self.community_taxon)} "
+                f"{status_link}{idents_count}{means_link}\n\n" + summary
+            )
+        else:
+            if idents_count:
+                if self.compact:
+                    summary += " " + idents_count
+                else:
+                    title += " " + idents_count
+        return (title, summary)
+
+    def format_media_counts(self):
+        media_counts = ""
+        if self.obs.photos:
+            media_counts += self.format_count("image", len(self.obs.photos))
+        if self.obs.sounds:
+            media_counts += self.format_count("sound", len(self.obs.sounds))
+        return media_counts
+
+    def count_community_id(self):
+        idents_count = 0
+        idents_agree = 0
+
+        ident_taxon_ids = []
+        # TODO: when pyinat supports ident_taxon_ids, this can be removed.
+        for ident in self.obs.identifications:
+            if ident.taxon:
+                for ancestor_id in ident.taxon.ancestor_ids:
+                    if ancestor_id not in ident_taxon_ids:
+                        ident_taxon_ids.append(ancestor_id)
+                if ident.taxon.id not in ident_taxon_ids:
+                    ident_taxon_ids.append(ident.taxon.id)
+        for identification in self.obs.identifications:
+            if identification.current:
+                user_taxon_id = identification.taxon.id
+                user_taxon_ids = identification.taxon.ancestor_ids
+                user_taxon_ids.append(user_taxon_id)
+                if self.obs.community_taxon_id in user_taxon_ids:
+                    if user_taxon_id in ident_taxon_ids:
+                        # Count towards total & agree:
+                        idents_count += 1
+                        idents_agree += 1
+                    else:
+                        # Neither counts for nor against
+                        pass
+                else:
+                    # Maverick counts against:
+                    idents_count += 1
+
+        return (idents_count, idents_agree)
