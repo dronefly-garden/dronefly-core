@@ -117,7 +117,7 @@ class Commands:
                 return f"No observations by you found for: {taxon.full_name}"
 
         taxon_summary = client.observations.taxon_summary(obs.id)
-        if obs.community_taxon_id > 0 and obs.community_taxon_id != obs.taxon.id:
+        if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
             community_taxon = client.taxa.from_ids(obs.taxon.id, limit=1).one()
             community_taxon_summary = client.observations.taxon_summary(
                 obs.id, community=1
