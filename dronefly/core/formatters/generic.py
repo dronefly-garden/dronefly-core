@@ -3,9 +3,27 @@
 Anything more complicated than plain text can be rendered in Markdown,
 which is then fairly easy to render to other formats as needed.
 """
+from __future__ import annotations
+import copy
 from datetime import datetime as dt
 import re
-from typing import List, Union
+from typing import List, TYPE_CHECKING, Union
+
+if TYPE_CHECKING:
+    from dronefly.core.query.query import QueryResponse
+
+import html2markdown
+import inflect
+from pyinaturalist import (
+    ConservationStatus,
+    EstablishmentMeans,
+    JsonResponse,
+    ListedTaxon,
+    Observation,
+    Taxon,
+    TaxonSummary,
+    User,
+)
 
 from dronefly.core.constants import (
     TAXON_PRIMARY_RANKS,
@@ -16,17 +34,7 @@ from dronefly.core.formatters.constants import (
     ICONS,
     WWW_BASE_URL,
 )
-import html2markdown
-import inflect
-from pyinaturalist import (
-    ConservationStatus,
-    EstablishmentMeans,
-    ListedTaxon,
-    Observation,
-    Taxon,
-    TaxonSummary,
-    User,
-)
+from dronefly.core.utils import obs_url_from_v1
 
 MEANS_LABEL_DESC = {
     "endemic": "endemic to",
@@ -472,15 +480,16 @@ class TaxonFormatter(BaseFormatter):
         self.newline = newline
         self.obs_count_formatter = self.ObsCountFormatter(taxon)
 
-    def format(self, with_ancestors: bool = True):
+    def format(self, with_title: bool = True, with_ancestors: bool = True):
         """Format the taxon as markdown.
 
+        with_title: bool, optional
         with_ancestors: bool, optional
             When False, omit ancestors
         """
-        description = self.newline.join(
-            [self.format_title(), self.format_taxon_description()]
-        )
+        description = self.format_taxon_description()
+        if with_title:
+            description = self.newline.join([self.format_title(), description])
         if with_ancestors and self.taxon.ancestors:
             description += " in: " + format_taxon_names(
                 self.taxon.ancestors,
@@ -804,3 +813,57 @@ class ObservationFormatter(BaseFormatter):
                     idents_count += 1
 
         return (idents_count, idents_agree)
+
+
+class QualifiedTaxonFormatter(TaxonFormatter):
+    def __init__(
+        self,
+        query_response: QueryResponse,
+        observations: JsonResponse = None,
+        **kwargs,
+    ):
+        super().__init__(**kwargs)
+        self.query_response = query_response
+        self.observations = observations
+        self.obs_count_formatter = self.ObsCountFormatter(
+            query_response.taxon, query_response, observations
+        )
+
+    class ObsCountFormatter(TaxonFormatter.ObsCountFormatter):
+        def __init__(
+            self,
+            taxon: Taxon,
+            query_response: QueryResponse = None,
+            observations: JsonResponse = None,
+        ):
+            super().__init__(taxon)
+            self.query_response = query_response
+            self.observations = observations
+
+        def count(self):
+            if self.observations:
+                count = self.observations.get("total_results")
+            else:
+                count = self.taxon.observations_count
+            return count
+
+        def url(self):
+            return obs_url_from_v1(self.query_response.obs_args())
+
+        def description(self):
+            count = self.link()
+            count_str = "uncounted" if count is None else str(count)
+            adjectives = self.query_response.adjectives  # rg, nid, etc.
+            query_without_taxon = copy.copy(self.query_response)
+            query_without_taxon.taxon = None
+            description = [
+                count_str,
+                *adjectives,
+                p.plural("observation", count),
+            ]
+            filter = query_without_taxon.obs_query_description(
+                with_adjectives=False
+            )  # place, prj, etc.
+            if filter:
+                description.append(filter)
+            return " ".join(description)
