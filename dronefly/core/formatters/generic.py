@@ -622,6 +622,7 @@ class ObservationFormatter(BaseFormatter):
         with_link=False,
         compact=False,
         with_user=True,
+        taxon: Taxon = None,
         taxon_summary: TaxonSummary = None,
         community_taxon: Taxon = None,
         community_taxon_summary: TaxonSummary = None,
@@ -632,19 +633,23 @@ class ObservationFormatter(BaseFormatter):
         self.with_link = with_link
         self.compact = compact
         self.with_user = with_user
+        self.taxon = taxon or self.obs.taxon
         self.taxon_summary = taxon_summary
         self.community_taxon = community_taxon
         self.community_taxon_summary = community_taxon_summary
 
-    def format(self):
-        title = self.format_title()
-        summary = self.format_summary(self.obs.taxon, self.taxon_summary)
+    def format(self, join_title: bool = True):
+        title = self.format_title(with_link=join_title)
+        summary = self.format_summary(self.taxon, self.taxon_summary)
         title, summary = self.format_community_id(
             title, summary, self.community_taxon_summary
         )
         if not self.compact:
             title += self.format_media_counts()
-        return title + "\n> " + summary + "\n> "
+        result = (title, summary)
+        if join_title:
+            result = "\n> ".join(result)
+        return result
 
     def format_taxon_link(self, taxon: Taxon):
         taxon_str = self.get_taxon_name(taxon)
@@ -659,10 +664,10 @@ class ObservationFormatter(BaseFormatter):
             )
         return taxon_str
 
-    def format_title(self):
+    def format_title(self, with_link: bool = True):
         title = ""
-        taxon_str = self.get_taxon_name(self.obs.taxon)
-        if self.with_link:
+        taxon_str = self.get_taxon_name(self.taxon)
+        if with_link and self.with_link:
             taxon_str = format_link(
                 taxon_str, f"{WWW_BASE_URL}/observations/{self.obs.id}"
             )
@@ -768,7 +773,7 @@ class ObservationFormatter(BaseFormatter):
         if (
             not self.compact
             and self.obs.community_taxon_id
-            and self.obs.community_taxon_id != self.obs.taxon.id
+            and self.obs.community_taxon_id != self.taxon.id
         ):
             means_link = ""
             status_link = ""
