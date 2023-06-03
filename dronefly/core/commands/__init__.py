@@ -11,7 +11,9 @@ from ..formatters.generic import ObservationFormatter, TaxonFormatter
 from ..models.user import User
 
 
-RICH_BQ_NEWLINE_PAT = re.compile(r"^(\>.*?)(\n)", re.MULTILINE)
+RICH_BQ_NEWLINE_PAT = re.compile(r"^(\> .*?)\n(?=\> )", re.MULTILINE)
+RICH_BQ_END_PAT = re.compile(r"^((\> .*?\n)+)(?!> )", re.MULTILINE)
+RICH_NO_BQ_NEWLINE_PAT = re.compile(r"^(?!\> )(.+?)(\n)(?!$|\> )", re.MULTILINE)
 RICH_NEWLINE = " \\\n"
 
 
@@ -67,6 +69,33 @@ class Commands:
     def _parse(self, query_str):
         return self.parser.parse(query_str)
 
+    def _format_markdown(self, formatter):
+        markdown_text = formatter.format()
+        if self.format == Format.rich:
+            # Richify the markdown:
+            # - In Discord markdown, all newlines are rendered as line breaks
+            # - In Rich:
+            #   - Before every newline, emit " \" to force a line break, except
+            #     for these exceptions to handle blockquotes:
+            #     - Don't do this for a line preceding a blockquote
+            #     - Also don't do this on the last line of a blockquote
+            #     - Ensure the last line of each blockquote has two newlines to
+            #       end it
+
+            # Replace all but last newline of blockquote with line break sequence:
+            rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r"\1 \\\n", markdown_text)
+            # Add extra newline at end of blockquote so following text won't be
+            # tacked on:
+            rich_markdown = re.sub(RICH_BQ_END_PAT, r"\1\n\n", rich_markdown)
+            # Finally, on any line that isn't part of a blockquote, isn't empty,
+            # and isn't at the end of the string, emit a line break:
+            rich_markdown = re.sub(RICH_NO_BQ_NEWLINE_PAT, r"\1 \\\n", rich_markdown)
+            response = Markdown(rich_markdown)
+        else:
+            # Return the literal markdown for Discord to render
+            response = markdown_text
+        return response
+
     def taxon(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
@@ -85,13 +114,8 @@ class Commands:
             taxon,
             lang=ctx.get_inat_user_default("inat_lang"),
             with_url=True,
-            newline=RICH_NEWLINE,
         )
-        response = formatter.format()
-
-        if self.format == Format.rich:
-            rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r"\1\\\n", response)
-            response = Markdown(rich_markdown)
+        response = self._format_markdown(formatter)
 
         return response
 
@@ -135,10 +159,6 @@ class Commands:
             community_taxon_summary=community_taxon_summary,
             with_link=True,
         )
-        response = formatter.format()
-
-        if self.format == Format.rich:
-            rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r"\1\\\n", response)
-            response = Markdown(rich_markdown)
+        response = self._format_markdown(formatter)
 
         return response

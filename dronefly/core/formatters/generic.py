@@ -475,7 +475,6 @@ class TaxonFormatter(BaseFormatter):
         with_url: bool = True,
         matched_term: str = None,
         max_len: int = 0,
-        newline: str = "\n",
     ):
         """
         Parameters
@@ -498,7 +497,6 @@ class TaxonFormatter(BaseFormatter):
         self.with_url = with_url
         self.matched_term = matched_term
         self.max_len = max_len
-        self.newline = newline
         self.obs_count_formatter = self.ObsCountFormatter(taxon)
 
     def format(self, with_title: bool = True, with_ancestors: bool = True):
@@ -510,7 +508,7 @@ class TaxonFormatter(BaseFormatter):
         """
         description = self.format_taxon_description()
         if with_title:
-            description = self.newline.join([self.format_title(), description])
+            description = "\n".join([self.format_title(), description])
         if with_ancestors and self.taxon.ancestors:
             description += " in: " + format_taxon_names(
                 self.taxon.ancestors,
