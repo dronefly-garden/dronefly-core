@@ -756,7 +756,7 @@ class ObservationFormatter(BaseFormatter):
         idents_count = ""
         if self.obs.identifications_count:
             if self.obs.community_taxon_id:
-                (idents_count, idents_agree) = self.obs.cumulative_ids()
+                (idents_count, idents_agree) = self.obs.cumulative_ids
                 idents_count = f"{ICONS['community']} ({idents_agree}/{idents_count})"
             else:
                 obs_idents_count = (
