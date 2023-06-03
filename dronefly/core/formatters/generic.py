@@ -126,9 +126,9 @@ def format_datetime(time, compact=False):
     mon = time.strftime("%b")
     year = time.strftime("%Y")
     if compact:
-        if time.date() == dt.datetime.now().date():
+        if time.date() == dt.now().date():
             formatted_time = f"{hour}:{minute}{am_pm}"
-        elif time.year == dt.datetime.now().year:
+        elif time.year == dt.now().year:
             formatted_time = f"{day}-{mon}"
         else:
             formatted_time = f"{mon}-{year}"
