@@ -648,7 +648,7 @@ class ObservationFormatter(BaseFormatter):
             title += self.format_media_counts()
         result = (title, summary)
         if join_title:
-            result = "\n> ".join(result)
+            result = "".join(result)
         return result
 
     def format_taxon_link(self, taxon: Taxon):
@@ -791,7 +791,7 @@ class ObservationFormatter(BaseFormatter):
             if self.with_link:
                 community_taxon_str = self.format_taxon_link(self.community_taxon)
             summary = (
-                f"{community_taxon_str} {status_link}{idents_count}{means_link}\n\n"
+                f"Community Taxon: {community_taxon_str} {status_link}{idents_count}{means_link}\n"
                 + summary
             )
         else:
