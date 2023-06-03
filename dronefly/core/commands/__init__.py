@@ -116,15 +116,17 @@ class Commands:
             if not obs:
                 return f"No observations by you found for: {taxon.full_name}"
 
-        taxon_summary = client.observations.taxon_summary(obs.id)
-        if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
-            community_taxon = client.taxa.from_ids(obs.taxon.id, limit=1).one()
-            community_taxon_summary = client.observations.taxon_summary(
-                obs.id, community=1
-            )
-        else:
-            community_taxon = taxon
-            community_taxon_summary = taxon_summary
+            taxon_summary = client.observations.taxon_summary(obs.id)
+            if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
+                community_taxon = client.taxa.from_ids(
+                    obs.community_taxon_id, limit=1
+                ).one()
+                community_taxon_summary = client.observations.taxon_summary(
+                    obs.id, community=1
+                )
+            else:
+                community_taxon = taxon
+                community_taxon_summary = taxon_summary
 
         formatter = ObservationFormatter(
             obs,
