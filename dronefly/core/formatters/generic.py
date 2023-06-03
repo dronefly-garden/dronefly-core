@@ -739,7 +739,7 @@ class ObservationFormatter(BaseFormatter):
                 summary += self.format_count("fave", len(obs.faves))
             if obs.comments:
                 summary += self.format_count("comment", len(obs.comments))
-            summary += self.format_media_counts(obs)
+            summary += self.format_media_counts()
         if with_description and obs.description:
             # Contribute up to 10 lines from the description, and no more
             # than 500 characters:
