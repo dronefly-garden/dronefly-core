@@ -648,7 +648,7 @@ class ObservationFormatter(BaseFormatter):
             title += self.format_media_counts()
         result = (title, summary)
         if join_title:
-            result = "".join(result)
+            result = ("" if self.compact else "\n").join(result)
         return result
 
     def format_taxon_link(self, taxon: Taxon):
