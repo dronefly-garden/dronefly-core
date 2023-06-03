@@ -644,17 +644,28 @@ class ObservationFormatter(BaseFormatter):
         )
         if not self.compact:
             title += self.format_media_counts()
-            if self.with_link:
-                link_url = f"{WWW_BASE_URL}/observations/{self.obs.id}"
-                title = f"{title} [🔗]({link_url})"
         return title + "\n> " + summary + "\n> "
+
+    def format_taxon_link(self, taxon: Taxon):
+        taxon_str = self.get_taxon_name(taxon)
+        if taxon and self.with_link:
+            common = (
+                f" ({taxon.preferred_common_name})"
+                if taxon.preferred_common_name
+                else ""
+            )
+            taxon_str = (
+                format_link(taxon_str, f"{WWW_BASE_URL}/taxa/{taxon.id}") + common
+            )
+        return taxon_str
 
     def format_title(self):
         title = ""
         taxon_str = self.get_taxon_name(self.obs.taxon)
         if self.with_link:
-            link_url = f"{WWW_BASE_URL}/observations/{self.obs.id}"
-            taxon_str = f"[{taxon_str}]({link_url})"
+            taxon_str = format_link(
+                taxon_str, f"{WWW_BASE_URL}/observations/{self.obs.id}"
+            )
         title += taxon_str
         if not self.compact:
             title += f" by {self.obs.user.login} " + ICONS[self.obs.quality_grade]
@@ -685,15 +696,7 @@ class ObservationFormatter(BaseFormatter):
         with_description = self.with_description
 
         if not compact:
-            taxon_str = self.get_taxon_name(taxon)
-            if taxon:
-                common = (
-                    f" ({taxon.preferred_common_name})"
-                    if taxon.preferred_common_name
-                    else ""
-                )
-                link_url = f"{WWW_BASE_URL}/taxa/{taxon.id}"
-                taxon_str = f"[{taxon_str}]({link_url}){common}"
+            taxon_str = self.format_taxon_link(taxon)
             summary += f"Taxon: {taxon_str}\n"
         if taxon_summary:
             means = taxon_summary.listed_taxon
@@ -779,9 +782,12 @@ class ObservationFormatter(BaseFormatter):
                     )
                 if means:
                     means_link = f"\n{format_taxon_establishment_means(means)}"
+            community_taxon_str = f"{format_taxon_name(self.community_taxon)}"
+            if self.with_link:
+                community_taxon_str = self.format_taxon_link(self.community_taxon)
             summary = (
-                f"{format_taxon_name(self.community_taxon)} "
-                f"{status_link}{idents_count}{means_link}\n\n" + summary
+                f"{community_taxon_str} {status_link}{idents_count}{means_link}\n\n"
+                + summary
             )
         else:
             if idents_count:
