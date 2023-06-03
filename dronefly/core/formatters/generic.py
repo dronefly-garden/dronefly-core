@@ -756,7 +756,7 @@ class ObservationFormatter(BaseFormatter):
         idents_count = ""
         if self.obs.identifications_count:
             if self.obs.community_taxon_id:
-                (idents_count, idents_agree) = self.count_community_id()
+                (idents_count, idents_agree) = self.obs.cumulative_ids()
                 idents_count = f"{ICONS['community']} ({idents_agree}/{idents_count})"
             else:
                 obs_idents_count = (
@@ -804,38 +804,6 @@ class ObservationFormatter(BaseFormatter):
         if self.obs.sounds:
             media_counts += self.format_count("sound", len(self.obs.sounds))
         return media_counts
-
-    def count_community_id(self):
-        idents_count = 0
-        idents_agree = 0
-
-        ident_taxon_ids = []
-        # TODO: when pyinat supports ident_taxon_ids, this can be removed.
-        for ident in self.obs.identifications:
-            if ident.taxon:
-                for ancestor_id in ident.taxon.ancestor_ids:
-                    if ancestor_id not in ident_taxon_ids:
-                        ident_taxon_ids.append(ancestor_id)
-                if ident.taxon.id not in ident_taxon_ids:
-                    ident_taxon_ids.append(ident.taxon.id)
-        for identification in self.obs.identifications:
-            if identification.current:
-                user_taxon_id = identification.taxon.id
-                user_taxon_ids = identification.taxon.ancestor_ids
-                user_taxon_ids.append(user_taxon_id)
-                if self.obs.community_taxon_id in user_taxon_ids:
-                    if user_taxon_id in ident_taxon_ids:
-                        # Count towards total & agree:
-                        idents_count += 1
-                        idents_agree += 1
-                    else:
-                        # Neither counts for nor against
-                        pass
-                else:
-                    # Maverick counts against:
-                    idents_count += 1
-
-        return (idents_count, idents_agree)
 
 
 class QualifiedTaxonFormatter(TaxonFormatter):
