@@ -117,6 +117,27 @@ def escape_markdown(
         return _MARKDOWN_ESCAPE_REGEX.sub(r"\\\1", text)
 
 
+def format_datetime(time, compact=False):
+    """Format datetime with compact option that drops less relevant parts."""
+    hour = time.strftime("%I").lstrip("0")
+    minute = time.strftime("%M")
+    am_pm = time.strftime("%p").lower()
+    day = time.strftime("%d").lstrip("0")
+    mon = time.strftime("%b")
+    year = time.strftime("%Y")
+    if compact:
+        if time.date() == dt.datetime.now().date():
+            formatted_time = f"{hour}:{minute}{am_pm}"
+        elif time.year == dt.datetime.now().year:
+            formatted_time = f"{day}-{mon}"
+        else:
+            formatted_time = f"{mon}-{year}"
+    else:
+        wday = time.strftime("%a")
+        formatted_time = f"{wday} {mon} {day}, {year} · {hour}:{minute} {am_pm}"
+    return formatted_time
+
+
 def format_user_name(user: User):
     """Format user's display name with Markdown special characters escaped."""
     if user.name:
@@ -660,7 +681,12 @@ class ObservationFormatter(BaseFormatter):
 
     def format_summary(self, taxon, taxon_summary):
         summary = ""
-        if not self.compact:
+        obs = self.obs
+        compact = self.compact
+        with_user = self.with_user
+        with_description = self.with_description
+
+        if not compact:
             taxon_str = self.get_taxon_name(taxon)
             if taxon:
                 common = (
@@ -680,49 +706,42 @@ class ObservationFormatter(BaseFormatter):
             if means:
                 summary += f"{format_taxon_establishment_means(means)}\n"
         login = ""
-        if self.compact:
-            if self.with_user:
-                login = self.obs.user.login
+        if compact:
+            if with_user:
+                login = obs.user.login
             summary += "\n"
         else:
-            summary += "Observed by " + format_user_link(self.obs.user)
+            summary += "Observed by " + format_user_link(obs.user)
         obs_on = ""
         obs_at = ""
-        if self.obs.observed_on:
-            if self.compact:
-                if self.obs.observed_on.date() == dt.datetime.now().date():
-                    obs_on = self.obs.observed_on.strftime("%-I:%M%P")
-                elif self.obs.observed_on.year == dt.datetime.now().year:
-                    obs_on = self.obs.observed_on.strftime("%-d-%b")
-                else:
-                    obs_on = self.obs.observed_on.strftime("%b-%Y")
-            else:
-                obs_on = self.obs.observed_on.strftime("%a %b %-d, %Y · %-I:%M %P")
+        if obs.observed_on:
+            obs_on = format_datetime(obs.observed_on, compact)
+            if not compact:
                 summary += " on " + obs_on
-        if self.obs.place_guess:
-            if self.compact:
-                obs_at = self.obs.place_guess
+        if obs.place_guess:
+            if compact:
+                obs_at = obs.place_guess
             else:
-                summary += " at " + self.obs.place_guess
-        if self.compact:
+                summary += " at " + obs.place_guess
+        if compact:
             line = " ".join((item for item in (login, obs_on, obs_at) if item))
             if len(line) > 32:
                 line = line[0:31] + "…"
             summary += "`{0: <32}`".format(line)
-            summary += ICONS[self.obs.quality_grade]
-            if self.obs.faves:
-                summary += self.format_count("fave", len(self.obs.faves))
-            if self.obs.comments:
-                summary += self.format_count("comment", len(self.obs.comments))
-            summary += self.format_media_counts(self.obs)
-        if self.with_description and self.obs.description:
+            summary += ICONS[obs.quality_grade]
+            if obs.faves:
+                summary += self.format_count("fave", len(obs.faves))
+            if obs.comments:
+                summary += self.format_count("comment", len(obs.comments))
+            summary += self.format_media_counts(obs)
+        if with_description and obs.description:
             # Contribute up to 10 lines from the description, and no more
             # than 500 characters:
             #
             # TODO: if https://bugs.launchpad.net/beautifulsoup/+bug/1873787 is
             # ever fixed, suppress the warning instead of adding this blank
             # as a workaround.
-            text_description = html2markdown.convert(" " + self.obs.description)
+            text_description = html2markdown.convert(" " + obs.description)
             lines = text_description.split("\n", 11)
             description = "\n> %s" % "\n> ".join(lines[:10])
             if len(lines) > 10:
