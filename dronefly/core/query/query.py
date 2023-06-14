@@ -393,10 +393,22 @@ class QueryResponse:
         message += " ".join(_taxa_description)
         if self.project:
             message += " in " + self.project.title
+        elif self.options:
+            project_id = self.options.get("project_id")
+            if project_id:
+                message += " in project #" + project_id.replace(",", ", ")
         if self.place:
             message += " from " + self.place.display_name
+        elif self.options:
+            place_id = self.options.get("place_id")
+            if place_id:
+                message += " from place #" + place_id.replace(",", ", ")
         if self.user:
             message += " by " + format_user_name(self.user)
+        elif self.options:
+            user_id = self.options.get("user_id")
+            if user_id:
+                message += " by user #" + user_id.replace(",", ", ")
         if self.unobserved_by:
             message += " unobserved by " + format_user_name(self.unobserved_by)
         if self.id_by:
