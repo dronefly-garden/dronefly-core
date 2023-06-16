@@ -96,6 +96,45 @@ class Commands:
             response = markdown_text
         return response
 
+    def life(self, ctx: Context, *args):
+        main_query_str = None
+        taxon = None
+        per = None
+        if args:
+            query = self._parse(" ".join(args))
+            # TODO: Handle all query clauses, not just main.terms
+            # TODO: Doesn't do any ranking or filtering of results
+            if not query.main or not query.main.terms:
+                return "Not a taxon"
+            main_query_str = " ".join(query.main.terms)
+            per = query.per
+
+        with self.inat_client.set_ctx(ctx) as client:
+            params = {
+                "user_id": ctx.author.inat_user_id,
+            }
+            if main_query_str:
+                taxon = client.taxa.autocomplete(q=main_query_str).one()
+                if not taxon:
+                    return "No taxon found"
+                params["taxon_id"] = taxon.id
+            life_list = client.observations.life_list(**params)
+
+        thing = f"taxa in {taxon.name}" if taxon else "taxa"
+        rank = None
+        taxa = life_list.data
+        if per:
+            # A bit simplistic - just assume it's a rank with no validation
+            rank = per
+            taxa = [
+                life_list_taxon
+                for life_list_taxon in life_list.data
+                if life_list_taxon.rank == rank
+            ]
+        _rank = f"rank {rank}" if rank else "any rank"
+        response = f"Your life list has {len(taxa)} {thing} with {_rank}"
+        return response
+
     def taxon(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
