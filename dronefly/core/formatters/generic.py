@@ -18,16 +18,19 @@ from pyinaturalist import (
     ConservationStatus,
     EstablishmentMeans,
     JsonResponse,
+    LifeList,
     ListedTaxon,
     Observation,
     Taxon,
     TaxonSummary,
     User,
 )
+from pyinaturalist.constants import COMMON_RANKS
 
 from dronefly.core.constants import (
     TAXON_PRIMARY_RANKS,
     TRINOMIAL_ABBR,
+    RANK_EQUIVALENTS,
     RANK_LEVELS,
 )
 from dronefly.core.formatters.constants import (
@@ -68,6 +71,9 @@ _URL_REGEX = r"(?P<url><[^: >]+:\/[^ >]+>|(?:https?|steam):\/\/[^\s<]+[^<.,:;\"\
 _MARKDOWN_STOCK_REGEX = rf"(?P<markdown>[_\\~|\*`]|{_MARKDOWN_ESCAPE_COMMON})"
 
 p = inflect.engine()
+p.defnoun("phylum", "phyla")
+p.defnoun("subphylum", "subphyla")
+p.defnoun("subgenus", "subgenera")
 
 
 def escape_markdown(
@@ -136,6 +142,66 @@ def format_datetime(time, compact=False):
         wday = time.strftime("%a")
         formatted_time = f"{wday} {mon} {day}, {year} · {hour}:{minute} {am_pm}"
     return formatted_time
+
+
+def format_life_list_summary(life_list: LifeList, per_rank: str, taxon: Taxon):
+    ranks = None
+    rank_totals = {}
+    if per_rank in ["main", "any"]:
+        ranks_to_count = (
+            COMMON_RANKS[-8:] if per_rank == "main" else list(RANK_LEVELS.keys())
+        )
+        if taxon:
+            if per_rank == "main" and taxon.rank not in ranks_to_count:
+                rank_level = RANK_LEVELS[taxon.rank]
+                ranks_to_count = [
+                    rank for rank in ranks_to_count if RANK_LEVELS[rank] < rank_level
+                ]
+                ranks_to_count.append(taxon.rank)
+            else:
+                ranks_to_count = ranks_to_count[: ranks_to_count.index(taxon.rank) + 1]
+        ranks = "main ranks" if per_rank == "main" else "ranks"
+        taxa = [
+            life_list_taxon
+            for life_list_taxon in life_list.data
+            if life_list_taxon.rank in ranks_to_count
+        ]
+        tot = {}
+        for taxon in taxa:
+            rank = taxon.rank
+            tot[rank] = tot.get(taxon.rank, 0) + 1
+        max_digits = len(str(max(tot.values())))
+        rank_totals = {
+            rank: f"`{str(tot[rank]).rjust(max_digits)}` {p.plural_noun(rank, tot[rank])}"
+            for rank in tot
+        }
+    elif per_rank == "leaf":
+        ranks = "leaf taxa"
+        taxa = [
+            life_list_taxon
+            for life_list_taxon in life_list.data
+            if life_list_taxon.direct_obs_count == life_list_taxon.descendant_obs_count
+        ]
+    else:
+        rank = RANK_EQUIVALENTS[per_rank] if per_rank in RANK_EQUIVALENTS else per_rank
+        ranks = p.plural_noun(rank)
+        taxa = [
+            life_list_taxon
+            for life_list_taxon in life_list.data
+            if life_list_taxon.rank == rank
+        ]
+    total = f"Total: {len(taxa)} {ranks}"
+    if rank_totals:
+        rank_keys = reversed(
+            [rank for rank in RANK_LEVELS.keys() if rank != "stateofmatter"]
+        )
+        rank_totals_by_rank = [
+            rank_totals[rank] for rank in rank_keys if rank_totals.get(rank)
+        ]
+        response = "\n\n".join(["\n".join(rank_totals_by_rank), total])
+    else:
+        response = total
+    return response
 
 
 def format_user_name(user: User):
@@ -814,7 +880,7 @@ class ObservationFormatter(BaseFormatter):
 class QualifiedTaxonFormatter(TaxonFormatter):
     def __init__(
         self,
-        query_response: QueryResponse,
+        query_response: "QueryResponse",
         observations: JsonResponse = None,
         **kwargs,
     ):
@@ -829,7 +895,7 @@ class QualifiedTaxonFormatter(TaxonFormatter):
         def __init__(
             self,
             taxon: Taxon,
-            query_response: QueryResponse = None,
+            query_response: "QueryResponse" = None,
             observations: JsonResponse = None,
         ):
             super().__init__(taxon)
