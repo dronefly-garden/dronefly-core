@@ -7,6 +7,7 @@ from typing import List, Optional, Union
 
 from dronefly.core.formatters.generic import format_taxon_name, format_user_name
 from dronefly.core.models.controlled_terms import ControlledTermSelector
+from dronefly.core.parsers.constants import VALID_OBS_OPTS
 from pyinaturalist.models import Place, Project, Taxon, User
 
 
@@ -185,6 +186,61 @@ class DateSelector:
     d1: Optional[Union[dt.datetime, str]]
     d2: Optional[Union[dt.datetime, str]]
     on: Optional[Union[dt.datetime, str]]
+
+
+def has_value(arg):
+    """Return true if arg is present and is not the `any` special keyword.
+
+    Use `any` in a query where a prior non-empty clause is present,
+    and that will negate that clause.
+    """
+    if not arg:
+        return False
+    if isinstance(arg, list):
+        return arg[0] and arg[0].lower() != "any"
+    elif isinstance(arg, TaxonQuery):
+        return (
+            (arg.terms and arg.terms[0].lower() != "any")
+            or arg.code
+            or arg.phrases
+            or arg.ranks
+            or arg.taxon_id
+        )
+    elif isinstance(arg, dt.datetime):
+        return True
+    else:
+        return arg.lower() != "any"
+
+
+def _get_options(query_options: list):
+    options = {}
+    # Accept a limited selection of options:
+    # - all of these to date apply only to observations, though others could
+    #   be added later
+    # - all options and values are lowercased
+    for (key, *val) in map(lambda opt: opt.lower().split("="), query_options):
+        val = val[0] if val else "true"
+        # - conservatively, only alphanumeric, comma, dash or
+        #   underscore characters accepted in values so far
+        # - TODO: proper validation per field type
+        if key in VALID_OBS_OPTS and re.match(r"^[a-z0-9,_-]*$", val):
+            options[key] = val
+    return options
+
+
+def get_base_query_args(query):
+    args = {}
+    args["options"] = _get_options(query.options) if has_value(query.options) else None
+    _observed = {}
+    _observed["on"] = query.obs_on if has_value(query.obs_on) else None
+    _observed["d1"] = query.obs_d1 if has_value(query.obs_d1) else None
+    _observed["d2"] = query.obs_d2 if has_value(query.obs_d2) else None
+    args["observed"] = DateSelector(**_observed)
+    _added = {}
+    _added["on"] = query.added_on if has_value(query.added_on) else None
+    _added["d1"] = query.added_d1 if has_value(query.added_d1) else None
+    _added["d2"] = query.added_d2 if has_value(query.added_d2) else None
+    args["added"] = DateSelector(**_added)
 
 
 @dataclass
