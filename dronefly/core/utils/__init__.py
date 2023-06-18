@@ -15,12 +15,15 @@ def lifelists_url_from_query_response(query_response: "QueryResponse"):
     #       - see `,related`
     # TODO: use place_id smallest enclosing (major) place if multiple place_ids
     #       - no place hierarchy support yet in dronefly
+    url = f"{WWW_BASE_URL}/lifelists/{user.login}"
     lifelists_obs_args = {
         key: val
         for key in ("taxon_id", "place_id")
         if (val := obs_args.get(key)) and "," not in str(val)
     }
-    return f"{WWW_BASE_URL}/lifelists/{user.login}" f"?{urlencode(lifelists_obs_args)}"
+    if lifelists_obs_args:
+        url += f"?{urlencode(lifelists_obs_args)}"
+    return url
 
 
 def obs_url_from_v1(params: dict):
