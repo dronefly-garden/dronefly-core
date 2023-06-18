@@ -37,7 +37,7 @@ from dronefly.core.formatters.constants import (
     ICONS,
     WWW_BASE_URL,
 )
-from dronefly.core.utils import obs_url_from_v1
+from dronefly.core.utils import lifelists_url_from_query_response, obs_url_from_v1
 
 MEANS_LABEL_DESC = {
     "endemic": "endemic to",
@@ -531,6 +531,72 @@ class BaseCountFormatter(BaseFormatter):
 
     def description():
         raise NotImplementedError
+
+
+class LifeListFormatter(BaseFormatter):
+    def __init__(
+        self,
+        life_list: LifeList,
+        per_rank: str,
+        query_response: QueryResponse,
+        with_url: bool = True,
+        max_len: int = 0,
+    ):
+        """
+        Parameters
+        ----------
+        taxon: Taxon
+            The taxon to format.
+
+        with_url: bool, optional
+            When True, link the name to taxon.url.
+        """
+        self.life_list = life_list
+        self.per_rank = per_rank
+        self.query_response = query_response
+        self.with_url = with_url
+        self.max_len = max_len
+
+    def format(self, with_title: bool = True):
+        """Format the life list as markdown."""
+        description = self.format_description()
+        if with_title:
+            description = "\n\n".join([self.format_title(), description])
+        return description
+
+    def format_title(self):
+        """Format life list title as Discord-like markdown.
+
+        Returns
+        -------
+        str
+            Like format_name(), except:
+
+            - Append the matching term in its own parentheses after the common name
+            in parentheses if the matching term is neither the scientific name nor
+            common name, e.g.
+            - "Pissenlits" -> "Genus *Taraxacum* (dandelions) (Pissenlits)"
+            - if with_url=True, the matched term is not included in the link
+            - Apply strikethrough style if the name is invalid, e.g.
+            - "Picoides pubescens" ->
+                "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
+        """
+        title = f"Life list {self.query_response.obs_query_description()}"
+        if self.with_url:
+            if self.query_response.user:
+                url = lifelists_url_from_query_response(self.query_response)
+            else:
+                url = obs_url_from_v1(
+                    {**self.query_response.obs_args(), "view": "species"}
+                )
+            title = format_link(title, url)
+        return title
+
+    def format_description(self):
+        """Format the life list description."""
+        return format_life_list_summary(
+            self.life_list, self.per_rank, self.query_response.taxon
+        )
 
 
 class TaxonFormatter(BaseFormatter):

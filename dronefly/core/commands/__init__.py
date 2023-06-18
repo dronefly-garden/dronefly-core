@@ -5,10 +5,12 @@ from attrs import define
 from rich.markdown import Markdown
 
 from ..clients.inat import iNatClient
-from ..constants import INAT_DEFAULTS, INAT_USER_DEFAULT_PARAMS
+from ..constants import INAT_DEFAULTS, INAT_USER_DEFAULT_PARAMS, RANK_KEYWORDS
+
 from ..parsers import NaturalParser
-from ..formatters.generic import ObservationFormatter, TaxonFormatter
+from ..formatters.generic import LifeListFormatter, ObservationFormatter, TaxonFormatter
 from ..models.user import User
+from ..query.query import get_base_query_args, QueryResponse
 
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\> .*?)\n(?=\> )", re.MULTILINE)
@@ -97,43 +99,43 @@ class Commands:
         return response
 
     def life(self, ctx: Context, *args):
-        main_query_str = None
-        taxon = None
-        per = None
-        if args:
-            query = self._parse(" ".join(args))
-            # TODO: Handle all query clauses, not just main.terms
-            # TODO: Doesn't do any ranking or filtering of results
-            if not query.main or not query.main.terms:
-                return "Not a taxon"
-            main_query_str = " ".join(query.main.terms)
-            per = query.per
+        _args = " ".join(args) or "by me"
+        query = self._parse(_args)
+        per_rank = query.per or "leaf"
+        if per_rank not in [*RANK_KEYWORDS, "leaf", "main", "any"]:
+            return "Specify `per <rank-or-keyword>`"
 
+        query_args = get_base_query_args(query)
         with self.inat_client.set_ctx(ctx) as client:
-            params = {
-                "user_id": ctx.author.inat_user_id,
-            }
-            if main_query_str:
-                taxon = client.taxa.autocomplete(q=main_query_str).one()
-                if not taxon:
-                    return "No taxon found"
-                params["taxon_id"] = taxon.id
-            life_list = client.observations.life_list(**params)
+            # Handle a useful subset of query args in a simplistic way for now
+            # (i.e. no config table lookup yet) to model full query in bot
+            if query.user == "me":
+                query_args["user"] = client.users.from_ids(
+                    ctx.author.inat_user_id, limit=1
+                ).one()
+            else:
+                users = client.users.autocomplete(q=query.user, limit=1)
+                if users:
+                    query_args["user"] = users[0]
+            if query and query.main and query.main.terms:
+                main_query_str = " ".join(query.main.terms)
+                taxon = client.taxa.autocomplete(q=main_query_str, limit=1).one()
+                query_args["taxon"] = taxon
+            if query.place:
+                place = client.places.autocomplete(q=query.place, limit=1).one()
+                query_args["place"] = place
+            if query.project:
+                project = client.projects.search(q=query.project, limit=1).one()
+                query_args["project"] = project
+            query_response = QueryResponse(**query_args)
+            obs_args = query_response.obs_args()
+            life_list = client.observations.life_list(**obs_args)
 
-        thing = f"taxa in {taxon.name}" if taxon else "taxa"
-        rank = None
-        taxa = life_list.data
-        if per:
-            # A bit simplistic - just assume it's a rank with no validation
-            rank = per
-            taxa = [
-                life_list_taxon
-                for life_list_taxon in life_list.data
-                if life_list_taxon.rank == rank
-            ]
-        _rank = f"rank {rank}" if rank else "any rank"
-        response = f"Your life list has {len(taxa)} {thing} with {_rank}"
-        return response
+        if not life_list:
+            return f"No life list {query_response.obs_query_description()}"
+
+        formatter = LifeListFormatter(life_list, per_rank, query_response)
+        return self._format_markdown(formatter)
 
     def taxon(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
