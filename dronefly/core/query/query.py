@@ -241,6 +241,7 @@ def get_base_query_args(query):
     _added["d1"] = query.added_d1 if has_value(query.added_d1) else None
     _added["d2"] = query.added_d2 if has_value(query.added_d2) else None
     args["added"] = DateSelector(**_added)
+    return args
 
 
 @dataclass
@@ -265,17 +266,17 @@ class QueryResponse:
         subdisplay.
     """
 
-    taxon: Optional[Taxon]
-    user: Optional[User]
-    place: Optional[Place]
-    unobserved_by: Optional[User]
-    except_by: Optional[User]
-    id_by: Optional[User]
-    project: Optional[Project]
-    options: Optional[dict]
-    controlled_term: Optional[ControlledTermSelector]
-    observed: Optional[DateSelector]
-    added: Optional[DateSelector]
+    taxon: Optional[Taxon] = None
+    user: Optional[User] = None
+    place: Optional[Place] = None
+    unobserved_by: Optional[User] = None
+    except_by: Optional[User] = None
+    id_by: Optional[User] = None
+    project: Optional[Project] = None
+    options: Optional[dict] = None
+    controlled_term: Optional[ControlledTermSelector] = None
+    observed: Optional[DateSelector] = None
+    added: Optional[DateSelector] = None
     adjectives: Optional[List[str]] = field(init=False)
 
     def __post_init__(self):
