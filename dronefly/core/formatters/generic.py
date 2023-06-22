@@ -7,7 +7,7 @@ from __future__ import annotations
 import copy
 from datetime import datetime as dt
 import re
-from typing import List, TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
     from dronefly.core.query.query import QueryResponse
@@ -19,6 +19,7 @@ from pyinaturalist import (
     EstablishmentMeans,
     JsonResponse,
     LifeList,
+    LifeListTaxon,
     ListedTaxon,
     Observation,
     Taxon,
@@ -144,7 +145,7 @@ def format_datetime(time, compact=False):
     return formatted_time
 
 
-def format_life_list_summary(life_list: LifeList, per_rank: str, taxon: Taxon):
+def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
     ranks = None
     rank_totals = {}
     if per_rank in ["main", "any"]:
@@ -190,6 +191,12 @@ def format_life_list_summary(life_list: LifeList, per_rank: str, taxon: Taxon):
             for life_list_taxon in life_list.data
             if life_list_taxon.rank == rank
         ]
+    return (taxa, ranks, rank_totals)
+
+
+def format_life_list_summary(
+    taxa: list[LifeListTaxon], ranks: str, rank_totals: list[int]
+):
     total = f"Total: {len(taxa)} {ranks}"
     if rank_totals:
         rank_keys = reversed(
@@ -314,7 +321,7 @@ def format_taxon_conservation_status(
 
 
 def format_taxon_names(
-    taxa: List[Taxon],
+    taxa: list[Taxon],
     with_term=False,
     names_format="%s",
     max_len=0,
@@ -325,7 +332,7 @@ def format_taxon_names(
 
     Parameters
     ----------
-    taxa: List[Taxon]
+    taxa: list[Taxon]
         A list of Taxon records to format, either as a comma-delimited list or
         in a hierarchy.
         - If hierarchy=True, these must be in highest to lowest rank order.
@@ -540,7 +547,9 @@ class LifeListFormatter(BaseFormatter):
         per_rank: str,
         query_response: QueryResponse,
         with_url: bool = True,
+        with_taxa: bool = False,
         max_len: int = 0,
+        max_taxa: int = 20,
     ):
         """
         Parameters
@@ -555,7 +564,9 @@ class LifeListFormatter(BaseFormatter):
         self.per_rank = per_rank
         self.query_response = query_response
         self.with_url = with_url
+        self.with_taxa = with_taxa
         self.max_len = max_len
+        self.max_taxa = max_taxa
 
     def format(self, with_title: bool = True):
         """Format the life list as markdown."""
@@ -570,33 +581,53 @@ class LifeListFormatter(BaseFormatter):
         Returns
         -------
         str
-            Like format_name(), except:
-
-            - Append the matching term in its own parentheses after the common name
-            in parentheses if the matching term is neither the scientific name nor
-            common name, e.g.
-            - "Pissenlits" -> "Genus *Taraxacum* (dandelions) (Pissenlits)"
-            - if with_url=True, the matched term is not included in the link
-            - Apply strikethrough style if the name is invalid, e.g.
-            - "Picoides pubescens" ->
-                "*Dryobates Pubescens* (Downy woodpecker) (~~Picoides Pubescens~~)
+            - Describe the life list in terms of the observations query
+              parameters passed.
+            - Only link to the life list when the query is for one user.
+              The website doesn't support life lists for any other kind of
+              query.
         """
         title = f"Life list {self.query_response.obs_query_description()}"
         if self.with_url:
             if self.query_response.user:
                 url = lifelists_url_from_query_response(self.query_response)
-            else:
-                url = obs_url_from_v1(
-                    {**self.query_response.obs_args(), "view": "species"}
-                )
-            title = format_link(title, url)
+                title = format_link(title, url)
         return title
 
     def format_description(self):
         """Format the life list description."""
-        return format_life_list_summary(
+        description = []
+        (taxa, ranks, rank_totals) = filter_life_list(
             self.life_list, self.per_rank, self.query_response.taxon
         )
+        query_response = self.query_response
+        obs_link = format_link(
+            "All Life List Observations",
+            obs_url_from_v1(query_response.obs_args()),
+        )
+        description.append(obs_link)
+        # TODO: if more than max_taxa, support paged result
+        if self.with_taxa and len(taxa) <= self.max_taxa:
+            max_digits = len(str(max([taxon.descendant_obs_count for taxon in taxa])))
+            formatted_taxa = []
+            obs_args = query_response.obs_args()
+            for taxon in taxa:
+                # Replace any taxa in the original query with just the one:
+                if "taxon_ids" in obs_args:
+                    del obs_args["taxon_ids"]
+                taxon_obs_url = obs_url_from_v1(
+                    {
+                        **obs_args,
+                        "taxon_id": taxon.id,
+                    }
+                )
+                formatted_count = str(taxon.descendant_obs_count).rjust(max_digits)
+                formatted_name = format_link(taxon.name, taxon_obs_url)
+                formatted_taxa.append(f"`{formatted_count}` {formatted_name}")
+            description.append("\n".join(formatted_taxa))
+        life_list_summary = format_life_list_summary(taxa, ranks, rank_totals)
+        description.append(life_list_summary)
+        return "\n\n".join(description)
 
 
 class TaxonFormatter(BaseFormatter):

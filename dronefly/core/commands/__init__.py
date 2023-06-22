@@ -134,7 +134,9 @@ class Commands:
         if not life_list:
             return f"No life list {query_response.obs_query_description()}"
 
-        formatter = LifeListFormatter(life_list, per_rank, query_response)
+        formatter = LifeListFormatter(
+            life_list, per_rank, query_response, with_taxa=True, max_taxa=100
+        )
         return self._format_markdown(formatter)
 
     def taxon(self, ctx: Context, *args):
