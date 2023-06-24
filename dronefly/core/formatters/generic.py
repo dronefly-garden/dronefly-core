@@ -607,7 +607,7 @@ class LifeListFormatter(BaseFormatter):
         )
         description.append(obs_link)
         # TODO: if more than max_taxa, support paged result
-        if self.with_taxa and len(taxa) <= self.max_taxa:
+        if taxa and self.with_taxa and len(taxa) <= self.max_taxa:
             max_digits = len(str(max([taxon.descendant_obs_count for taxon in taxa])))
             formatted_taxa = []
             obs_args = query_response.obs_args()
