@@ -6,6 +6,7 @@ which is then fairly easy to render to other formats as needed.
 from __future__ import annotations
 import copy
 from datetime import datetime as dt
+from math import ceil
 import re
 from typing import TYPE_CHECKING, Union
 
@@ -532,6 +533,14 @@ class BaseFormatter:
         raise NotImplementedError
 
 
+class ListFormatter(BaseFormatter):
+    def format_page():
+        raise NotImplementedError
+
+    def last_page():
+        raise NotImplementedError
+
+
 class BaseCountFormatter(BaseFormatter):
     def count():
         raise NotImplementedError
@@ -540,7 +549,7 @@ class BaseCountFormatter(BaseFormatter):
         raise NotImplementedError
 
 
-class LifeListFormatter(BaseFormatter):
+class LifeListFormatter(ListFormatter):
     def __init__(
         self,
         life_list: LifeList,
@@ -548,29 +557,59 @@ class LifeListFormatter(BaseFormatter):
         query_response: QueryResponse,
         with_url: bool = True,
         with_taxa: bool = False,
-        max_len: int = 0,
-        max_taxa: int = 20,
+        per_page: int = 20,
     ):
         """
         Parameters
         ----------
-        taxon: Taxon
-            The taxon to format.
+        life_list: LifeList
+            Life list of all taxa matching the observations query in
+            query_response.
+
+        per_rank: str
+            Rank to include in list of taxa, or one of the special values:
+                - 'leaf' (default) = leaf taxa
+                - 'main' = any of the most commonly used ranks
+                - 'any' = every rank in the life list
+
+        query_response: QueryResponse
+            The query response contains all iNat objects in the query
+            except for the life_list itself (e.g. user, place, etc.)
 
         with_url: bool, optional
-            When True, link the name to taxon.url.
+            When True, link the title to the life list, provided the query
+            was for a single user.
+
+        with_taxa: bool, optional
+            When True, format() and format_page() format the specified
+            page of taxa on the life_list as a per_page sized page.
+
+            The first page links to the observations in the query
+            and the last page ends with a total per rank in the query.
+
+            When False, only page 0 can be formatted with the observations link
+            and per rank summary alone.
+
+        per_page: int, optional
+            The number of taxa to include in each page.
         """
         self.life_list = life_list
         self.per_rank = per_rank
         self.query_response = query_response
         self.with_url = with_url
         self.with_taxa = with_taxa
-        self.max_len = max_len
-        self.max_taxa = max_taxa
+        self.per_page = per_page
+        (taxa, self.ranks, self.rank_totals) = filter_life_list(
+            self.life_list, self.per_rank, self.query_response.taxon
+        )
+        self.taxa = list(taxa)
+        self.max_digits = len(
+            str(max([taxon.descendant_obs_count for taxon in self.taxa]))
+        )
 
-    def format(self, with_title: bool = True):
+    def format(self, with_title: bool = True, page: int = 0):
         """Format the life list as markdown."""
-        description = self.format_description()
+        description = self.format_page(page)
         if with_title:
             description = "\n\n".join([self.format_title(), description])
         return description
@@ -583,9 +622,9 @@ class LifeListFormatter(BaseFormatter):
         str
             - Describe the life list in terms of the observations query
               parameters passed.
-            - Only link to the life list when the query is for one user.
-              The website doesn't support life lists for any other kind of
-              query.
+            - When with_url is True, only link to the life list when the query
+              is for one user. The website doesn't support life lists for any
+              other kind of query.
         """
         title = f"Life list {self.query_response.obs_query_description()}"
         if self.with_url:
@@ -594,24 +633,24 @@ class LifeListFormatter(BaseFormatter):
                 title = format_link(title, url)
         return title
 
-    def format_description(self):
+    def format_page(self, page: int = 0):
         """Format the life list description."""
         description = []
-        (taxa, ranks, rank_totals) = filter_life_list(
-            self.life_list, self.per_rank, self.query_response.taxon
-        )
         query_response = self.query_response
-        obs_link = format_link(
-            "All Life List Observations",
-            obs_url_from_v1(query_response.obs_args()),
-        )
-        description.append(obs_link)
+        if page == 0:
+            obs_link = format_link(
+                "All Life List Observations",
+                obs_url_from_v1(query_response.obs_args()),
+            )
+            description.append(obs_link)
         # TODO: if more than max_taxa, support paged result
-        if taxa and self.with_taxa and len(taxa) <= self.max_taxa:
-            max_digits = len(str(max([taxon.descendant_obs_count for taxon in taxa])))
+        if self.taxa and self.with_taxa:
+            page_start = page * self.per_page
+            page_end = page_start + self.per_page
+            page_of_taxa = self.taxa[page_start:page_end]
             formatted_taxa = []
             obs_args = query_response.obs_args()
-            for taxon in taxa:
+            for taxon in page_of_taxa:
                 # Replace any taxa in the original query with just the one:
                 if "taxon_ids" in obs_args:
                     del obs_args["taxon_ids"]
@@ -621,13 +660,26 @@ class LifeListFormatter(BaseFormatter):
                         "taxon_id": taxon.id,
                     }
                 )
-                formatted_count = str(taxon.descendant_obs_count).rjust(max_digits)
+                formatted_count = str(taxon.descendant_obs_count).rjust(self.max_digits)
                 formatted_name = format_link(taxon.name, taxon_obs_url)
                 formatted_taxa.append(f"`{formatted_count}` {formatted_name}")
             description.append("\n".join(formatted_taxa))
-        life_list_summary = format_life_list_summary(taxa, ranks, rank_totals)
-        description.append(life_list_summary)
+        if page == self.last_page():
+            life_list_summary = format_life_list_summary(
+                self.taxa, self.ranks, self.rank_totals
+            )
+            description.append(life_list_summary)
         return "\n\n".join(description)
+
+    def format_all(self):
+        return [self.format_page(page) for page in range(0, self.last_page() + 1)]
+
+    def last_page(self):
+        return (
+            ceil(len(self.taxa) / self.per_page) - 1
+            if self.with_taxa and self.taxa
+            else 0
+        )
 
 
 class TaxonFormatter(BaseFormatter):
