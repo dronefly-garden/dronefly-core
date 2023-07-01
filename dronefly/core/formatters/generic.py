@@ -29,6 +29,9 @@ from pyinaturalist import (
 )
 from pyinaturalist.constants import COMMON_RANKS
 
+# Temporary; https://github.com/pyinat/pyinaturalist/pull/498 should remove this dep
+from rich.tree import Tree
+
 from dronefly.core.constants import (
     TAXON_PRIMARY_RANKS,
     TRINOMIAL_ABBR,
@@ -125,6 +128,25 @@ def escape_markdown(
         return _MARKDOWN_ESCAPE_REGEX.sub(r"\\\1", text)
 
 
+def flatten_taxonomy_tree(root_taxon_node: Tree):
+    """Generate taxa from taxonomy tree via pre-order depth first search."""
+
+    def flatten_branch(branch: Tree):
+        yield branch._taxon
+        for child in branch.children:
+            yield from flatten_branch(child)
+
+    yield from flatten_branch(root_taxon_node)
+
+
+def filtered_life_list(life_list, ranks_to_count):
+    """Generate filtered taxa matching ranks to count in treewise order."""
+    taxa = flatten_taxonomy_tree(life_list.tree())
+    for taxon in taxa:
+        if taxon.rank in ranks_to_count:
+            yield taxon
+
+
 def format_datetime(time, compact=False):
     """Format datetime with compact option that drops less relevant parts."""
     hour = time.strftime("%I").lstrip("0")
@@ -149,6 +171,7 @@ def format_datetime(time, compact=False):
 def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
     ranks = None
     rank_totals = {}
+    filtered_taxa = None
     if per_rank in ["main", "any"]:
         ranks_to_count = (
             COMMON_RANKS[-8:] if per_rank == "main" else list(RANK_LEVELS.keys())
@@ -163,13 +186,12 @@ def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
             else:
                 ranks_to_count = ranks_to_count[: ranks_to_count.index(taxon.rank) + 1]
         ranks = "main ranks" if per_rank == "main" else "ranks"
-        taxa = [
-            life_list_taxon
-            for life_list_taxon in life_list.data
-            if life_list_taxon.rank in ranks_to_count
-        ]
         tot = {}
-        for taxon in taxa:
+
+        filtered_taxa = [
+            taxon for taxon in filtered_life_list(life_list, ranks_to_count)
+        ]
+        for taxon in filtered_taxa:
             rank = taxon.rank
             tot[rank] = tot.get(taxon.rank, 0) + 1
         max_digits = len(str(max(tot.values())))
@@ -192,7 +214,7 @@ def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
             for life_list_taxon in life_list.data
             if life_list_taxon.rank == rank
         ]
-    return (taxa, ranks, rank_totals)
+    return (filtered_taxa or taxa, ranks, rank_totals)
 
 
 def format_life_list_summary(
@@ -661,7 +683,7 @@ class LifeListFormatter(ListFormatter):
                     }
                 )
                 formatted_count = str(taxon.descendant_obs_count).rjust(self.max_digits)
-                formatted_name = format_link(taxon.name, taxon_obs_url)
+                formatted_name = format_link(taxon.full_name, taxon_obs_url)
                 formatted_taxa.append(f"`{formatted_count}` {formatted_name}")
             description.append("\n".join(formatted_taxa))
         if page == self.last_page():
