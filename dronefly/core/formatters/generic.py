@@ -490,7 +490,12 @@ def format_taxon_name(
     rank = taxon.rank
     rank_level = RANK_LEVELS[rank]
 
-    if rank_level <= RANK_LEVELS["genus"]:
+    # Note: We follow how iNat uses italics taxon names on the website, i.e. we:
+    # - don't apply italics to the name when it is rank Genushybrid or Subgenus
+    # - do italicize the name for Genus and every rank at species or below
+    # - any abbreviated english keywords within italicized intraspecific ranks
+    #   are not italicized (spp. var. f.)
+    if rank == "genus" or rank_level <= RANK_LEVELS["species"]:
         name = f"*{name}*"
     if rank_level > RANK_LEVELS["species"]:
         if hierarchy:
