@@ -155,7 +155,7 @@ class Commands:
             return f"No life list {query_response.obs_query_description()}"
 
         formatter = LifeListFormatter(
-            life_list, per_rank, query_response, with_taxa=True, per_page=20
+            life_list, per_rank, query_response, with_indent=True, per_page=20
         )
         ctx.page_formatter = formatter
         ctx.page = 0

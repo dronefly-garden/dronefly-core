@@ -78,6 +78,10 @@ p.defnoun("subphylum", "subphyla")
 p.defnoun("subgenus", "subgenera")
 
 
+def protect_leading_blanks(text: str = ""):
+    return re.sub(r"^( +)", "\N{ZERO WIDTH SPACE}" + r"**\1**", text)
+
+
 def escape_markdown(
     text: str, *, as_needed: bool = False, ignore_links: bool = True
 ) -> str:
@@ -159,13 +163,15 @@ def format_datetime(time, compact=False):
     return formatted_time
 
 
+def filtered_ranks(per_rank):
+    return COMMON_RANKS[-8:] if per_rank == "main" else list(RANK_LEVELS.keys())
+
+
 def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
     ranks = None
     rank_totals = {}
-    if per_rank in ["main", "any"]:
-        ranks_to_count = (
-            COMMON_RANKS[-8:] if per_rank == "main" else list(RANK_LEVELS.keys())
-        )
+    if per_rank in ("main", "any"):
+        ranks_to_count = filtered_ranks(per_rank)
         if taxon:
             if per_rank == "main" and taxon.rank not in ranks_to_count:
                 rank_level = RANK_LEVELS[taxon.rank]
@@ -185,9 +191,11 @@ def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
         ranks = p.plural_noun(rank)
         generate_taxa = taxa_per_rank(life_list, per_rank)
     counted_taxa = []
+    counted_taxon_ids = []
     tot = {}
     max_taxon_count_digits = 1
     for taxon_count in generate_taxa:
+        counted_taxon_ids.append(taxon_count.id)
         taxon_count_digits = len(str(taxon_count.descendant_obs_count))
         if taxon_count_digits > max_taxon_count_digits:
             max_taxon_count_digits = taxon_count_digits
@@ -199,7 +207,7 @@ def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
         rank: f"`{str(tot[rank]).rjust(max_rank_digits)}` {p.plural_noun(rank, tot[rank])}"
         for rank in tot
     }
-    return (counted_taxa, ranks, rank_totals, max_taxon_count_digits)
+    return (counted_taxa, counted_taxon_ids, ranks, rank_totals, max_taxon_count_digits)
 
 
 def format_life_list_summary(
@@ -568,7 +576,8 @@ class LifeListFormatter(ListFormatter):
         per_rank: str,
         query_response: QueryResponse,
         with_url: bool = True,
-        with_taxa: bool = False,
+        with_taxa: bool = True,
+        with_indent: bool = False,
         per_page: int = 20,
     ):
         """
@@ -602,6 +611,12 @@ class LifeListFormatter(ListFormatter):
             When False, only page 0 can be formatted with the observations link
             and per rank summary alone.
 
+        with_indent: bool, optional
+            When with_indent is True, per_rank is 'main' or 'any', and with_taxa
+            is also True, the taxon names on the life list are displayed as
+            children of higher taxa on the same page using indent levels and "└"
+            to indicate child relationships.
+
         per_page: int, optional
             The number of taxa to include in each page.
         """
@@ -610,10 +625,15 @@ class LifeListFormatter(ListFormatter):
         self.query_response = query_response
         self.with_url = with_url
         self.with_taxa = with_taxa
+        self.with_indent = with_indent
         self.per_page = per_page
-        (self.taxa, self.ranks, self.rank_totals, self.max_digits) = filter_life_list(
-            self.life_list, self.per_rank, self.query_response.taxon
-        )
+        (
+            self.taxa,
+            self.taxon_ids,
+            self.ranks,
+            self.rank_totals,
+            self.max_digits,
+        ) = filter_life_list(self.life_list, self.per_rank, self.query_response.taxon)
 
     def format(self, with_title: bool = True, page: int = 0):
         """Format the life list as markdown."""
@@ -643,6 +663,54 @@ class LifeListFormatter(ListFormatter):
 
     def format_page(self, page: int = 0):
         """Format the life list description."""
+
+        def indent_level(taxon: Taxon):
+            if self.per_rank not in ("main", "any"):
+                return 0
+            root_indent_level = self.taxa[0].indent_level
+            return taxon.indent_level - root_indent_level
+
+        def indent_child(taxon: Taxon):
+            level = indent_level(taxon)
+            return protect_leading_blanks(
+                "\N{EN SPACE}" * (level - 1) + "└" if level >= 1 else ""
+            )
+
+        def get_parent(taxon: Taxon):
+            def get_next_parent(taxon: Taxon):
+                """Get the next parent from the unfiltered taxa (assumed to be complete!)"""
+                return next(
+                    filter(lambda x: x.id == taxon.parent_id, self.life_list.data), None
+                )
+
+            parent = get_next_parent(taxon)
+            # This must eventually terminate at the root itself, which either:
+            # - has no taxon.parent_id (i.e. Life)
+            # - has taxon.parent_id but points to a parent that is not in our
+            #   filtered taxa
+            while parent and parent.id not in self.taxon_ids:
+                parent = get_next_parent(parent)
+            return parent
+
+        def make_page_header(taxon: Taxon):
+            """Make a page header for non-top-level taxa."""
+            root_taxon = self.taxa[0]
+            ancestors = []
+            parent = get_parent(taxon)
+            while parent and parent != root_taxon:
+                ancestors.append(parent)
+                parent = get_parent(parent)
+            if ancestors:
+                return (
+                    f"`{' ' * self.max_digits}` __"
+                    + " > ".join(
+                        format_taxon_name(parent, with_rank=False)
+                        for parent in reversed(ancestors)
+                    )
+                    + "__"
+                )
+            return None
+
         description = []
         query_response = self.query_response
         if page == 0:
@@ -658,6 +726,12 @@ class LifeListFormatter(ListFormatter):
             page_of_taxa = self.taxa[page_start:page_end]
             formatted_taxa = []
             obs_args = query_response.obs_args()
+            if page_of_taxa and page > 0 and self.per_rank in ("main", "any"):
+                first_taxon_on_page = page_of_taxa[0]
+                if indent_level(first_taxon_on_page) > 1:
+                    header = make_page_header(first_taxon_on_page)
+                    if header:
+                        formatted_taxa.append(header)
             for taxon in page_of_taxa:
                 # Replace any taxa in the original query with just the one:
                 if "taxon_ids" in obs_args:
@@ -670,7 +744,9 @@ class LifeListFormatter(ListFormatter):
                 )
                 formatted_count = str(taxon.descendant_obs_count).rjust(self.max_digits)
                 formatted_name = format_link(format_taxon_name(taxon), taxon_obs_url)
-                formatted_taxa.append(f"`{formatted_count}` {formatted_name}")
+                formatted_taxa.append(
+                    f"`{formatted_count}` {indent_child(taxon)}{formatted_name}"
+                )
             description.append("\n".join(formatted_taxa))
         if page == self.last_page():
             life_list_summary = format_life_list_summary(
