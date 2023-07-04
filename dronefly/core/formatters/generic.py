@@ -682,7 +682,9 @@ class LifeListFormatter(ListFormatter):
         def indent_child(taxon: Taxon):
             level = indent_level(taxon)
             return protect_leading_blanks(
-                "\N{EN SPACE}" * (level - 1) + "└" if level >= 1 else ""
+                "\N{EN SPACE}\N{THIN SPACE}" * (level - 1) + "└\N{THIN SPACE}"
+                if level >= 1
+                else ""
             )
 
         def get_parent(taxon: Taxon):
