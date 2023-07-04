@@ -121,7 +121,7 @@ class Commands:
     def life(self, ctx: Context, *args):
         _args = " ".join(args) or "by me"
         query = self._parse(_args)
-        per_rank = query.per or "leaf"
+        per_rank = query.per or "main"
         if per_rank not in [*RANK_KEYWORDS, "leaf", "main", "any"]:
             return "Specify `per <rank-or-keyword>`"
 
