@@ -28,7 +28,7 @@ from pyinaturalist import (
     User,
 )
 from pyinaturalist.models.taxon import make_tree
-from pyinaturalist.constants import COMMON_RANKS
+from pyinaturalist.constants import COMMON_RANKS, ROOT_TAXON_ID
 
 from dronefly.core.constants import (
     TAXON_PRIMARY_RANKS,
@@ -676,7 +676,11 @@ class LifeListFormatter(ListFormatter):
         def indent_level(taxon: Taxon):
             if self.per_rank not in ("main", "any"):
                 return 0
-            root_indent_level = self.taxa[0].indent_level
+            root_taxon = self.taxa[0]
+            root_indent_level = root_taxon.indent_level
+            # We always hide "Life" at the top
+            if root_taxon.id == ROOT_TAXON_ID:
+                root_indent_level += 1
             return taxon.indent_level - root_indent_level
 
         def indent_child(taxon: Taxon):
@@ -712,14 +716,17 @@ class LifeListFormatter(ListFormatter):
                 ancestors.append(parent)
                 parent = get_parent(parent)
             if ancestors:
-                return (
-                    f"`{' ' * self.max_digits}` __"
-                    + " > ".join(
-                        format_taxon_name(parent, with_rank=False)
-                        for parent in reversed(ancestors)
+                if ancestors[-1].id == ROOT_TAXON_ID:
+                    del ancestors[-1]
+                if ancestors:
+                    return (
+                        f"`{' ' * self.max_digits}` __"
+                        + " > ".join(
+                            format_taxon_name(parent, with_rank=False)
+                            for parent in reversed(ancestors)
+                        )
+                        + "__"
                     )
-                    + "__"
-                )
             return None
 
         description = []
@@ -732,12 +739,14 @@ class LifeListFormatter(ListFormatter):
             description.append(obs_link)
         # TODO: if more than max_taxa, support paged result
         if self.taxa and self.with_taxa:
+            skip_root = 1 if self.taxa[0].id == ROOT_TAXON_ID else 0
             if self.per_page > 0:
-                page_start = page * self.per_page
+                page_start = page * self.per_page + skip_root
                 page_end = page_start + self.per_page
-                page_of_taxa = self.taxa[page_start:page_end]
             else:
-                page_of_taxa = self.taxa
+                page_start = skip_root
+                page_end = len(self.taxa) - page_start + 1
+            page_of_taxa = self.taxa[page_start:page_end]
             formatted_taxa = []
             obs_args = query_response.obs_args()
             if page_of_taxa and page > 0 and self.per_rank in ("main", "any"):
