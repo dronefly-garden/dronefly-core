@@ -91,6 +91,11 @@ class Commands:
     def _format_markdown(self, formatter, page: int = 0):
         if getattr(formatter, "format_page", None):
             markdown_text = formatter.format_page(page)
+            last_page = formatter.last_page()
+            if last_page > 0:
+                markdown_text = "\n\n".join(
+                    [markdown_text, f"Page {page + 1}/{last_page + 1}"]
+                )
         else:
             markdown_text = formatter.format()
         if self.format == Format.rich:

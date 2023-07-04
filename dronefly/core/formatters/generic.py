@@ -635,7 +635,7 @@ class LifeListFormatter(ListFormatter):
         self.with_url = with_url
         self.with_taxa = with_taxa
         self.with_indent = with_indent
-        self.per_page = per_page
+        self.per_page = per_page if per_page >= 0 else 0
         (
             self.taxa,
             self.taxon_ids,
@@ -730,9 +730,12 @@ class LifeListFormatter(ListFormatter):
             description.append(obs_link)
         # TODO: if more than max_taxa, support paged result
         if self.taxa and self.with_taxa:
-            page_start = page * self.per_page
-            page_end = page_start + self.per_page
-            page_of_taxa = self.taxa[page_start:page_end]
+            if self.per_page > 0:
+                page_start = page * self.per_page
+                page_end = page_start + self.per_page
+                page_of_taxa = self.taxa[page_start:page_end]
+            else:
+                page_of_taxa = self.taxa
             formatted_taxa = []
             obs_args = query_response.obs_args()
             if page_of_taxa and page > 0 and self.per_rank in ("main", "any"):
@@ -768,11 +771,9 @@ class LifeListFormatter(ListFormatter):
         return [self.format_page(page) for page in range(0, self.last_page() + 1)]
 
     def last_page(self):
-        return (
-            ceil(len(self.taxa) / self.per_page) - 1
-            if self.with_taxa and self.taxa
-            else 0
-        )
+        if not (self.with_taxa and self.per_page > 0 and self.taxa):
+            return 0
+        return ceil(len(self.taxa) / self.per_page) - 1
 
 
 class TaxonFormatter(BaseFormatter):
