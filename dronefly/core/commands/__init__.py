@@ -46,6 +46,7 @@ class Context:
     #   be active at a time.
     page_formatter: Union[BaseFormatter, ListFormatter] = None
     page: int = 0
+    per_page: int = 0
 
     def get_inat_user_default(self, inat_param: str):
         """Return iNat API default for user param default, if any, otherwise global default."""
@@ -159,8 +160,9 @@ class Commands:
         if not life_list:
             return f"No life list {query_response.obs_query_description()}"
 
+        per_page = ctx.per_page
         formatter = LifeListFormatter(
-            life_list, per_rank, query_response, with_indent=True, per_page=20
+            life_list, per_rank, query_response, with_indent=True, per_page=per_page
         )
         ctx.page_formatter = formatter
         ctx.page = 0
