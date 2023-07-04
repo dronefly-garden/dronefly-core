@@ -27,6 +27,7 @@ from pyinaturalist import (
     TaxonSummary,
     User,
 )
+from pyinaturalist.models.taxon import make_tree
 from pyinaturalist.constants import COMMON_RANKS
 
 from dronefly.core.constants import (
@@ -131,14 +132,18 @@ def escape_markdown(
 
 def taxa_per_rank(life_list: LifeList, ranks_to_count: Union(list[str], str)):
     """Generate taxa matching ranks to count in treewise order."""
-    for taxon_count in life_list.tree().flatten():
-        if isinstance(ranks_to_count, list):
-            match = taxon_count.rank in ranks_to_count
-        elif ranks_to_count == "leaf":
-            match = taxon_count.count == taxon_count.descendant_obs_count
+    options = {}
+    if isinstance(ranks_to_count, list):
+        options["include_ranks"] = ranks_to_count
+        include = lambda _t: True  # noqa: E731
+    else:
+        if ranks_to_count == "leaf":
+            include = lambda t: t.count == t.descendant_obs_count  # noqa: E731
         else:
-            match = taxon_count.rank == ranks_to_count
-        if match:
+            options["include_ranks"] = [ranks_to_count]
+            include = lambda t: t.rank == ranks_to_count  # noqa: E731
+    for taxon_count in make_tree(life_list.data, **options).flatten():
+        if include(taxon_count):
             yield taxon_count
 
 
@@ -163,15 +168,19 @@ def format_datetime(time, compact=False):
     return formatted_time
 
 
-def filtered_ranks(per_rank):
-    return COMMON_RANKS[-8:] if per_rank == "main" else list(RANK_LEVELS.keys())
+def included_ranks(per_rank):
+    if per_rank == "main":
+        ranks = COMMON_RANKS
+    else:
+        ranks = list(RANK_LEVELS.keys())
+    return ranks
 
 
 def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
     ranks = None
     rank_totals = {}
     if per_rank in ("main", "any"):
-        ranks_to_count = filtered_ranks(per_rank)
+        ranks_to_count = included_ranks(per_rank)
         if taxon:
             if per_rank == "main" and taxon.rank not in ranks_to_count:
                 rank_level = RANK_LEVELS[taxon.rank]
