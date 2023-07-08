@@ -89,7 +89,7 @@ class Commands:
     def _parse(self, query_str):
         return self.parser.parse(query_str)
 
-    def _format_markdown(self, formatter, page: int = 0):
+    def _get_formatted_page(self, formatter, page: int = 0):
         if getattr(formatter, "format_page", None):
             markdown_text = formatter.format_page(page)
             last_page = formatter.last_page()
@@ -99,6 +99,9 @@ class Commands:
                 )
         else:
             markdown_text = formatter.format()
+        return self._format_markdown(markdown_text)
+
+    def _format_markdown(self, markdown_text: str):
         if self.format == Format.rich:
             # Richify the markdown:
             # - In Discord markdown, all newlines are rendered as line breaks
@@ -166,7 +169,9 @@ class Commands:
         )
         ctx.page_formatter = formatter
         ctx.page = 0
-        return self._format_markdown(formatter)
+        title = self._format_markdown(formatter.format_title())
+        first_page = self._get_formatted_page(formatter)
+        return [title, "", first_page]
 
     def next(self, ctx: Context):
         if not ctx.page_formatter:
@@ -174,7 +179,7 @@ class Commands:
         ctx.page += 1
         if ctx.page > ctx.page_formatter.last_page():
             ctx.page = 0
-        return self._format_markdown(ctx.page_formatter, ctx.page)
+        return self._get_formatted_page(ctx.page_formatter, ctx.page)
 
     def page(self, ctx: Context, page: int = 1):
         if not ctx.page_formatter:
@@ -186,7 +191,7 @@ class Commands:
                 msg += f" through {last_page}"
             return msg
         ctx.page = page - 1
-        return self._format_markdown(ctx.page_formatter, ctx.page)
+        return self._get_formatted_page(ctx.page_formatter, ctx.page)
 
     def prev(self, ctx: Context):
         if not ctx.page_formatter:
@@ -194,7 +199,7 @@ class Commands:
         ctx.page -= 1
         if ctx.page < 0:
             ctx.page = ctx.page_formatter.last_page()
-        return self._format_markdown(ctx.page_formatter, ctx.page)
+        return self._get_formatted_page(ctx.page_formatter, ctx.page)
 
     def taxon(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
@@ -215,7 +220,7 @@ class Commands:
             lang=ctx.get_inat_user_default("inat_lang"),
             with_url=True,
         )
-        response = self._format_markdown(formatter)
+        response = self._get_formatted_page(formatter)
 
         return response
 
@@ -259,6 +264,6 @@ class Commands:
             community_taxon_summary=community_taxon_summary,
             with_link=True,
         )
-        response = self._format_markdown(formatter)
+        response = self._get_formatted_page(formatter)
 
         return response
