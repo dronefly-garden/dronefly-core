@@ -714,15 +714,13 @@ class LifeListFormatter(ListFormatter):
                     obs_url_from_v1(query_response.obs_args()),
                 )
                 sections.append(obs_link)
-            # TODO: if more than max_taxa, support paged result
             if self.taxa and self.with_taxa:
-                skip_root = 1 if self.taxa[0].id == ROOT_TAXON_ID else 0
                 if self.per_page > 0:
-                    page_start = page * self.per_page + skip_root
+                    page_start = page * self.per_page
                     page_end = page_start + self.per_page
                 else:
-                    page_start = skip_root
-                    page_end = len(self.taxa) - page_start + 1
+                    page_start = 0
+                    page_end = len(self.taxa) + 1
                 page_of_taxa = self.taxa[page_start:page_end]
                 formatted_taxa = []
                 obs_args = query_response.obs_args()
