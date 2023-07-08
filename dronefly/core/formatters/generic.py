@@ -691,39 +691,18 @@ class LifeListFormatter(ListFormatter):
                 else ""
             )
 
-        def get_parent(taxon: Taxon):
-            def get_next_parent(taxon: Taxon):
-                """Get the next parent from the unfiltered taxa (assumed to be complete!)"""
-                return next(
-                    filter(lambda x: x.id == taxon.parent_id, self.life_list.data), None
-                )
-
-            parent = get_next_parent(taxon)
-            # This must eventually terminate at the root itself, which either:
-            # - has no taxon.parent_id (i.e. Life)
-            # - has taxon.parent_id but points to a parent that is not in our
-            #   filtered taxa
-            while parent and parent.id not in self.taxon_ids:
-                parent = get_next_parent(parent)
-            return parent
-
         def make_page_header(taxon: Taxon):
             """Make a page header for non-top-level taxa."""
-            root_taxon = self.taxa[0]
-            ancestors = []
-            parent = get_parent(taxon)
-            while parent and parent != root_taxon:
-                ancestors.append(parent)
-                parent = get_parent(parent)
+            ancestors = taxon.ancestors
             if ancestors:
-                if ancestors[-1].id == ROOT_TAXON_ID:
-                    del ancestors[-1]
+                if ancestors[0].id == ROOT_TAXON_ID:
+                    del ancestors[0]
                 if ancestors:
                     return (
                         f"`{' ' * self.max_digits}` __"
                         + " > ".join(
                             format_taxon_name(parent, with_rank=False)
-                            for parent in reversed(ancestors)
+                            for parent in ancestors
                         )
                         + "__"
                     )
