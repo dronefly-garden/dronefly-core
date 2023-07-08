@@ -169,9 +169,12 @@ class Commands:
         )
         ctx.page_formatter = formatter
         ctx.page = 0
-        title = self._format_markdown(formatter.format_title())
-        first_page = self._get_formatted_page(formatter)
-        return [title, "", first_page]
+        title = formatter.format_title()
+        first_page = formatter.get_first_page() or ""
+        if first_page:
+            first_page = "\n".join([title, "", first_page])
+            formatter.pages[0] = first_page
+        return self._get_formatted_page(formatter, 0)
 
     def next(self, ctx: Context):
         if not ctx.page_formatter:
