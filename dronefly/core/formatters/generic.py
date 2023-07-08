@@ -712,7 +712,7 @@ class LifeListFormatter(ListFormatter):
         query_response = self.query_response
         if page == 0:
             obs_link = format_link(
-                "All Life List Observations",
+                "Observations",
                 obs_url_from_v1(query_response.obs_args()),
             )
             description.append(obs_link)
