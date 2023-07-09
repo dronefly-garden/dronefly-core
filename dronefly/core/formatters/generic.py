@@ -715,7 +715,7 @@ class LifeListFormatter(ListFormatter):
             for taxon in page_of_taxa:
                 formatted_count = str(taxon.descendant_obs_count).rjust(self.max_digits)
                 formatted_name = format_link(
-                    format_taxon_name(taxon), taxon_obs_url(query_response)
+                    format_taxon_name(taxon), taxon_obs_url(query_response, taxon)
                 )
                 formatted_taxa.append(
                     f"`{formatted_count}` {indent_child(taxon)}{formatted_name}"
@@ -746,7 +746,7 @@ class LifeListFormatter(ListFormatter):
                 sections.append(life_list_summary)
             return "\n\n".join(sections)
 
-        def taxon_obs_url(query_response):
+        def taxon_obs_url(query_response, taxon):
             obs_args = query_response.obs_args()
             # Replace multiple taxa in the original query with just the one:
             if "taxon_ids" in obs_args:
@@ -754,7 +754,7 @@ class LifeListFormatter(ListFormatter):
             return obs_url_from_v1(
                 {
                     **obs_args,
-                    "taxon_id": query_response.taxon.id,
+                    "taxon_id": taxon.id,
                 }
             )
 
