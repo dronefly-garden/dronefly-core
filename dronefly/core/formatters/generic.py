@@ -695,19 +695,37 @@ class LifeListFormatter(ListFormatter):
                 if ancestors[0].id == ROOT_TAXON_ID:
                     del ancestors[0]
                 if ancestors:
-                    return (
-                        f"`{' ' * self.max_digits}` __"
-                        + " > ".join(
-                            format_taxon_name(parent, with_rank=False)
-                            for parent in ancestors
+                    header_ranks = included_ranks(self.per_rank)
+                    header_names = [
+                        format_taxon_name(parent, with_rank=False)
+                        for parent in ancestors
+                        if parent.rank in header_ranks
+                    ]
+                    if header_names:
+                        return (
+                            f"`{' ' * self.max_digits}` __"
+                            + " > ".join(header_names)
+                            + "__"
                         )
-                        + "__"
-                    )
             return None
 
-        def generate_formatted_page(page):
+        def format_page_of_taxa(page_of_taxa):
+            query_response = self.query_response
+            formatted_taxa = []
+            for taxon in page_of_taxa:
+                formatted_count = str(taxon.descendant_obs_count).rjust(self.max_digits)
+                formatted_name = format_link(
+                    format_taxon_name(taxon), taxon_obs_url(query_response)
+                )
+                formatted_taxa.append(
+                    f"`{formatted_count}` {indent_child(taxon)}{formatted_name}"
+                )
+            return formatted_taxa
+
+        def make_page(page):
             sections = []
             query_response = self.query_response
+            with_page_headers = self.per_rank in ("main", "any")
             if page == 0:
                 obs_link = format_link(
                     "Observations",
@@ -715,41 +733,12 @@ class LifeListFormatter(ListFormatter):
                 )
                 sections.append(obs_link)
             if self.taxa and self.with_taxa:
-                if self.per_page > 0:
-                    page_start = page * self.per_page
-                    page_end = page_start + self.per_page
-                else:
-                    page_start = 0
-                    page_end = len(self.taxa) + 1
-                page_of_taxa = self.taxa[page_start:page_end]
-                formatted_taxa = []
-                obs_args = query_response.obs_args()
-                if page_of_taxa and page > 0 and self.per_rank in ("main", "any"):
-                    first_taxon_on_page = page_of_taxa[0]
-                    if indent_level(first_taxon_on_page) > 1:
-                        header = make_page_header(first_taxon_on_page)
-                        if header:
-                            formatted_taxa.append(header)
-                for taxon in page_of_taxa:
-                    # Replace any taxa in the original query with just the one:
-                    if "taxon_ids" in obs_args:
-                        del obs_args["taxon_ids"]
-                    taxon_obs_url = obs_url_from_v1(
-                        {
-                            **obs_args,
-                            "taxon_id": taxon.id,
-                        }
-                    )
-                    formatted_count = str(taxon.descendant_obs_count).rjust(
-                        self.max_digits
-                    )
-                    formatted_name = format_link(
-                        format_taxon_name(taxon), taxon_obs_url
-                    )
-                    formatted_taxa.append(
-                        f"`{formatted_count}` {indent_child(taxon)}{formatted_name}"
-                    )
-                sections.append("\n".join(formatted_taxa))
+                page_of_taxa = self.get_page_of_taxa(page)
+                if page_of_taxa:
+                    formatted_taxa = format_page_of_taxa(page_of_taxa)
+                    if with_page_headers and indent_level(page_of_taxa[0]) > 1:
+                        formatted_taxa.insert(0, make_page_header(page_of_taxa[0]))
+                    sections.append("\n".join(formatted_taxa))
             if page == self.last_page():
                 life_list_summary = format_life_list_summary(
                     self.taxa, self.ranks, self.rank_totals
@@ -757,9 +746,25 @@ class LifeListFormatter(ListFormatter):
                 sections.append(life_list_summary)
             return "\n\n".join(sections)
 
-        last_generated_page = len(self.pages) - 1
-        for new_page in range(last_generated_page + 1, page + 1):
-            self.pages.append(generate_formatted_page(new_page))
+        def taxon_obs_url(query_response):
+            obs_args = query_response.obs_args()
+            # Replace multiple taxa in the original query with just the one:
+            if "taxon_ids" in obs_args:
+                del obs_args["taxon_ids"]
+            return obs_url_from_v1(
+                {
+                    **obs_args,
+                    "taxon_id": query_response.taxon.id,
+                }
+            )
+
+        last_cached_page = len(self.pages) - 1
+        # Extend page cache with new formatted pages up to and including
+        # requested page. Normally the user advances a page at a time, so this
+        # formats and caches new pages efficiently for for the normal case,
+        # while still supporting random access.
+        for new_page in range(last_cached_page + 1, page + 1):
+            self.pages.append(make_page(new_page))
         return self.pages[page]
 
     def generate_pages(self):
@@ -770,6 +775,15 @@ class LifeListFormatter(ListFormatter):
     def get_first_page(self):
         first_page = self.format_page(0)
         return first_page
+
+    def get_page_of_taxa(self, page: int):
+        if self.per_page > 0:
+            page_start = page * self.per_page
+            page_end = page_start + self.per_page
+        else:
+            page_start = 0
+            page_end = len(self.taxa) + 1
+        return self.taxa[page_start:page_end]
 
     def last_page(self):
         if not (self.with_taxa and self.per_page > 0 and self.taxa):
