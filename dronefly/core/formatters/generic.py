@@ -600,6 +600,7 @@ class LifeListFormatter(ListFormatter):
         with_taxa: bool = True,
         with_indent: bool = False,
         with_direct: bool = False,
+        with_common: bool = False,
         per_page: int = 20,
     ):
         """
@@ -646,6 +647,10 @@ class LifeListFormatter(ListFormatter):
             count is omitted. When shown, the direct obs count is enclosed in
             parentheses.
 
+        with_common: bool, optional
+            When with_common is True, if the life_list contains common names, then
+            common names are included in the output.
+
         per_page: int, optional
             The number of taxa to include in each page.
         """
@@ -656,6 +661,7 @@ class LifeListFormatter(ListFormatter):
         self.with_taxa = with_taxa
         self.with_indent = with_indent
         self.with_direct = with_direct
+        self.with_common = with_common
         self.pages = []
         self.per_page = per_page if per_page >= 0 else 0
         (
@@ -762,7 +768,8 @@ class LifeListFormatter(ListFormatter):
                             else:
                                 formatted_count = " " * self.count_digits
                 formatted_name = format_link(
-                    format_taxon_name(taxon), taxon_obs_url(query_response, taxon)
+                    format_taxon_name(taxon, with_common=self.with_common),
+                    taxon_obs_url(query_response, taxon),
                 )
                 formatted_taxa.append(
                     f"`{formatted_count}{formatted_direct}` {indent_child(taxon)}{formatted_name}"
