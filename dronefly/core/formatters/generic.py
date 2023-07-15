@@ -204,11 +204,15 @@ def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
     counted_taxon_ids = []
     tot = {}
     max_taxon_count_digits = 1
+    max_direct_count_digits = 1
     for taxon_count in generate_taxa:
         counted_taxon_ids.append(taxon_count.id)
         taxon_count_digits = len(str(taxon_count.descendant_obs_count))
         if taxon_count_digits > max_taxon_count_digits:
             max_taxon_count_digits = taxon_count_digits
+        direct_count_digits = len(str(taxon_count.count))
+        if direct_count_digits > max_direct_count_digits:
+            max_direct_count_digits = direct_count_digits
         counted_taxa.append(taxon_count)
         rank = taxon_count.rank
         tot[rank] = tot.get(taxon_count.rank, 0) + 1
@@ -217,7 +221,14 @@ def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
         rank: f"`{str(tot[rank]).rjust(max_rank_digits)}` {p.plural_noun(rank, tot[rank])}"
         for rank in tot
     }
-    return (counted_taxa, counted_taxon_ids, ranks, rank_totals, max_taxon_count_digits)
+    return (
+        counted_taxa,
+        counted_taxon_ids,
+        ranks,
+        rank_totals,
+        max_taxon_count_digits,
+        max_direct_count_digits,
+    )
 
 
 def format_life_list_summary(
@@ -588,6 +599,7 @@ class LifeListFormatter(ListFormatter):
         with_url: bool = True,
         with_taxa: bool = True,
         with_indent: bool = False,
+        with_direct: bool = False,
         per_page: int = 20,
     ):
         """
@@ -627,6 +639,13 @@ class LifeListFormatter(ListFormatter):
             children of higher taxa on the same page using indent levels and "└"
             to indicate child relationships.
 
+        with_direct: bool, optional
+            When with_direct is True, a column of direct observations counts of
+            each taxon is shown. The number is only shown when non-zero. If the
+            direct obs count is equal to the total obs count, then the total obs
+            count is omitted. When shown, the direct obs count is enclosed in
+            parentheses.
+
         per_page: int, optional
             The number of taxa to include in each page.
         """
@@ -636,6 +655,7 @@ class LifeListFormatter(ListFormatter):
         self.with_url = with_url
         self.with_taxa = with_taxa
         self.with_indent = with_indent
+        self.with_direct = with_direct
         self.pages = []
         self.per_page = per_page if per_page >= 0 else 0
         (
@@ -643,7 +663,8 @@ class LifeListFormatter(ListFormatter):
             self.taxon_ids,
             self.ranks,
             self.rank_totals,
-            self.max_digits,
+            self.count_digits,
+            self.direct_digits,
         ) = filter_life_list(self.life_list, self.per_rank, self.query_response.taxon)
 
     def format(self, with_title: bool = True, page: int = 0):
@@ -702,8 +723,11 @@ class LifeListFormatter(ListFormatter):
                         if parent.rank in header_ranks
                     ]
                     if header_names:
+                        counts_width = self.count_digits
+                        if self.with_direct:
+                            counts_width += self.direct_digits + 2
                         return (
-                            f"`{' ' * self.max_digits}` __"
+                            f"`{' ' * counts_width}` __"
                             + " > ".join(header_names)
                             + "__"
                         )
@@ -713,12 +737,35 @@ class LifeListFormatter(ListFormatter):
             query_response = self.query_response
             formatted_taxa = []
             for taxon in page_of_taxa:
-                formatted_count = str(taxon.descendant_obs_count).rjust(self.max_digits)
+                formatted_count = str(taxon.descendant_obs_count).rjust(
+                    self.count_digits
+                )
+                formatted_direct = ""
+                # Format the direct column similarly to Dynamic Life Lists on
+                # iNat web, i.e.
+                # - never show direct count on non-leaves when it is zero
+                # - only show one column at the leaves, as the counts are equal
+                # - show the leaf count as "direct" at ranks above species,
+                #   a cue that the species count might be improved with more
+                #   ID refinements
+                if self.with_direct:
+                    formatted_direct = " " * (self.direct_digits + 2)
+                    if taxon.count > 0:
+                        formatted_direct = f"({taxon.count})".rjust(
+                            self.direct_digits + 2
+                        )
+                        is_leaf = taxon.count == taxon.descendant_obs_count
+                        terminal_rank = taxon.rank_level <= RANK_LEVELS["species"]
+                        if is_leaf:
+                            if terminal_rank:
+                                formatted_direct = " " * (self.direct_digits + 2)
+                            else:
+                                formatted_count = " " * self.count_digits
                 formatted_name = format_link(
                     format_taxon_name(taxon), taxon_obs_url(query_response, taxon)
                 )
                 formatted_taxa.append(
-                    f"`{formatted_count}` {indent_child(taxon)}{formatted_name}"
+                    f"`{formatted_count}{formatted_direct}` {indent_child(taxon)}{formatted_name}"
                 )
             return formatted_taxa
 
