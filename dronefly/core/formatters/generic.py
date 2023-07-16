@@ -441,6 +441,7 @@ def format_taxon_name(
     with_rank=True,
     with_common=True,
     lang=None,
+    common_name: str = "",
 ):
     """Format taxon name.
 
@@ -461,6 +462,8 @@ def format_taxon_name(
     lang: str, optional
         If specified, prefer the first name with its locale == lang instead of
         the preferred_common_name.
+    common_name: str, optional
+        Common name from another source to use instead of any of the names on the taxon.
 
     Returns
     -------
@@ -476,7 +479,7 @@ def format_taxon_name(
         name (e.g. "Anser anser domesticus" -> "*Anser anser* var. *domesticus*")
     """
 
-    if with_common:
+    def get_common_name():
         preferred_common_name = None
         if lang and taxon.names:
             name = next(
@@ -497,6 +500,10 @@ def format_taxon_name(
                 common = None
             else:
                 common = preferred_common_name
+        return common
+
+    if with_common:
+        common = common_name or get_common_name()
     else:
         common = None
     name = taxon.name
@@ -602,6 +609,7 @@ class LifeListFormatter(ListFormatter):
         with_direct: bool = False,
         with_common: bool = False,
         per_page: int = 20,
+        lifelist_metadata: dict = {},
     ):
         """
         Parameters
@@ -653,8 +661,14 @@ class LifeListFormatter(ListFormatter):
 
         per_page: int, optional
             The number of taxa to include in each page.
+
+        lifelist_metadata: dict, optional
+            Supplementary lifelist metadata (from /v1/taxa/lifelist_metadata endpoint).
+            If present, and with_common is True, the preferred_common_name is
+            used by the taxon name formatter.
         """
         self.life_list = life_list
+        self.lifelist_metadata = lifelist_metadata
         self.per_rank = per_rank
         self.query_response = query_response
         self.with_url = with_url
@@ -767,9 +781,17 @@ class LifeListFormatter(ListFormatter):
                                 formatted_direct = " " * (self.direct_digits + 2)
                             else:
                                 formatted_count = " " * self.count_digits
+                taxon_metadata = self.lifelist_metadata.get(taxon.id)
+                common_name = (
+                    taxon_metadata.get("preferred_common_name")
+                    if taxon_metadata
+                    else None
+                )
+                taxon_name = format_taxon_name(
+                    taxon, with_common=self.with_common, common_name=common_name
+                )
                 formatted_name = format_link(
-                    format_taxon_name(taxon, with_common=self.with_common),
-                    taxon_obs_url(query_response, taxon),
+                    taxon_name, taxon_obs_url(query_response, taxon)
                 )
                 formatted_taxa.append(
                     f"`{formatted_count}{formatted_direct}` {indent_child(taxon)}{formatted_name}"
