@@ -130,18 +130,29 @@ def escape_markdown(
         return _MARKDOWN_ESCAPE_REGEX.sub(r"\\\1", text)
 
 
-def taxa_per_rank(life_list: LifeList, ranks_to_count: Union(list[str], str)):
+def taxa_per_rank(
+    life_list: LifeList,
+    ranks_to_count: Union(list[str], str),
+    root_taxon_id: int = None,
+):
     """Generate taxa matching ranks to count in treewise order."""
     options = {}
+    subtree = (
+        lambda t: True
+        if root_taxon_id is None
+        else root_taxon_id in [t.id] + [a.id for a in t.ancestors]
+    )
     if isinstance(ranks_to_count, list):
         options["include_ranks"] = ranks_to_count
-        include = lambda _t: True  # noqa: E731
+        include = lambda t: subtree(t)  # noqa: E731
     else:
         if ranks_to_count == "leaf":
-            include = lambda t: t.count == t.descendant_obs_count  # noqa: E731
+            include = (
+                lambda t: subtree(t) and t.count == t.descendant_obs_count
+            )  # noqa: E731
         else:
             options["include_ranks"] = [ranks_to_count]
-            include = lambda t: t.rank == ranks_to_count  # noqa: E731
+            include = lambda t: subtree(t) and t.rank == ranks_to_count  # noqa: E731
     tree = make_tree(life_list.data, **options)
     for taxon_count in tree.flatten(hide_root=tree.id == ROOT_TAXON_ID):
         if include(taxon_count):
@@ -177,7 +188,9 @@ def included_ranks(per_rank):
     return ranks
 
 
-def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
+def filter_life_list(
+    life_list: LifeList, per_rank: str, taxon: Taxon, root_taxon_id: int = None
+):
     ranks = None
     rank_totals = {}
     if per_rank in ("main", "any"):
@@ -192,14 +205,14 @@ def filter_life_list(life_list: LifeList, per_rank: str, taxon: Taxon):
             else:
                 ranks_to_count = ranks_to_count[: ranks_to_count.index(taxon.rank) + 1]
         ranks = "main ranks" if per_rank == "main" else "ranks"
-        generate_taxa = taxa_per_rank(life_list, ranks_to_count)
+        generate_taxa = taxa_per_rank(life_list, ranks_to_count, root_taxon_id)
     elif per_rank == "leaf":
         ranks = "leaf taxa"
-        generate_taxa = taxa_per_rank(life_list, per_rank)
+        generate_taxa = taxa_per_rank(life_list, per_rank, root_taxon_id)
     else:
         rank = RANK_EQUIVALENTS[per_rank] if per_rank in RANK_EQUIVALENTS else per_rank
         ranks = p.plural_noun(rank)
-        generate_taxa = taxa_per_rank(life_list, per_rank)
+        generate_taxa = taxa_per_rank(life_list, per_rank, root_taxon_id)
     counted_taxa = []
     counted_taxon_ids = []
     tot = {}
@@ -604,6 +617,7 @@ class LifeListFormatter(ListFormatter):
         with_common: bool = False,
         per_page: int = 20,
         lifelist_metadata: dict = {},
+        root_taxon_id: int = None,
     ):
         """
         Parameters
@@ -660,6 +674,10 @@ class LifeListFormatter(ListFormatter):
             Supplementary lifelist metadata (from /v1/taxa/lifelist_metadata endpoint).
             If present, and with_common is True, the preferred_common_name is
             used by the taxon name formatter.
+
+        root_taxon_id: int, optional
+            If specified, make the taxon with this ID the root. The taxon with
+            this ID must be in the life list data.
         """
         self.life_list = life_list
         self.lifelist_metadata = lifelist_metadata
@@ -672,6 +690,7 @@ class LifeListFormatter(ListFormatter):
         self.with_common = with_common
         self.pages = []
         self.per_page = per_page if per_page >= 0 else 0
+        self.root_taxon_id = root_taxon_id
         (
             self.taxa,
             self.taxon_ids,
@@ -679,7 +698,9 @@ class LifeListFormatter(ListFormatter):
             self.rank_totals,
             self.count_digits,
             self.direct_digits,
-        ) = filter_life_list(self.life_list, self.per_rank, self.query_response.taxon)
+        ) = filter_life_list(
+            self.life_list, self.per_rank, self.query_response.taxon, self.root_taxon_id
+        )
 
     def format(self, with_title: bool = True, page: int = 0):
         """Format the life list as markdown."""
@@ -713,7 +734,8 @@ class LifeListFormatter(ListFormatter):
         def indent_level(taxon: Taxon):
             if self.per_rank not in ("main", "any"):
                 return 0
-            return taxon.indent_level
+            root_indent_level = self.taxa[0].indent_level
+            return taxon.indent_level - root_indent_level
 
         def indent_child(taxon: Taxon):
             level = indent_level(taxon)
