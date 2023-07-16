@@ -441,7 +441,6 @@ def format_taxon_name(
     with_rank=True,
     with_common=True,
     lang=None,
-    common_name: str = "",
 ):
     """Format taxon name.
 
@@ -462,8 +461,6 @@ def format_taxon_name(
     lang: str, optional
         If specified, prefer the first name with its locale == lang instead of
         the preferred_common_name.
-    common_name: str, optional
-        Common name from another source to use instead of any of the names on the taxon.
 
     Returns
     -------
@@ -502,10 +499,7 @@ def format_taxon_name(
                 common = preferred_common_name
         return common
 
-    if with_common:
-        common = common_name or get_common_name()
-    else:
-        common = None
+    common = get_common_name() if with_common or with_term else None
     name = taxon.name
 
     rank = taxon.rank
@@ -787,12 +781,12 @@ class LifeListFormatter(ListFormatter):
                     if taxon_metadata
                     else None
                 )
-                taxon_name = format_taxon_name(
-                    taxon, with_common=self.with_common, common_name=common_name
-                )
+                taxon_name = format_taxon_name(taxon)
                 formatted_name = format_link(
                     taxon_name, taxon_obs_url(query_response, taxon)
                 )
+                if self.with_common and common_name:
+                    formatted_name = f"{formatted_name} ({common_name})"
                 formatted_taxa.append(
                     f"`{formatted_count}{formatted_direct}` {indent_child(taxon)}{formatted_name}"
                 )
