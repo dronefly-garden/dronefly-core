@@ -499,7 +499,7 @@ def format_taxon_name(
                 common = preferred_common_name
         return common
 
-    common = get_common_name() if with_common or with_term else None
+    common = get_common_name() if with_common else None
     name = taxon.name
 
     rank = taxon.rank
