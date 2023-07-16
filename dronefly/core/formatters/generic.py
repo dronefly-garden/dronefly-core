@@ -234,6 +234,8 @@ def filter_life_list(
         rank: f"`{str(tot[rank]).rjust(max_rank_digits)}` {p.plural_noun(rank, tot[rank])}"
         for rank in tot
     }
+    if per_rank == "leaf":
+        counted_taxa.sort(key=lambda t: t.name)
     return (
         counted_taxa,
         counted_taxon_ids,
