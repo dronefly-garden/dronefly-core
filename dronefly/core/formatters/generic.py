@@ -618,7 +618,6 @@ class LifeListFormatter(ListFormatter):
         with_direct: bool = False,
         with_common: bool = False,
         per_page: int = 20,
-        lifelist_metadata: dict = {},
         root_taxon_id: int = None,
     ):
         """
@@ -672,17 +671,11 @@ class LifeListFormatter(ListFormatter):
         per_page: int, optional
             The number of taxa to include in each page.
 
-        lifelist_metadata: dict, optional
-            Supplementary lifelist metadata (from /v1/taxa/lifelist_metadata endpoint).
-            If present, and with_common is True, the preferred_common_name is
-            used by the taxon name formatter.
-
         root_taxon_id: int, optional
             If specified, make the taxon with this ID the root. The taxon with
             this ID must be in the life list data.
         """
         self.life_list = life_list
-        self.lifelist_metadata = lifelist_metadata
         self.per_rank = per_rank
         self.query_response = query_response
         self.with_url = with_url
@@ -799,18 +792,12 @@ class LifeListFormatter(ListFormatter):
                                 formatted_direct = " " * (self.direct_digits + 2)
                             else:
                                 formatted_count = " " * self.count_digits
-                taxon_metadata = self.lifelist_metadata.get(taxon.id)
-                common_name = (
-                    taxon_metadata.get("preferred_common_name")
-                    if taxon_metadata
-                    else None
-                )
-                taxon_name = format_taxon_name(taxon)
+                taxon_name = format_taxon_name(taxon, with_common=False)
                 formatted_name = format_link(
                     taxon_name, taxon_obs_url(query_response, taxon)
                 )
-                if self.with_common and common_name:
-                    formatted_name = f"{formatted_name} ({common_name})"
+                if self.with_common and taxon.preferred_common_name:
+                    formatted_name = f"{formatted_name} ({taxon.preferred_common_name})"
                 formatted_taxa.append(
                     f"`{formatted_count}{formatted_direct}` {indent_child(taxon)}{formatted_name}"
                 )
