@@ -22,7 +22,7 @@ pyinaturalist = { git = "https://github.com/pyinat/pyinaturalist" }
 dateparser = "^1.1.1"
 inflect = "^5.3.0"
 html2markdown = "^0.1.7"
-rich = "13.3.5"
+rich = "13.4.2"
 
 [tool.poetry.dev-dependencies]
 black = "^22.12.0"
