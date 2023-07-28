@@ -46,6 +46,7 @@ class Context:
     #   be active at a time.
     page_formatter: Union[BaseFormatter, ListFormatter] = None
     page: int = 0
+    per_page: int = 0
 
     def get_inat_user_default(self, inat_param: str):
         """Return iNat API default for user param default, if any, otherwise global default."""
@@ -88,11 +89,19 @@ class Commands:
     def _parse(self, query_str):
         return self.parser.parse(query_str)
 
-    def _format_markdown(self, formatter, page: int = 0):
+    def _get_formatted_page(self, formatter, page: int = 0):
         if getattr(formatter, "format_page", None):
             markdown_text = formatter.format_page(page)
+            last_page = formatter.last_page()
+            if last_page > 0:
+                markdown_text = "\n\n".join(
+                    [markdown_text, f"Page {page + 1}/{last_page + 1}"]
+                )
         else:
             markdown_text = formatter.format()
+        return self._format_markdown(markdown_text)
+
+    def _format_markdown(self, markdown_text: str):
         if self.format == Format.rich:
             # Richify the markdown:
             # - In Discord markdown, all newlines are rendered as line breaks
@@ -121,7 +130,7 @@ class Commands:
     def life(self, ctx: Context, *args):
         _args = " ".join(args) or "by me"
         query = self._parse(_args)
-        per_rank = query.per or "leaf"
+        per_rank = query.per or "main"
         if per_rank not in [*RANK_KEYWORDS, "leaf", "main", "any"]:
             return "Specify `per <rank-or-keyword>`"
 
@@ -154,12 +163,18 @@ class Commands:
         if not life_list:
             return f"No life list {query_response.obs_query_description()}"
 
+        per_page = ctx.per_page
         formatter = LifeListFormatter(
-            life_list, per_rank, query_response, with_taxa=True, per_page=20
+            life_list, per_rank, query_response, with_indent=True, per_page=per_page
         )
         ctx.page_formatter = formatter
         ctx.page = 0
-        return self._format_markdown(formatter)
+        title = formatter.format_title()
+        first_page = formatter.get_first_page() or ""
+        if first_page:
+            first_page = "\n".join([title, "", first_page])
+            formatter.pages[0] = first_page
+        return self._get_formatted_page(formatter, 0)
 
     def next(self, ctx: Context):
         if not ctx.page_formatter:
@@ -167,7 +182,7 @@ class Commands:
         ctx.page += 1
         if ctx.page > ctx.page_formatter.last_page():
             ctx.page = 0
-        return self._format_markdown(ctx.page_formatter, ctx.page)
+        return self._get_formatted_page(ctx.page_formatter, ctx.page)
 
     def page(self, ctx: Context, page: int = 1):
         if not ctx.page_formatter:
@@ -179,7 +194,7 @@ class Commands:
                 msg += f" through {last_page}"
             return msg
         ctx.page = page - 1
-        return self._format_markdown(ctx.page_formatter, ctx.page)
+        return self._get_formatted_page(ctx.page_formatter, ctx.page)
 
     def prev(self, ctx: Context):
         if not ctx.page_formatter:
@@ -187,7 +202,7 @@ class Commands:
         ctx.page -= 1
         if ctx.page < 0:
             ctx.page = ctx.page_formatter.last_page()
-        return self._format_markdown(ctx.page_formatter, ctx.page)
+        return self._get_formatted_page(ctx.page_formatter, ctx.page)
 
     def taxon(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
@@ -208,7 +223,7 @@ class Commands:
             lang=ctx.get_inat_user_default("inat_lang"),
             with_url=True,
         )
-        response = self._format_markdown(formatter)
+        response = self._get_formatted_page(formatter)
 
         return response
 
@@ -252,6 +267,6 @@ class Commands:
             community_taxon_summary=community_taxon_summary,
             with_link=True,
         )
-        response = self._format_markdown(formatter)
+        response = self._get_formatted_page(formatter)
 
         return response
