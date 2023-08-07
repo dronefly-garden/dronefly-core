@@ -1,1 +1,1 @@
-from .query import Query, TaxonQuery  # noqa: F401
+from .query import *  # noqa: F401,F403
