@@ -3,6 +3,7 @@ exclude_dirs = ["tests"]
 
 [tool.flake8]
 max-line-length = 100
+extend-ignore = "E203"
 
 [tool.poetry]
 name = "dronefly-core"
@@ -12,7 +13,7 @@ authors = ["Ben Armstrong <synrg@debian.org>"]
 license = "AGPL-3.0-or-later"
 readme = "README.md"
 packages = [
-	{ include = "dronefly/core" },
+    { include = "dronefly/core" },
 ]
 
 [tool.poetry.dependencies]
