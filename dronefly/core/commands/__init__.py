@@ -26,6 +26,14 @@ RICH_NO_BQ_NEWLINE_PAT = re.compile(r"^(?!\> )(.+?)(\n)(?!$|\> )", re.MULTILINE)
 RICH_NEWLINE = " \\\n"
 
 
+class ArgumentError(ValueError):
+    """Command arguments are not valid."""
+
+
+class CommandError(NameError):
+    """Command is not known."""
+
+
 class Format(Enum):
     discord_markdown = 1
     rich = 2
