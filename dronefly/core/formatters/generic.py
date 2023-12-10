@@ -866,7 +866,7 @@ class LifeListFormatter(ListFormatter):
         if structured_page["entries"]:
             entries = []
             for (index, entry) in enumerate(structured_page["entries"]):
-                _i = str(index + 1).zfill(2) if self.with_index else ""
+                _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
                 if selected == index:
                     _s = ">"
                     _n = "**__"
@@ -876,7 +876,7 @@ class LifeListFormatter(ListFormatter):
                     _n = ""
                     _e = ""
                 entries.append(
-                    f"**`{_i}) `**`{entry['count']}{entry['direct']}`"
+                    f"{_i}`{entry['count']}{entry['direct']}`"
                     f"{_s}{entry['indent']}{_n}{entry['name']}{_e}"
                 )
             sections.append("\n".join(entries))
