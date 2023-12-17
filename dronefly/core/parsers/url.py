@@ -50,7 +50,7 @@ _OBS_QUERY_PAT = r"(?P<url>" + WWW_URL_PAT + r"/observations" + QUERY_PAT + ")"
 PAT_OBS_QUERY = re.compile(_OBS_QUERY_PAT)
 # - the ">" character is markdown for block-quote, but only at the start of a
 #   line, so in the middle of a line we use it to indicate a selected entry
-_SELECTED_OBS_LINK_PAT = r"^(?!> ).*?>.*?\[.*?\]\(" + _OBS_QUERY_PAT + r"\)"
+_SELECTED_OBS_LINK_PAT = r"^(?!> ).*?>.*?\[.*?\]\(" + _OBS_QUERY_PAT + r"?\)"
 PAT_SELECTED_OBS_LINK = re.compile(_SELECTED_OBS_LINK_PAT, re.MULTILINE)
 MARKDOWN_LINK = re.compile(r"\[.*?\]\((?P<url>.*?)\)")
 
