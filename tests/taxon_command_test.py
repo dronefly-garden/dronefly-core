@@ -21,11 +21,9 @@ def ctx():
 
 # TODO: Mock communication with iNatClient
 def test_taxon_with_result(cmd, ctx):
-    if not getattr(cmd.inat_client.taxa, "populate", None):
-        pytest.skip("Not yet supported by pyinaturalist: client.taxa.populate(taxon)")
     response = re.sub(r"\[[0-9,]*?\]", "[19,999,999]", cmd.taxon(ctx, "birds"))
     assert response == (
-        "[Class Aves (Birds)](https://www.inaturalist.org/taxa/3) \\\nis a class with "
+        "[Class Aves (Birds)](https://www.inaturalist.org/taxa/3)\nis a class with "
         "[19,999,999](https://www.inaturalist.org/observations?taxon_id=3) observations in: "
         "\n> **Animalia** > \n> **Chordata** > Vertebrata"
     )

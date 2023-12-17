@@ -47,8 +47,8 @@ GROUP_MACROS = {
     "herps": {"opt": ["taxon_ids=20978,26036"]},
     "lichenish": {
         "opt": [
-            "taxon_ids=152028,942664,791197,54743,152030,175541,127378,117881,117869",
-            "without_taxon_id=352459",
+            "taxon_ids=152028,54743,152030,175541,127378,117881,117869,175246",
+            "without_taxon_id=372831,1040687,1040689,352459",
         ]
     },
     "nonflowering": {
@@ -93,7 +93,9 @@ VALID_OBS_OPTS = [
     "page",
     "pcid",
     "photos",
+    "place_id",
     "popular",
+    "project_id",
     "q",
     "quality_grade",
     "rank",
@@ -102,6 +104,7 @@ VALID_OBS_OPTS = [
     "taxon_geoprivacy",
     "taxon_ids",
     "threatened",
+    "user_id",
     "verifiable",
     "without_taxon_id",
     "year",

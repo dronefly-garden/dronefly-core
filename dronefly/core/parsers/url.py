@@ -44,18 +44,14 @@ STATIC_URL_PAT = (
 PAT_OBS_LINK = re.compile(
     r"\b(?P<url>" + WWW_URL_PAT + r"/observations/(?P<obs_id>\d+))\b", re.I
 )
-# Match observation URL from `obs` embed generated for observations matching a
-# specific taxon_id and filtered by optional place_id and/or user_id.
-PAT_OBS_TAXON_LINK = re.compile(
-    r"\b(?P<url>" + WWW_URL_PAT + r"/observations"
-    r"\?taxon_id=(?P<taxon_id>\d+)(&place_id=(?P<place_id>\d+))?(&user_id=(?P<user_id>\d+))?)\b",
-    re.I,
-)
 
-QUERY_PAT = r"\??(?:&?[^=&]*=[^=&]*)*"
-PAT_OBS_QUERY = re.compile(
-    r"(?P<url>" + WWW_URL_PAT + r"/observations" + QUERY_PAT + ")"
-)
+QUERY_PAT = r"\??(?:&?[^\n=&]*=[^\n=&]*)*"
+_OBS_QUERY_PAT = r"(?P<url>" + WWW_URL_PAT + r"/observations" + QUERY_PAT + ")"
+PAT_OBS_QUERY = re.compile(_OBS_QUERY_PAT)
+# - the ">" character is markdown for block-quote, but only at the start of a
+#   line, so in the middle of a line we use it to indicate a selected entry
+_SELECTED_OBS_LINK_PAT = r"^(?!> ).*?>.*?\[.*?\]\(" + _OBS_QUERY_PAT + r"?\)"
+PAT_SELECTED_OBS_LINK = re.compile(_SELECTED_OBS_LINK_PAT, re.MULTILINE)
 MARKDOWN_LINK = re.compile(r"\[.*?\]\((?P<url>.*?)\)")
 
 # Match place link from any partner site.
