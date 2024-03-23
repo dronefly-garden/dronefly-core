@@ -154,6 +154,9 @@ class Commands:
                     ).one()
                 else:
                     return "Your iNat user is not known"
+            elif query.user == "any":
+                # i.e. override default "by me" when no arguments are given
+                pass
             else:
                 user = client.users.autocomplete(q=query.user).one()
                 if user:
