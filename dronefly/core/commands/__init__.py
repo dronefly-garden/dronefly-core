@@ -155,9 +155,9 @@ class Commands:
                 else:
                     return "Your iNat user is not known"
             else:
-                users = client.users.autocomplete(q=query.user).one()
-                if users:
-                    query_args["user"] = users[0]
+                user = client.users.autocomplete(q=query.user).one()
+                if user:
+                    query_args["user"] = user
             if query and query.main and query.main.terms:
                 main_query_str = " ".join(query.main.terms)
                 taxon = client.taxa.autocomplete(q=main_query_str).one()
