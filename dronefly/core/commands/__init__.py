@@ -149,21 +149,21 @@ class Commands:
             # (i.e. no config table lookup yet) to model full query in bot
             if query.user == "me":
                 query_args["user"] = client.users.from_ids(
-                    ctx.author.inat_user_id, limit=1
+                    ctx.author.inat_user_id
                 ).one()
             else:
-                users = client.users.autocomplete(q=query.user, limit=1)
+                users = client.users.autocomplete(q=query.user).one()
                 if users:
                     query_args["user"] = users[0]
             if query and query.main and query.main.terms:
                 main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str, limit=1).one()
+                taxon = client.taxa.autocomplete(q=main_query_str).one()
                 query_args["taxon"] = taxon
             if query.place:
-                place = client.places.autocomplete(q=query.place, limit=1).one()
+                place = client.places.autocomplete(q=query.place).one()
                 query_args["place"] = place
             if query.project:
-                project = client.projects.search(q=query.project, limit=1).one()
+                project = client.projects.search(q=query.project).one()
                 query_args["project"] = project
             query_response = QueryResponse(**query_args)
             obs_args = query_response.obs_args()
@@ -274,7 +274,6 @@ class Commands:
             obs = client.observations.search(
                 user_id=ctx.author.inat_user_id,
                 taxon_id=taxon.id,
-                limit=1,
                 reverse=True,
             ).one()
             if not obs:
@@ -282,9 +281,7 @@ class Commands:
 
             taxon_summary = client.observations.taxon_summary(obs.id)
             if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
-                community_taxon = client.taxa.from_ids(
-                    obs.community_taxon_id, limit=1
-                ).one()
+                community_taxon = client.taxa.from_ids(obs.community_taxon_id).one()
                 community_taxon_summary = client.observations.taxon_summary(
                     obs.id, community=1
                 )
