@@ -148,9 +148,12 @@ class Commands:
             # Handle a useful subset of query args in a simplistic way for now
             # (i.e. no config table lookup yet) to model full query in bot
             if query.user == "me":
-                query_args["user"] = client.users.from_ids(
-                    ctx.author.inat_user_id
-                ).one()
+                if ctx.author.inat_user_id:
+                    query_args["user"] = client.users.from_ids(
+                        ctx.author.inat_user_id
+                    ).one()
+                else:
+                    return "Your iNat user is not known"
             else:
                 users = client.users.autocomplete(q=query.user).one()
                 if users:
