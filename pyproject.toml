@@ -6,7 +6,7 @@ max-line-length = 100
 
 [tool.poetry]
 name = "dronefly-core"
-version = "0.3.7"
+version = "0.3.8"
 description = "Core dronefly components"
 authors = ["Ben Armstrong <synrg@debian.org>"]
 license = "AGPL-3.0-or-later"
@@ -24,7 +24,7 @@ html2markdown = "^0.1.7"
 rich = ">=13.4"
 
 [tool.poetry.dev-dependencies]
-black = "^22.12.0"
+black = "^24.3.0"
 pytest = "^7.2.1"
 pytest-mock = "^3.10.0"
 pylint = "^2.10.2"
