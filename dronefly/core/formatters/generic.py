@@ -8,7 +8,7 @@ import copy
 from datetime import datetime as dt
 from math import ceil
 import re
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from dronefly.core.query.query import QueryResponse
@@ -615,6 +615,7 @@ class LifeListFormatter(ListFormatter):
         with_url: bool = True,
         with_taxa: bool = True,
         with_indent: bool = False,
+        with_index: bool = False,
         with_direct: bool = False,
         with_common: bool = False,
         per_page: int = 20,
@@ -681,6 +682,7 @@ class LifeListFormatter(ListFormatter):
         self.with_url = with_url
         self.with_taxa = with_taxa
         self.with_indent = with_indent
+        self.with_index = with_index
         self.with_direct = with_direct
         self.with_common = with_common
         self.pages = []
@@ -697,9 +699,11 @@ class LifeListFormatter(ListFormatter):
             self.life_list, self.per_rank, self.query_response.taxon, self.root_taxon_id
         )
 
-    def format(self, with_title: bool = True, page: int = 0):
+    def format(
+        self, with_title: bool = True, page: int = 0, selected: Optional[int] = None
+    ):
         """Format the life list as markdown."""
-        description = self.format_page(page)
+        description = self.format_page(page, selected)
         if with_title:
             description = "\n\n".join([self.format_title(), description])
         return description
@@ -723,7 +727,7 @@ class LifeListFormatter(ListFormatter):
                 title = format_link(title, url)
         return title
 
-    def format_page(self, page: int = 0):
+    def format_page(self, page: int = 0, selected: Optional[int] = None):
         """Format the life list description."""
 
         def indent_level(taxon: Taxon):
@@ -799,33 +803,38 @@ class LifeListFormatter(ListFormatter):
                 if self.with_common and taxon.preferred_common_name:
                     formatted_name = f"{formatted_name} ({taxon.preferred_common_name})"
                 formatted_taxa.append(
-                    f"`{formatted_count}{formatted_direct}` {indent_child(taxon)}{formatted_name}"
+                    {
+                        "count": formatted_count,
+                        "direct": formatted_direct,
+                        "indent": indent_child(taxon),
+                        "name": formatted_name,
+                    }
                 )
             return formatted_taxa
 
-        def make_page(page):
-            sections = []
-            query_response = self.query_response
+        def make_structured_page(page):
+            structured_page = {
+                "header": None,
+                "entries_header": None,
+                "entries": [],
+                "footer": None,
+            }
             with_page_headers = self.per_rank in ("main", "any")
-            if page == 0:
-                obs_link = format_link(
-                    "Observations",
-                    obs_url_from_v1(query_response.obs_args()),
-                )
-                sections.append(obs_link)
             if self.taxa and self.with_taxa:
                 page_of_taxa = self.get_page_of_taxa(page)
                 if page_of_taxa:
                     formatted_taxa = format_page_of_taxa(page_of_taxa)
                     if with_page_headers and indent_level(page_of_taxa[0]) > 1:
-                        formatted_taxa.insert(0, make_page_header(page_of_taxa[0]))
-                    sections.append("\n".join(formatted_taxa))
+                        structured_page["entries_header"] = make_page_header(
+                            page_of_taxa[0]
+                        )
+                    structured_page["entries"] = formatted_taxa
             if page == self.last_page():
                 life_list_summary = format_life_list_summary(
                     self.taxa, self.ranks, self.rank_totals
                 )
-                sections.append(life_list_summary)
-            return "\n\n".join(sections)
+                structured_page["footer"] = life_list_summary
+            return structured_page
 
         def taxon_obs_url(query_response, taxon):
             obs_args = query_response.obs_args()
@@ -844,9 +853,37 @@ class LifeListFormatter(ListFormatter):
         # requested page. Normally the user advances a page at a time, so this
         # formats and caches new pages efficiently for for the normal case,
         # while still supporting random access.
-        for new_page in range(last_cached_page + 1, page + 1):
-            self.pages.append(make_page(new_page))
-        return self.pages[page]
+        for new_page in range(last_cached_page, page):
+            self.pages.append(make_structured_page(new_page + 1))
+
+        # Return string built up from structured page parts:
+        structured_page = self.pages[page]
+        sections = []
+        if structured_page["header"]:
+            sections.append(structured_page["header"])
+        if structured_page["entries_header"]:
+            sections.append(structured_page["entries_header"])
+        if structured_page["entries"]:
+            entries = []
+            for (index, entry) in enumerate(structured_page["entries"]):
+                _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
+                if selected == index:
+                    _s = ">"
+                    _n = "**__"
+                    _e = "__**"
+                else:
+                    _s = "\N{EN SPACE}"
+                    _n = ""
+                    _e = ""
+                entries.append(
+                    f"{_i}`{entry['count']}{entry['direct']}`"
+                    f"{_s}{entry['indent']}{_n}{entry['name']}{_e}"
+                )
+            sections.append("\n".join(entries))
+        if structured_page["footer"]:
+            sections.append(structured_page["footer"])
+
+        return "\n\n".join(sections)
 
     def generate_pages(self):
         for page in range(0, self.last_page() + 1):
@@ -854,7 +891,7 @@ class LifeListFormatter(ListFormatter):
             yield formatted_page
 
     def get_first_page(self):
-        first_page = self.format_page(0)
+        first_page = self.format_page(0, 0)
         return first_page
 
     def get_page_of_taxa(self, page: int):

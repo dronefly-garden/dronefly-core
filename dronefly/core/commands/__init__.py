@@ -26,6 +26,14 @@ RICH_NO_BQ_NEWLINE_PAT = re.compile(r"^(?!\> )(.+?)(\n)(?!$|\> )", re.MULTILINE)
 RICH_NEWLINE = " \\\n"
 
 
+class ArgumentError(ValueError):
+    """Command arguments are not valid."""
+
+
+class CommandError(NameError):
+    """Command is not known."""
+
+
 class Format(Enum):
     discord_markdown = 1
     rich = 2
@@ -47,6 +55,7 @@ class Context:
     page_formatter: Union[BaseFormatter, ListFormatter] = None
     page: int = 0
     per_page: int = 0
+    selected: int = 0
 
     def get_inat_user_default(self, inat_param: str):
         """Return iNat API default for user param default, if any, otherwise global default."""
@@ -89,9 +98,9 @@ class Commands:
     def _parse(self, query_str):
         return self.parser.parse(query_str)
 
-    def _get_formatted_page(self, formatter, page: int = 0):
+    def _get_formatted_page(self, formatter, page: int = 0, selected: int = 0):
         if getattr(formatter, "format_page", None):
-            markdown_text = formatter.format_page(page)
+            markdown_text = formatter.format_page(page, selected)
             last_page = formatter.last_page()
             if last_page > 0:
                 markdown_text = "\n\n".join(
@@ -139,22 +148,28 @@ class Commands:
             # Handle a useful subset of query args in a simplistic way for now
             # (i.e. no config table lookup yet) to model full query in bot
             if query.user == "me":
-                query_args["user"] = client.users.from_ids(
-                    ctx.author.inat_user_id, limit=1
-                ).one()
+                if ctx.author.inat_user_id:
+                    query_args["user"] = client.users.from_ids(
+                        ctx.author.inat_user_id
+                    ).one()
+                else:
+                    return "Your iNat user is not known"
+            elif query.user == "any":
+                # i.e. override default "by me" when no arguments are given
+                pass
             else:
-                users = client.users.autocomplete(q=query.user, limit=1)
-                if users:
-                    query_args["user"] = users[0]
+                user = client.users.autocomplete(q=query.user).one()
+                if user:
+                    query_args["user"] = user
             if query and query.main and query.main.terms:
                 main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str, limit=1).one()
+                taxon = client.taxa.autocomplete(q=main_query_str).one()
                 query_args["taxon"] = taxon
             if query.place:
-                place = client.places.autocomplete(q=query.place, limit=1).one()
+                place = client.places.autocomplete(q=query.place).one()
                 query_args["place"] = place
             if query.project:
-                project = client.projects.search(q=query.project, limit=1).one()
+                project = client.projects.search(q=query.project).one()
                 query_args["project"] = project
             query_response = QueryResponse(**query_args)
             obs_args = query_response.obs_args()
@@ -164,17 +179,24 @@ class Commands:
             return f"No life list {query_response.obs_query_description()}"
 
         per_page = ctx.per_page
+        with_index = self.format == Format.rich
         formatter = LifeListFormatter(
-            life_list, per_rank, query_response, with_indent=True, per_page=per_page
+            life_list,
+            per_rank,
+            query_response,
+            with_indent=True,
+            per_page=per_page,
+            with_index=with_index,
         )
         ctx.page_formatter = formatter
         ctx.page = 0
+        ctx.selected = 0
         title = formatter.format_title()
         first_page = formatter.get_first_page() or ""
         if first_page:
-            first_page = "\n".join([title, "", first_page])
-            formatter.pages[0] = first_page
-        return self._get_formatted_page(formatter, 0)
+            # TODO: Provide a method in the formatter to set the title:
+            formatter.pages[0]["header"] = title
+        return self._get_formatted_page(formatter, 0, 0)
 
     def next(self, ctx: Context):
         if not ctx.page_formatter:
@@ -182,7 +204,8 @@ class Commands:
         ctx.page += 1
         if ctx.page > ctx.page_formatter.last_page():
             ctx.page = 0
-        return self._get_formatted_page(ctx.page_formatter, ctx.page)
+        ctx.selected = 0
+        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
     def page(self, ctx: Context, page: int = 1):
         if not ctx.page_formatter:
@@ -194,7 +217,21 @@ class Commands:
                 msg += f" through {last_page}"
             return msg
         ctx.page = page - 1
-        return self._get_formatted_page(ctx.page_formatter, ctx.page)
+        ctx.selected = 0
+        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
+
+    def sel(self, ctx: Context, sel: int = 1):
+        if not ctx.page_formatter:
+            return "Type a command that has pages first"
+        _page = ctx.page_formatter.get_page_of_taxa(ctx.page)
+        page_len = len(_page)
+        if sel > page_len or sel < 1:
+            msg = "Specify entry 1"
+            if page_len > 1:
+                msg += f" through {page_len}"
+            return msg
+        ctx.selected = sel - 1
+        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
     def prev(self, ctx: Context):
         if not ctx.page_formatter:
@@ -202,7 +239,8 @@ class Commands:
         ctx.page -= 1
         if ctx.page < 0:
             ctx.page = ctx.page_formatter.last_page()
-        return self._get_formatted_page(ctx.page_formatter, ctx.page)
+        ctx.selected = 0
+        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
     def taxon(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
@@ -242,7 +280,6 @@ class Commands:
             obs = client.observations.search(
                 user_id=ctx.author.inat_user_id,
                 taxon_id=taxon.id,
-                limit=1,
                 reverse=True,
             ).one()
             if not obs:
@@ -250,9 +287,7 @@ class Commands:
 
             taxon_summary = client.observations.taxon_summary(obs.id)
             if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
-                community_taxon = client.taxa.from_ids(
-                    obs.community_taxon_id, limit=1
-                ).one()
+                community_taxon = client.taxa.from_ids(obs.community_taxon_id).one()
                 community_taxon_summary = client.observations.taxon_summary(
                     obs.id, community=1
                 )
