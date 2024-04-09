@@ -17,8 +17,9 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.8.1,<3.13"
-pyinaturalist = ">=0.19.0,<0.20"
+pyinaturalist = { git = "https://github.com/pyinat/pyinaturalist", rev = "52dfd56" }
 dateparser = "^1.1.1"
+filelock = "^3.13.3"
 inflect = "^5.3.0"
 html2markdown = "^0.1.7"
 rich = ">=13.4"
