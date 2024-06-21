@@ -3,14 +3,32 @@ from contextlib import contextmanager
 from inspect import signature
 from typing import Optional
 
-from pyinaturalist import iNatClient as pyiNatClient
+from platformdirs import user_data_dir
+from pyinaturalist import (
+    ClientSession,
+    FileLockSQLiteBucket,
+    iNatClient as pyiNatClient,
+)
 from pyinaturalist.constants import RequestParams
+import os
 
 from ..constants import INAT_DEFAULTS
 
 
 class iNatClient(pyiNatClient):
     """iNat client based on pyinaturalist."""
+
+    def __init__(self, *args, **kwargs):
+        lock_path = os.path.join(user_data_dir(), "pyinaturalist", "pyinat.lock")
+        session = ClientSession(
+            bucket_class=FileLockSQLiteBucket,
+            lock_path=lock_path,
+        )
+        _kwargs = {
+            "session": session,
+            **kwargs,
+        }
+        super().__init__(*args, **_kwargs)
 
     def add_client_settings(
         self,
