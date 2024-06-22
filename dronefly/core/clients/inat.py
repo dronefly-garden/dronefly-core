@@ -14,14 +14,20 @@ import os
 
 from ..constants import INAT_DEFAULTS
 
+BASE_PATH = os.path.join(user_data_dir(), "dronefly-core")
+
 
 class iNatClient(pyiNatClient):
     """iNat client based on pyinaturalist."""
 
     def __init__(self, *args, **kwargs):
-        lock_path = os.path.join(user_data_dir(), "pyinaturalist", "pyinat.lock")
+        ratelimit_path = os.path.join(BASE_PATH, "ratelimit.db")
+        lock_path = os.path.join(BASE_PATH, "ratelimit.lock")
+        cache_file = os.path.join(BASE_PATH, "api_requests.db")
         session = ClientSession(
             bucket_class=FileLockSQLiteBucket,
+            cache_file=cache_file,
+            ratelimit_path=ratelimit_path,
             lock_path=lock_path,
         )
         _kwargs = {

@@ -883,14 +883,12 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pyinaturalist"
-version = "0.20.0.dev0"
+version = "0.20.0"
 description = "iNaturalist API client for python"
 optional = false
-python-versions = "<4.0,>=3.8"
-files = [
-    {file = "pyinaturalist-0.20.0.dev0-py3-none-any.whl", hash = "sha256:9d31089e6897b91f64eaac1835bd98343dd292f56b57f7e54f5ac789d8027636"},
-    {file = "pyinaturalist-0.20.0.dev0.tar.gz", hash = "sha256:bc6c288ec7b1c9168c802e20aa3213428654ba7513d3ab3b18c589c2310fbe64"},
-]
+python-versions = "^3.8"
+files = []
+develop = false
 
 [package.dependencies]
 attrs = ">=21.2"
@@ -906,6 +904,10 @@ rich = ">=10.9"
 [package.extras]
 all = ["filelock (>2.0)", "ujson (>5.0)"]
 docs = ["furo (>=2023.7,<2024.0)", "ipython (>=8.12,<9.0)", "linkify-it-py (>=2.0,<3.0)", "matplotlib (>=3.7)", "myst-parser (>=1.0)", "nbsphinx (>=0.9,<0.10)", "pillow (>=10.1)", "sphinx (>=6.2,<7.0)", "sphinx-autodoc-typehints (==1.20)", "sphinx-automodapi (>=0.15,<0.16)", "sphinx-copybutton (>=0.5)", "sphinx-design (>=0.5)", "sphinxcontrib-apidoc (>=0.3,<0.4)", "sphinxext-opengraph (>=0.9)"]
+
+[package.source]
+type = "directory"
+url = "../pyinaturalist"
 
 [[package]]
 name = "pylint"
@@ -1462,4 +1464,4 @@ test = ["big-O", "importlib-resources", "jaraco.functools", "jaraco.itertools", 
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.1,<3.13"
-content-hash = "222783ecad76750dffd223a1954baf74109052cf8c0dd1ef5ebad719188b416f"
+content-hash = "a00923db6c687c5fab3bf7ac5aa6fbdf94b1332d43c8db51c8f2981bdf710290"
