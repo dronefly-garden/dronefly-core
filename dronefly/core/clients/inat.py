@@ -3,14 +3,38 @@ from contextlib import contextmanager
 from inspect import signature
 from typing import Optional
 
-from pyinaturalist import iNatClient as pyiNatClient
+from platformdirs import user_data_dir
+from pyinaturalist import (
+    ClientSession,
+    FileLockSQLiteBucket,
+    iNatClient as pyiNatClient,
+)
 from pyinaturalist.constants import RequestParams
+import os
 
 from ..constants import INAT_DEFAULTS
+
+BASE_PATH = os.path.join(user_data_dir(), "dronefly-core")
 
 
 class iNatClient(pyiNatClient):
     """iNat client based on pyinaturalist."""
+
+    def __init__(self, *args, **kwargs):
+        ratelimit_path = os.path.join(BASE_PATH, "ratelimit.db")
+        lock_path = os.path.join(BASE_PATH, "ratelimit.lock")
+        cache_file = os.path.join(BASE_PATH, "api_requests.db")
+        session = ClientSession(
+            bucket_class=FileLockSQLiteBucket,
+            cache_file=cache_file,
+            ratelimit_path=ratelimit_path,
+            lock_path=lock_path,
+        )
+        _kwargs = {
+            "session": session,
+            **kwargs,
+        }
+        super().__init__(*args, **_kwargs)
 
     def add_client_settings(
         self,
