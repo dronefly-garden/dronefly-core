@@ -132,7 +132,7 @@ def escape_markdown(
 
 def taxa_per_rank(
     life_list: LifeList,
-    ranks_to_count: Union(list[str], str),
+    ranks_to_count: Union[list[str], str],
     root_taxon_id: int = None,
 ):
     """Generate taxa matching ranks to count in treewise order."""
@@ -142,6 +142,7 @@ def taxa_per_rank(
         if root_taxon_id is None
         else root_taxon_id in [t.id] + [a.id for a in t.ancestors]
     )
+    _extended_ranks_to_count = []
     if isinstance(ranks_to_count, list):
         options["include_ranks"] = ranks_to_count
         include = lambda t: subtree(t)  # noqa: E731
@@ -151,10 +152,28 @@ def taxa_per_rank(
                 lambda t: subtree(t) and t.count == t.descendant_obs_count
             )  # noqa: E731
         else:
-            options["include_ranks"] = [ranks_to_count]
-            include = lambda t: subtree(t) and t.rank == ranks_to_count  # noqa: E731
+            # single rank case:
+            _extended_ranks_to_count = [ranks_to_count]
+            # we may need to extend the ranks to count to include the root_taxon
+            # if it's not the rank to filter by, then later drop it with hide_root:
+            if root_taxon_id != ROOT_TAXON_ID:
+                root_taxon = next(
+                    (
+                        taxon_count
+                        for taxon_count in life_list.data
+                        if taxon_count.id == root_taxon_id
+                    ),
+                    None,
+                )
+                if root_taxon and root_taxon.rank != ranks_to_count:
+                    _extended_ranks_to_count.append(root_taxon.rank)
+            options["include_ranks"] = _extended_ranks_to_count
+            include = (
+                lambda t: subtree(t) and t.rank in _extended_ranks_to_count
+            )  # noqa: E731
     tree = make_tree(life_list.data, **options)
-    for taxon_count in tree.flatten(hide_root=tree.id == ROOT_TAXON_ID):
+    hide_root = tree.id == ROOT_TAXON_ID or len(_extended_ranks_to_count) > 1
+    for taxon_count in tree.flatten(hide_root=hide_root):
         if include(taxon_count):
             yield taxon_count
 
