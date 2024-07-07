@@ -243,18 +243,28 @@ class Commands:
         return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
     def taxon(self, ctx: Context, *args):
-        query = self._parse(" ".join(args))
-        # TODO: Handle all query clauses, not just main.terms
-        # TODO: Doesn't do any ranking or filtering of results
-        if not query.main or not query.main.terms:
-            return "Not a taxon"
-        main_query_str = " ".join(query.main.terms)
+        taxon = None
+        if len(args) == 0 or args[0] == "sel":
+            formatter = ctx.page_formatter
+            if formatter and getattr(formatter, "get_page_of_taxa", None):
+                page = formatter.get_page_of_taxa(ctx.page)
+                with self.inat_client.set_ctx(ctx) as client:
+                    taxon = client.taxa.populate(page[ctx.selected])
+            else:
+                return "Select a taxon first"
+        else:
+            query = self._parse(" ".join(args))
+            # TODO: Handle all query clauses, not just main.terms
+            # TODO: Doesn't do any ranking or filtering of results
+            if not query.main or not query.main.terms:
+                return "Not a taxon"
 
-        with self.inat_client.set_ctx(ctx) as client:
-            taxon = client.taxa.autocomplete(q=main_query_str).one()
-            if not taxon:
-                return "Nothing found"
-            taxon = client.taxa.populate(taxon)
+            with self.inat_client.set_ctx(ctx) as client:
+                main_query_str = " ".join(query.main.terms)
+                taxon = client.taxa.autocomplete(q=main_query_str).one()
+                if not taxon:
+                    return "Nothing found"
+                taxon = client.taxa.populate(taxon)
 
         formatter = TaxonFormatter(
             taxon,
