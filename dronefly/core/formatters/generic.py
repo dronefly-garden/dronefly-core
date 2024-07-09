@@ -136,29 +136,26 @@ def taxa_per_rank(
     root_taxon_id: int = None,
 ):
     """Generate taxa matching ranks to count in treewise order."""
-    options = {}
-    subtree = (
-        lambda t: True
-        if root_taxon_id is None
-        else root_taxon_id in [t.id] + [a.id for a in t.ancestors]
-    )
+    include_leaves = None
+    include_ranks = None
     if isinstance(ranks_to_count, list):
-        options["include_ranks"] = ranks_to_count
-        include = lambda t: subtree(t)  # noqa: E731
+        include_ranks = ranks_to_count
     else:
         if ranks_to_count == "leaf":
-            include = (
-                lambda t: subtree(t) and t.count == t.descendant_obs_count
-            )  # noqa: E731
+            include_leaves = lambda t: t.count == t.descendant_obs_count  # noqa: E731
+            include_ranks = None
         else:
             # single rank case:
-            options["root_id"] = root_taxon_id
             include_ranks = [ranks_to_count]
-            include = lambda t: subtree(t) and t.rank in include_ranks  # noqa: E731
-    tree = make_tree(life_list.data, **options)
-    hide_root = tree.id == ROOT_TAXON_ID
+    tree = make_tree(life_list.data, include_ranks=include_ranks, root_id=root_taxon_id)
+    hide_root = (
+        tree.id == ROOT_TAXON_ID
+        or include_ranks
+        and len(include_ranks) == 1
+        and tree.rank != include_ranks[0]
+    )
     for taxon_count in tree.flatten(hide_root=hide_root):
-        if include(taxon_count):
+        if include_leaves is None or include_leaves(taxon_count):
             yield taxon_count
 
 
