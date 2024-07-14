@@ -142,6 +142,12 @@ class Commands:
         per_rank = query.per or "main"
         if per_rank not in [*RANK_KEYWORDS, "leaf", "main", "any"]:
             return "Specify `per <rank-or-keyword>`"
+        sort_by = query.sort_by or None
+        if sort_by not in ["obs", "name"]:
+            return "Specify `sort by obs` or `sort by name` (default)"
+        order = query.order or None
+        if order not in [None, "asc", "desc"]:
+            return "Specify `order asc` or `order desc`"
 
         query_args = get_base_query_args(query)
         with self.inat_client.set_ctx(ctx) as client:
@@ -187,6 +193,8 @@ class Commands:
             with_indent=True,
             per_page=per_page,
             with_index=with_index,
+            sort_by=sort_by,
+            order=order,
         )
         ctx.page_formatter = formatter
         ctx.page = 0
@@ -243,18 +251,28 @@ class Commands:
         return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
     def taxon(self, ctx: Context, *args):
-        query = self._parse(" ".join(args))
-        # TODO: Handle all query clauses, not just main.terms
-        # TODO: Doesn't do any ranking or filtering of results
-        if not query.main or not query.main.terms:
-            return "Not a taxon"
-        main_query_str = " ".join(query.main.terms)
+        taxon = None
+        if len(args) == 0 or args[0] == "sel":
+            formatter = ctx.page_formatter
+            if formatter and getattr(formatter, "get_page_of_taxa", None):
+                page = formatter.get_page_of_taxa(ctx.page)
+                with self.inat_client.set_ctx(ctx) as client:
+                    taxon = client.taxa.populate(page[ctx.selected])
+            else:
+                return "Select a taxon first"
+        else:
+            query = self._parse(" ".join(args))
+            # TODO: Handle all query clauses, not just main.terms
+            # TODO: Doesn't do any ranking or filtering of results
+            if not query.main or not query.main.terms:
+                return "Not a taxon"
 
-        with self.inat_client.set_ctx(ctx) as client:
-            taxon = client.taxa.autocomplete(q=main_query_str).one()
-            if not taxon:
-                return "Nothing found"
-            taxon = client.taxa.populate(taxon)
+            with self.inat_client.set_ctx(ctx) as client:
+                main_query_str = " ".join(query.main.terms)
+                taxon = client.taxa.autocomplete(q=main_query_str).one()
+                if not taxon:
+                    return "Nothing found"
+                taxon = client.taxa.populate(taxon)
 
         formatter = TaxonFormatter(
             taxon,

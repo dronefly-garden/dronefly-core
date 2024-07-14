@@ -7,4 +7,5 @@
 - **[Danny (Rapptz)](https://github.com/rapptz)**
     - Author and maintainer of discord.py.
     - Discord-specific formatting is handled partly by code copied from
-      discord.py under the MIT license. See [LICENSE](./LICENSE) for details.
+      discord.py and discord-ext-menus under the MIT license. See
+      [LICENSE](./LICENSE) for details.

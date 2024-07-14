@@ -52,7 +52,7 @@ class NaturalParser(UnixlikeParser):
 
         try:
             arg_normalized = re.sub(
-                r"((^| )(id|not|except)) ?by ", r"\2\3-by ", argument, re.I
+                r"((^| )(id|not|except|sort)) ?by ", r"\2\3-by ", argument, re.I
             )
             arg_normalized = re.sub(
                 r"((^| )in ?prj) ", r"\2in-prj ", arg_normalized, re.I
