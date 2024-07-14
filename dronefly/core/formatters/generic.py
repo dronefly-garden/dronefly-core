@@ -6,6 +6,7 @@ which is then fairly easy to render to other formats as needed.
 from __future__ import annotations
 import copy
 from datetime import datetime as dt
+import functools
 from math import ceil
 import re
 from typing import TYPE_CHECKING, Optional, Union
@@ -134,6 +135,8 @@ def taxa_per_rank(
     life_list: LifeList,
     ranks_to_count: Union[list[str], str],
     root_taxon_id: int = None,
+    sort_by: str = None,
+    order: str = None,
 ):
     """Generate taxa matching ranks to count in treewise order."""
     include_leaves = False
@@ -147,7 +150,46 @@ def taxa_per_rank(
         else:
             # single rank case:
             include_ranks = [ranks_to_count]
-    tree = make_tree(life_list.data, include_ranks=include_ranks, root_id=root_taxon_id)
+
+    def _sort_rank_name(order):
+        """Generate a sort key in `order` by rank and name."""
+
+        def reverse_taxon_name(taxon):
+            reverse_key = functools.cmp_to_key(lambda a, b: (a < b) - (a > b))
+            return reverse_key(taxon.name)
+
+        def sort_key(taxon):
+            taxon_name_key = (
+                reverse_taxon_name(taxon) if order == "desc" else taxon.name
+            )
+            return (taxon.rank_level or 0) * -1, taxon_name_key
+
+        return sort_key
+
+    def _sort_rank_obs_name(order):
+        """Generate a sort key in `order` by rank, descendant obs count, and name."""
+
+        def sort_key(taxon):
+            _order = 1 if order == "asc" else -1
+            return (
+                (taxon.rank_level or 0) * -1,
+                taxon.descendant_obs_count * _order,
+                taxon.name,
+            )
+
+        return sort_key
+
+    # generate a sort key that uses the specified order:
+    sort_key = (
+        _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
+    )
+
+    tree = make_tree(
+        life_list.data,
+        include_ranks=include_ranks,
+        root_id=root_taxon_id,
+        sort_key=sort_key,
+    )
     hide_root = (
         tree.id == ROOT_TAXON_ID
         or include_ranks
@@ -194,7 +236,12 @@ def included_ranks(per_rank):
 
 
 def filter_life_list(
-    life_list: LifeList, per_rank: str, taxon: Taxon, root_taxon_id: int = None
+    life_list: LifeList,
+    per_rank: str,
+    taxon: Taxon,
+    root_taxon_id: int = None,
+    sort_by: str = None,
+    order: str = None,
 ):
     ranks = None
     rank_totals = {}
@@ -210,14 +257,20 @@ def filter_life_list(
             else:
                 ranks_to_count = ranks_to_count[: ranks_to_count.index(taxon.rank) + 1]
         ranks = "main ranks" if per_rank == "main" else "ranks"
-        generate_taxa = taxa_per_rank(life_list, ranks_to_count, root_taxon_id)
+        generate_taxa = taxa_per_rank(
+            life_list, ranks_to_count, root_taxon_id, sort_by, order
+        )
     elif per_rank == "leaf":
         ranks = "leaf taxa"
-        generate_taxa = taxa_per_rank(life_list, per_rank, root_taxon_id)
+        generate_taxa = taxa_per_rank(
+            life_list, per_rank, root_taxon_id, sort_by, order
+        )
     else:
         rank = RANK_EQUIVALENTS[per_rank] if per_rank in RANK_EQUIVALENTS else per_rank
         ranks = p.plural_noun(rank)
-        generate_taxa = taxa_per_rank(life_list, per_rank, root_taxon_id)
+        generate_taxa = taxa_per_rank(
+            life_list, per_rank, root_taxon_id, sort_by, order
+        )
     counted_taxa = []
     counted_taxon_ids = []
     tot = {}
@@ -625,6 +678,8 @@ class LifeListFormatter(ListFormatter):
         with_common: bool = False,
         per_page: int = 20,
         root_taxon_id: int = None,
+        sort_by: str = None,
+        order: str = None,
     ):
         """
         Parameters
@@ -680,6 +735,13 @@ class LifeListFormatter(ListFormatter):
         root_taxon_id: int, optional
             If specified, make the taxon with this ID the root. The taxon with
             this ID must be in the life list data.
+
+        sort_by: str, optional
+            If specified, sort ascending by `name` (default) or descending by number of `obs`.
+
+        order: str, optional
+            If specified, use `asc` (ascending) or `desc` (descending) as the order for the
+            `sort_by` key.
         """
         self.life_list = life_list
         self.per_rank = per_rank
@@ -693,6 +755,8 @@ class LifeListFormatter(ListFormatter):
         self.pages = []
         self.per_page = per_page if per_page >= 0 else 0
         self.root_taxon_id = root_taxon_id
+        self.sort_by = sort_by
+        self.order = order
         (
             self.taxa,
             self.taxon_ids,
@@ -701,7 +765,12 @@ class LifeListFormatter(ListFormatter):
             self.count_digits,
             self.direct_digits,
         ) = filter_life_list(
-            self.life_list, self.per_rank, self.query_response.taxon, self.root_taxon_id
+            self.life_list,
+            self.per_rank,
+            self.query_response.taxon,
+            self.root_taxon_id,
+            self.sort_by,
+            self.order,
         )
 
     def format(

@@ -123,6 +123,8 @@ class Query:
     except_by: Optional[str] = None
     id_by: Optional[str] = None
     per: Optional[str] = None
+    sort_by: Optional[str] = None
+    order: Optional[str] = None
     project: Optional[str] = None
     options: Optional[List] = None
     obs_d1: Optional[List] = None
@@ -162,6 +164,8 @@ class Query:
         self._add_clause("added since {}", self.added_d1)
         self._add_clause("added until {}", self.added_d2)
         self._add_clause("added on {}", self.added_on)
+        self._add_clause("sorted by {}", self.sort_by)
+        self._add_clause("({self.order})", self.order)
         return self._query
 
 
