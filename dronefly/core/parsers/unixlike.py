@@ -134,6 +134,9 @@ class UnixlikeParser:
                 controlled_term = [term_name, term_value]
             else:
                 controlled_term = None
+            sort_by = None
+            if vals.sort_by:
+                sort_by = " ".join(vals.sort_by)
             try:
                 obs_d1 = _parse_date_arg(vals.obs_d1, "first")
                 obs_d2 = _parse_date_arg(vals.obs_d2, "last")
@@ -159,8 +162,7 @@ class UnixlikeParser:
                 id_by=" ".join(vals.id_by),
                 per=" ".join(vals.per),
                 project=" ".join(vals.project),
-                sort_by=" ".join(vals.sort_by),
-                order=vals.order,
+                sort_by=sort_by,
                 options=vals.options,
                 obs_d1=obs_d1,
                 obs_d2=obs_d2,

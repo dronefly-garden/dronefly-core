@@ -27,12 +27,11 @@ REMAINING_ARGS = list(ARGPARSE_ARGS)[1:]
 MACROS = {
     "rg": {"opt": ["quality_grade=research"]},
     "nid": {"opt": ["quality_grade=needs_id"]},
-    "oldest": {"opt": ["order=asc", "order_by=observed_on"]},
-    "newest": {"opt": ["order=desc", "order_by=observed_on"]},
-    "reverse": {"opt": ["order=asc"]},
+    "oldest": {"order": "asc", "sort_by": "observed"},
+    "newest": {"order": "desc", "sort_by": "observed"},
     "my": {"by": "me"},
     "home": {"from": "home"},
-    "faves": {"opt": ["popular", "order_by=votes"]},
+    "faves": {"sort_by": "votes", "opt": ["popular"]},
     "spp": {"opt": ["hrank=species"]},
     "species": {"opt": ["hrank=species"]},
     "unseen": {"not by": "me", "from": "home"},
@@ -112,3 +111,13 @@ VALID_OBS_OPTS = [
     "without_taxon_id",
     "year",
 ]
+VALID_OBS_SORT_BY = {
+    "added": "created_at",
+    "observed": "observed_on",
+    "votes": "votes",
+    # Technically these are valid values, but we are not supporting them:
+    # - these fields are not typically shown in Dronefly displays
+    # - these sort options are of limited utility & hard to explain
+    #    "guess": "species_guess",
+    #    "id": "id",
+}

@@ -7,7 +7,7 @@ from typing import List, Optional, Union
 
 from dronefly.core.formatters.generic import format_taxon_name, format_user_name
 from dronefly.core.models.controlled_terms import ControlledTermSelector
-from dronefly.core.parsers.constants import VALID_OBS_OPTS
+from dronefly.core.parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 from pyinaturalist.models import Place, Project, Taxon, User
 
 
@@ -164,8 +164,10 @@ class Query:
         self._add_clause("added since {}", self.added_d1)
         self._add_clause("added until {}", self.added_d2)
         self._add_clause("added on {}", self.added_on)
-        self._add_clause("sorted by {}", self.sort_by)
-        self._add_clause("({self.order})", self.order)
+        if self.sort_by:
+            self._add_clause("sort by {}", self.sort_by)
+        if self.order:
+            self._add_clause("order {}", self.order)
         return self._query
 
 
@@ -245,6 +247,8 @@ def get_base_query_args(query):
     _added["d1"] = query.added_d1 if has_value(query.added_d1) else None
     _added["d2"] = query.added_d2 if has_value(query.added_d2) else None
     args["added"] = DateSelector(**_added)
+    args["sort_by"] = query.sort_by if has_value(query.sort_by) else None
+    args["order"] = query.order if has_value(query.order) else None
     return args
 
 
@@ -281,6 +285,8 @@ class QueryResponse:
     controlled_term: Optional[ControlledTermSelector] = None
     observed: Optional[DateSelector] = None
     added: Optional[DateSelector] = None
+    sort_by: Optional[str] = None
+    order: Optional[str] = None
     adjectives: Optional[List[str]] = field(init=False)
 
     def __post_init__(self):
@@ -362,6 +368,10 @@ class QueryResponse:
                     kwargs["created_d1"] = self.added.d1.isoformat()
                 if self.added.d2:
                     kwargs["created_d2"] = self.added.d2.isoformat()
+        if self.sort_by:
+            kwargs["order_by"] = VALID_OBS_SORT_BY.get(str(self.sort_by))
+        if self.order:
+            kwargs["order"] = str(self.order)
         return kwargs
 
     def obs_query_description(self, with_adjectives: bool = True):
@@ -517,4 +527,15 @@ class QueryResponse:
                 message += " {} rank {} or {}".format(
                     with_or_and, hrank or lrank, higher_or_lower
                 )
+        order_by = kwargs.get("order_by")
+        order = kwargs.get("order")
+        if order:
+            _order = "ascending" if order == "asc" else "descending"
+            message += f" in {_order} order"
+        if order_by:
+            _order_by = str(VALID_OBS_SORT_BY.get(order_by)).replace("_", " ")
+            if order:
+                message += f" by `#{_order_by}`"
+            else:
+                message += f" ordered by `{_order_by}`"
         return re.sub(r"^ ", "", message)

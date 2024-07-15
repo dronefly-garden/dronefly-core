@@ -105,3 +105,11 @@ class TestQuery:
         added_on = datetime.now()
         query = Query(main=TaxonQuery(terms=["birds"]), user="me", added_on=added_on)
         assert str(query) == "birds by me added on {}".format(added_on)
+
+    def test_query_order_by(self):
+        query = Query(main=TaxonQuery(terms=["birds"]), user="me", sort_by="observed")
+        assert str(query) == "birds by me sort by observed"
+
+    def test_query_order(self):
+        query = Query(main=TaxonQuery(terms=["birds"]), user="me", order="asc")
+        assert str(query) == "birds by me order asc"
