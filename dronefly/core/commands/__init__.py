@@ -140,10 +140,10 @@ class Commands:
         _args = " ".join(args) or "by me"
         query = self._parse(_args)
         per_rank = query.per or "main"
-        if per_rank not in [*RANK_KEYWORDS, "leaf", "main", "any"]:
+        if per_rank not in [*RANK_KEYWORDS, "leaf", "child", "main", "any"]:
             return "Specify `per <rank-or-keyword>`"
         sort_by = query.sort_by or None
-        if sort_by not in ["obs", "name"]:
+        if sort_by not in [None, "obs", "name"]:
             return "Specify `sort by obs` or `sort by name` (default)"
         order = query.order or None
         if order not in [None, "asc", "desc"]:

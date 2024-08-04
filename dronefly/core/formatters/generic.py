@@ -139,17 +139,6 @@ def taxa_per_rank(
     order: str = None,
 ):
     """Generate taxa matching ranks to count in treewise order."""
-    include_leaves = False
-    include_ranks = None
-    if isinstance(ranks_to_count, list):
-        include_ranks = ranks_to_count
-    else:
-        if ranks_to_count == "leaf":
-            include_leaves = True
-            include_ranks = None
-        else:
-            # single rank case:
-            include_ranks = [ranks_to_count]
 
     def _sort_rank_name(order):
         """Generate a sort key in `order` by rank and name."""
@@ -179,6 +168,27 @@ def taxa_per_rank(
 
         return sort_key
 
+    include_leaves = False
+    include_ranks = None
+    max_depth = 0
+    if isinstance(ranks_to_count, list):
+        include_ranks = ranks_to_count
+    else:
+        if ranks_to_count == "leaf":
+            include_leaves = True
+            include_ranks = None
+        elif ranks_to_count == "child":
+            # TODO: support make_tree(max_depth=#) in pyinat instead of the following kludge
+            # TODO: support max_depth > 1 for children & grandchildren, etc.
+            max_depth = 1
+            # include all ranks in the tree so that ancestry isn't broken. later, we
+            # filter out any taxa that aren't children. moving support for max_depth
+            # into
+            include_ranks = included_ranks("any")
+        else:
+            # single rank case:
+            include_ranks = [ranks_to_count]
+
     # generate a sort key that uses the specified order:
     sort_key = (
         _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
@@ -189,6 +199,7 @@ def taxa_per_rank(
         include_ranks=include_ranks,
         root_id=root_taxon_id,
         sort_key=sort_key,
+        # max_depth=max_depth,
     )
     hide_root = (
         tree.id == ROOT_TAXON_ID
@@ -196,12 +207,27 @@ def taxa_per_rank(
         and len(include_ranks) == 1
         and tree.rank != include_ranks[0]
     )
+    root_taxon = None
+    if max_depth == 1:
+        if root_taxon_id:
+            root_taxon = next(
+                (
+                    taxon_count
+                    for taxon_count in life_list.data
+                    if taxon_count.id == root_taxon_id
+                ),
+                life_list.data[0],
+            )
+        else:
+            root_taxon = life_list.data[0]
     for taxon_count in tree.flatten(hide_root=hide_root):
-        included = (
-            taxon_count.count == taxon_count.descendant_obs_count
-            if include_leaves
-            else True
-        )
+        included = True
+        if include_leaves:
+            included = taxon_count.count == taxon_count.descendant_obs_count
+        elif max_depth == 1:
+            included = (
+                taxon_count.ancestors and taxon_count.ancestors[-1].id == root_taxon.id
+            )
         if included:
             yield taxon_count
 
@@ -260,10 +286,17 @@ def filter_life_list(
         generate_taxa = taxa_per_rank(
             life_list, ranks_to_count, root_taxon_id, sort_by, order
         )
-    elif per_rank == "leaf":
-        ranks = "leaf taxa"
+    elif per_rank in ("leaf", "child"):
+        ranks = "leaf taxa" if per_rank == "leaf" else "child taxa"
+        if per_rank == "child" and not root_taxon_id:
+            # `per child` is only meaningful when the life list is for a
+            # specific taxon. Otherwise, default to the first taxon (probably
+            # 'Life')
+            _root_taxon_id = taxon.id if taxon else life_list.data[0].id
+        else:
+            _root_taxon_id = root_taxon_id
         generate_taxa = taxa_per_rank(
-            life_list, per_rank, root_taxon_id, sort_by, order
+            life_list, per_rank, _root_taxon_id, sort_by, order
         )
     else:
         rank = RANK_EQUIVALENTS[per_rank] if per_rank in RANK_EQUIVALENTS else per_rank
@@ -292,7 +325,7 @@ def filter_life_list(
         rank: f"`{str(tot[rank]).rjust(max_rank_digits)}` {p.plural_noun(rank, tot[rank])}"
         for rank in tot
     }
-    if per_rank == "leaf":
+    if per_rank in ("leaf", "child"):
         counted_taxa.sort(key=lambda t: t.name)
     return (
         counted_taxa,
@@ -691,6 +724,7 @@ class LifeListFormatter(ListFormatter):
         per_rank: str
             Rank to include in list of taxa, or one of the special values:
                 - 'leaf' (default) = leaf taxa
+                - 'child' = all child taxa regardless of rank
                 - 'main' = any of the most commonly used ranks
                 - 'any' = every rank in the life list
 
