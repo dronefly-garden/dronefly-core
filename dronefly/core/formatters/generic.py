@@ -323,7 +323,9 @@ def filter_taxon_list(
             if taxon_count_digits > max_taxon_count_digits:
                 max_taxon_count_digits = taxon_count_digits
         else:
-            max_taxon_count_digits = len(str(_taxon.observations_count))
+            taxon_count_digits = len(str(_taxon.observations_count))
+            if taxon_count_digits > max_taxon_count_digits:
+                max_taxon_count_digits = taxon_count_digits
         counted_taxa.append(_taxon)
         rank = _taxon.rank
         tot[rank] = tot.get(_taxon.rank, 0) + 1
