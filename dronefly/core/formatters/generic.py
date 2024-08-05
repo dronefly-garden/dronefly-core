@@ -130,6 +130,38 @@ def escape_markdown(
         return _MARKDOWN_ESCAPE_REGEX.sub(r"\\\1", text)
 
 
+def _sort_rank_name(order):
+    """Generate a sort key in `order` by rank and name."""
+
+    def reverse_taxon_name(taxon):
+        reverse_key = functools.cmp_to_key(lambda a, b: (a < b) - (a > b))
+        return reverse_key(taxon.name)
+
+    def sort_key(taxon):
+        taxon_name_key = reverse_taxon_name(taxon) if order == "desc" else taxon.name
+        return (taxon.rank_level or 0) * -1, taxon_name_key
+
+    return sort_key
+
+
+def _sort_rank_obs_name(order):
+    """Generate a sort key in `order` by rank, descendant obs count, and name."""
+
+    def sort_key(taxon):
+        _order = 1 if order == "asc" else -1
+        if getattr(taxon, "descendant_obs_count", None):
+            obs_count = taxon.descendant_obs_count
+        else:
+            obs_count = taxon.observations_count
+        return (
+            (taxon.rank_level or 0) * -1,
+            obs_count * _order,
+            taxon.name,
+        )
+
+    return sort_key
+
+
 def taxa_per_rank(
     taxon_list: list[Union[Taxon, TaxonCount]],
     ranks_to_count: Union[list[str], str],
@@ -138,39 +170,6 @@ def taxa_per_rank(
     order: str = None,
 ):
     """Generate taxa matching ranks to count in treewise order."""
-
-    def _sort_rank_name(order):
-        """Generate a sort key in `order` by rank and name."""
-
-        def reverse_taxon_name(taxon):
-            reverse_key = functools.cmp_to_key(lambda a, b: (a < b) - (a > b))
-            return reverse_key(taxon.name)
-
-        def sort_key(taxon):
-            taxon_name_key = (
-                reverse_taxon_name(taxon) if order == "desc" else taxon.name
-            )
-            return (taxon.rank_level or 0) * -1, taxon_name_key
-
-        return sort_key
-
-    def _sort_rank_obs_name(order):
-        """Generate a sort key in `order` by rank, descendant obs count, and name."""
-
-        def sort_key(taxon):
-            _order = 1 if order == "asc" else -1
-            if getattr(taxon, "descendant_obs_count", None):
-                obs_count = taxon.descendant_obs_count
-            else:
-                obs_count = taxon.observations_count
-            return (
-                (taxon.rank_level or 0) * -1,
-                obs_count * _order,
-                taxon.name,
-            )
-
-        return sort_key
-
     include_leaves = False
     include_ranks = None
     max_depth = 0
@@ -335,7 +334,11 @@ def filter_taxon_list(
         for rank in tot
     }
     if per_rank in ("leaf", "child"):
-        counted_taxa.sort(key=lambda t: t.name)
+        # generate a sort key that uses the specified order:
+        sort_key = (
+            _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
+        )
+        counted_taxa.sort(key=sort_key)
     return (
         counted_taxa,
         counted_taxon_ids,
