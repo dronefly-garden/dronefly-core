@@ -20,7 +20,6 @@ from pyinaturalist import (
     ConservationStatus,
     EstablishmentMeans,
     JsonResponse,
-    LifeList,
     ListedTaxon,
     Observation,
     Taxon,
@@ -132,7 +131,7 @@ def escape_markdown(
 
 
 def taxa_per_rank(
-    life_list: LifeList,
+    taxon_list: list[Union[Taxon, TaxonCount]],
     ranks_to_count: Union[list[str], str],
     root_taxon_id: int = None,
     sort_by: str = None,
@@ -160,9 +159,13 @@ def taxa_per_rank(
 
         def sort_key(taxon):
             _order = 1 if order == "asc" else -1
+            if getattr(taxon, "descendant_obs_count", None):
+                obs_count = taxon.descendant_obs_count
+            else:
+                obs_count = taxon.observations_count
             return (
                 (taxon.rank_level or 0) * -1,
-                taxon.descendant_obs_count * _order,
+                obs_count * _order,
                 taxon.name,
             )
 
@@ -195,7 +198,7 @@ def taxa_per_rank(
     )
 
     tree = make_tree(
-        life_list.data,
+        taxon_list,
         include_ranks=include_ranks,
         root_id=root_taxon_id,
         sort_key=sort_key,
@@ -211,25 +214,26 @@ def taxa_per_rank(
     if max_depth == 1:
         if root_taxon_id:
             root_taxon = next(
-                (
-                    taxon_count
-                    for taxon_count in life_list.data
-                    if taxon_count.id == root_taxon_id
-                ),
-                life_list.data[0],
+                (taxon for taxon in taxon_list if taxon.id == root_taxon_id),
+                taxon_list[0],
             )
         else:
-            root_taxon = life_list.data[0]
-    for taxon_count in tree.flatten(hide_root=hide_root):
+            root_taxon = taxon_list[0]
+    for taxon in tree.flatten(hide_root=hide_root):
         included = True
-        if include_leaves:
-            included = taxon_count.count == taxon_count.descendant_obs_count
+        # TODO: determine if the taxon is a leaf some other way if the object
+        # doesn't have both both a direct & descendant count
+        if include_leaves and getattr(taxon, "descendant_obs_count", None):
+            included = taxon.count == taxon.descendant_obs_count
         elif max_depth == 1:
-            included = (
-                taxon_count.ancestors and taxon_count.ancestors[-1].id == root_taxon.id
-            )
+            if getattr(taxon, "ancestors", None):
+                included = taxon.ancestors and taxon.ancestors[-1].id == root_taxon.id
+            else:
+                included = (
+                    taxon.ancestor_ids and taxon.ancestor_ids[-1] == root_taxon.id
+                )
         if included:
-            yield taxon_count
+            yield taxon
 
 
 def format_datetime(time, compact=False):
@@ -261,8 +265,8 @@ def included_ranks(per_rank):
     return ranks
 
 
-def filter_life_list(
-    life_list: LifeList,
+def filter_taxon_list(
+    taxon_list: list[Taxon],
     per_rank: str,
     taxon: Taxon,
     root_taxon_id: int = None,
@@ -284,42 +288,45 @@ def filter_life_list(
                 ranks_to_count = ranks_to_count[: ranks_to_count.index(taxon.rank) + 1]
         ranks = "main ranks" if per_rank == "main" else "ranks"
         generate_taxa = taxa_per_rank(
-            life_list, ranks_to_count, root_taxon_id, sort_by, order
+            taxon_list, ranks_to_count, root_taxon_id, sort_by, order
         )
     elif per_rank in ("leaf", "child"):
         ranks = "leaf taxa" if per_rank == "leaf" else "child taxa"
         if per_rank == "child" and not root_taxon_id:
-            # `per child` is only meaningful when the life list is for a
-            # specific taxon. Otherwise, default to the first taxon (probably
+            # `per child` is only meaningful when the taxon list is for a
+            # single root taxon. Otherwise, default to the first taxon (usually
             # 'Life')
-            _root_taxon_id = taxon.id if taxon else life_list.data[0].id
+            _root_taxon_id = taxon.id if taxon else taxon_list[0].id
         else:
             _root_taxon_id = root_taxon_id
         generate_taxa = taxa_per_rank(
-            life_list, per_rank, _root_taxon_id, sort_by, order
+            taxon_list, per_rank, _root_taxon_id, sort_by, order
         )
     else:
         rank = RANK_EQUIVALENTS[per_rank] if per_rank in RANK_EQUIVALENTS else per_rank
         ranks = p.plural_noun(rank)
         generate_taxa = taxa_per_rank(
-            life_list, per_rank, root_taxon_id, sort_by, order
+            taxon_list, per_rank, root_taxon_id, sort_by, order
         )
     counted_taxa = []
     counted_taxon_ids = []
     tot = {}
     max_taxon_count_digits = 1
     max_direct_count_digits = 1
-    for taxon_count in generate_taxa:
-        counted_taxon_ids.append(taxon_count.id)
-        taxon_count_digits = len(str(taxon_count.descendant_obs_count))
-        if taxon_count_digits > max_taxon_count_digits:
-            max_taxon_count_digits = taxon_count_digits
-        direct_count_digits = len(str(taxon_count.count))
-        if direct_count_digits > max_direct_count_digits:
-            max_direct_count_digits = direct_count_digits
-        counted_taxa.append(taxon_count)
-        rank = taxon_count.rank
-        tot[rank] = tot.get(taxon_count.rank, 0) + 1
+    for _taxon in generate_taxa:
+        counted_taxon_ids.append(_taxon.id)
+        if getattr(_taxon, "descendant_obs_count", None):
+            taxon_count_digits = len(str(_taxon.descendant_obs_count))
+            direct_count_digits = len(str(_taxon.count))
+            if direct_count_digits > max_direct_count_digits:
+                max_direct_count_digits = direct_count_digits
+            if taxon_count_digits > max_taxon_count_digits:
+                max_taxon_count_digits = taxon_count_digits
+        else:
+            max_taxon_count_digits = len(str(_taxon.observations_count))
+        counted_taxa.append(_taxon)
+        rank = _taxon.rank
+        tot[rank] = tot.get(_taxon.rank, 0) + 1
     max_rank_digits = len(str(max(tot.values()))) if tot else 1
     rank_totals = {
         rank: f"`{str(tot[rank]).rjust(max_rank_digits)}` {p.plural_noun(rank, tot[rank])}"
@@ -337,7 +344,7 @@ def filter_life_list(
     )
 
 
-def format_life_list_summary(
+def format_taxon_list_summary(
     taxa: list[TaxonCount], ranks: str, rank_totals: list[int]
 ):
     total = f"Total: {len(taxa)} {ranks}"
@@ -697,10 +704,10 @@ class BaseCountFormatter(BaseFormatter):
         raise NotImplementedError
 
 
-class LifeListFormatter(ListFormatter):
+class TaxonListFormatter(ListFormatter):
     def __init__(
         self,
-        life_list: LifeList,
+        taxon_list: list[Taxon],
         per_rank: str,
         query_response: QueryResponse,
         with_url: bool = True,
@@ -713,32 +720,34 @@ class LifeListFormatter(ListFormatter):
         root_taxon_id: int = None,
         sort_by: str = None,
         order: str = None,
+        short_description: str = "Life list",
     ):
         """
         Parameters
         ----------
-        life_list: LifeList
-            Life list of all taxa matching the observations query in
-            query_response.
+        taxon_list: list[Taxon]
+            List of taxa including ancestors, enabling arrangement
+            into a tree. This can be a life list other list of descendants
+            of a common root taxon.
 
         per_rank: str
             Rank to include in list of taxa, or one of the special values:
                 - 'leaf' (default) = leaf taxa
                 - 'child' = all child taxa regardless of rank
                 - 'main' = any of the most commonly used ranks
-                - 'any' = every rank in the life list
+                - 'any' = every rank in the taxon list
 
         query_response: QueryResponse
             The query response contains all iNat objects in the query
-            except for the life_list itself (e.g. user, place, etc.)
+            except for the taxon_list itself (e.g. user, place, etc.)
 
         with_url: bool, optional
-            When True, link the title to the life list, provided the query
+            When True, link the title to a user's life list, provided the query
             was for a single user.
 
         with_taxa: bool, optional
             When True, format() and format_page() format the specified
-            page of taxa on the life_list as a per_page sized page.
+            page of taxa on the taxon_list as a per_page sized page.
 
             The first page links to the observations in the query
             and the last page ends with a total per rank in the query.
@@ -748,7 +757,7 @@ class LifeListFormatter(ListFormatter):
 
         with_indent: bool, optional
             When with_indent is True, per_rank is 'main' or 'any', and with_taxa
-            is also True, the taxon names on the life list are displayed as
+            is also True, the taxon names in the taxon list are displayed as
             children of higher taxa on the same page using indent levels and "└"
             to indicate child relationships.
 
@@ -760,7 +769,7 @@ class LifeListFormatter(ListFormatter):
             parentheses.
 
         with_common: bool, optional
-            When with_common is True, if the life_list contains common names, then
+            When with_common is True, if the taxon_list contains common names, then
             common names are included in the output.
 
         per_page: int, optional
@@ -768,7 +777,7 @@ class LifeListFormatter(ListFormatter):
 
         root_taxon_id: int, optional
             If specified, make the taxon with this ID the root. The taxon with
-            this ID must be in the life list data.
+            this ID must be in the taxon list data.
 
         sort_by: str, optional
             If specified, sort ascending by `name` (default) or descending by number of `obs`.
@@ -776,8 +785,11 @@ class LifeListFormatter(ListFormatter):
         order: str, optional
             If specified, use `asc` (ascending) or `desc` (descending) as the order for the
             `sort_by` key.
+
+        short_description: str, optional [default: `Life list`]
+            Short description of Taxon list that appears in the title.
         """
-        self.life_list = life_list
+        self.taxon_list = taxon_list
         self.per_rank = per_rank
         self.query_response = query_response
         self.with_url = with_url
@@ -791,6 +803,7 @@ class LifeListFormatter(ListFormatter):
         self.root_taxon_id = root_taxon_id
         self.sort_by = sort_by
         self.order = order
+        self.short_description = short_description
         (
             self.taxa,
             self.taxon_ids,
@@ -798,8 +811,8 @@ class LifeListFormatter(ListFormatter):
             self.rank_totals,
             self.count_digits,
             self.direct_digits,
-        ) = filter_life_list(
-            self.life_list,
+        ) = filter_taxon_list(
+            self.taxon_list,
             self.per_rank,
             self.query_response.taxon,
             self.root_taxon_id,
@@ -810,25 +823,28 @@ class LifeListFormatter(ListFormatter):
     def format(
         self, with_title: bool = True, page: int = 0, selected: Optional[int] = None
     ):
-        """Format the life list as markdown."""
+        """Format the taxon list as markdown."""
         description = self.format_page(page, selected)
         if with_title:
             description = "\n\n".join([self.format_title(), description])
         return description
 
     def format_title(self):
-        """Format life list title as Discord-like markdown.
+        """Format taxon list title as Discord-like markdown.
 
         Returns
         -------
         str
-            - Describe the life list in terms of the observations query
-              parameters passed.
-            - When with_url is True, only link to the life list when the query
-              is for one user. The website doesn't support life lists for any
-              other kind of query.
+            - Describe a taxon list that is a life list derived from an
+              observations query in terms of the observations query parameters
+              passed.
+            - When with_url is True, only link to a user life list when the
+              query is for one user. The website doesn't have life list pages
+              for any other kind of query.
         """
-        title = f"Life list {self.query_response.obs_query_description()}"
+        title = (
+            f"{self.short_description} {self.query_response.obs_query_description()}"
+        )
         if self.with_url:
             if self.query_response.user:
                 url = lifelists_url_from_query_response(self.query_response)
@@ -836,7 +852,7 @@ class LifeListFormatter(ListFormatter):
         return title
 
     def format_page(self, page: int = 0, selected: Optional[int] = None):
-        """Format the life list description."""
+        """Format the taxon list description."""
 
         def indent_level(taxon: Taxon):
             if self.per_rank not in ("main", "any"):
@@ -880,30 +896,34 @@ class LifeListFormatter(ListFormatter):
             query_response = self.query_response
             formatted_taxa = []
             for taxon in page_of_taxa:
-                formatted_count = str(taxon.descendant_obs_count).rjust(
-                    self.count_digits
-                )
+                taxon_count = 0
+                formatted_count = ""
                 formatted_direct = ""
-                # Format the direct column similarly to Dynamic Life Lists on
-                # iNat web, i.e.
-                # - never show direct count on non-leaves when it is zero
-                # - only show one column at the leaves, as the counts are equal
-                # - show the leaf count as "direct" at ranks above species,
-                #   a cue that the species count might be improved with more
-                #   ID refinements
-                if self.with_direct:
-                    formatted_direct = " " * (self.direct_digits + 2)
-                    if taxon.count > 0:
-                        formatted_direct = f"({taxon.count})".rjust(
-                            self.direct_digits + 2
-                        )
-                        is_leaf = taxon.count == taxon.descendant_obs_count
-                        terminal_rank = taxon.rank_level <= RANK_LEVELS["species"]
-                        if is_leaf:
-                            if terminal_rank:
-                                formatted_direct = " " * (self.direct_digits + 2)
-                            else:
-                                formatted_count = " " * self.count_digits
+                if getattr(taxon, "descendant_obs_count", None):
+                    taxon_count = taxon.descendant_obs_count
+                    # Format the direct column similarly to Dynamic Life Lists on
+                    # iNat web, i.e.
+                    # - never show direct count on non-leaves when it is zero
+                    # - only show one column at the leaves, as the counts are equal
+                    # - show the leaf count as "direct" at ranks above species,
+                    #   a cue that the species count might be improved with more
+                    #   ID refinements
+                    if self.with_direct:
+                        formatted_direct = " " * (self.direct_digits + 2)
+                        if taxon.count > 0:
+                            formatted_direct = f"({taxon.count})".rjust(
+                                self.direct_digits + 2
+                            )
+                            is_leaf = taxon.count == taxon.descendant_obs_count
+                            terminal_rank = taxon.rank_level <= RANK_LEVELS["species"]
+                            if is_leaf:
+                                if terminal_rank:
+                                    formatted_direct = " " * (self.direct_digits + 2)
+                                else:
+                                    formatted_count = " " * self.count_digits
+                else:
+                    taxon_count = taxon.observations_count
+                formatted_count = str(taxon_count).rjust(self.count_digits)
                 taxon_name = format_taxon_name(taxon, with_common=False)
                 formatted_name = format_link(
                     taxon_name, taxon_obs_url(query_response, taxon)
@@ -938,10 +958,10 @@ class LifeListFormatter(ListFormatter):
                         )
                     structured_page["entries"] = formatted_taxa
             if page == self.last_page():
-                life_list_summary = format_life_list_summary(
+                taxon_list_summary = format_taxon_list_summary(
                     self.taxa, self.ranks, self.rank_totals
                 )
-                structured_page["footer"] = life_list_summary
+                structured_page["footer"] = taxon_list_summary
             return structured_page
 
         def taxon_obs_url(query_response, taxon):

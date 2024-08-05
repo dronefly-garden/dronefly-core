@@ -11,7 +11,7 @@ from ..constants import INAT_DEFAULTS, INAT_USER_DEFAULT_PARAMS, RANK_KEYWORDS
 from ..parsers import NaturalParser
 from ..formatters.generic import (
     BaseFormatter,
-    LifeListFormatter,
+    TaxonListFormatter,
     ListFormatter,
     ObservationFormatter,
     TaxonFormatter,
@@ -186,8 +186,9 @@ class Commands:
 
         per_page = ctx.per_page
         with_index = self.format == Format.rich
-        formatter = LifeListFormatter(
-            life_list,
+        taxon_list = life_list.data
+        formatter = TaxonListFormatter(
+            taxon_list,
             per_rank,
             query_response,
             with_indent=True,
@@ -195,6 +196,64 @@ class Commands:
             with_index=with_index,
             sort_by=sort_by,
             order=order,
+        )
+        ctx.page_formatter = formatter
+        ctx.page = 0
+        ctx.selected = 0
+        title = formatter.format_title()
+        first_page = formatter.get_first_page() or ""
+        if first_page:
+            # TODO: Provide a method in the formatter to set the title:
+            formatter.pages[0]["header"] = title
+        return self._get_formatted_page(formatter, 0, 0)
+
+    def taxon_list(self, ctx: Context, *args):
+        query = self._parse(" ".join(args))
+        # per_rank = query.per or "main"
+        # if per_rank not in [*RANK_KEYWORDS, "leaf", "child", "main", "any"]:
+        #    return "Specify `per <rank-or-keyword>`"
+        sort_by = query.sort_by or None
+        if sort_by not in [None, "obs", "name"]:
+            return "Specify `sort by obs` or `sort by name` (default)"
+        order = query.order or None
+        if order not in [None, "asc", "desc"]:
+            return "Specify `order asc` or `order desc`"
+
+        query_args = get_base_query_args(query)
+        taxon = None
+        taxon_list = []
+        with self.inat_client.set_ctx(ctx) as client:
+            # Handle a useful subset of query args in a simplistic way for now
+            # (i.e. no config table lookup yet) to model full query in bot
+            if query and query.main and query.main.terms:
+                main_query_str = " ".join(query.main.terms)
+                taxon = client.taxa.autocomplete(q=main_query_str).one()
+                if taxon:
+                    taxon = client.taxa.populate(taxon)
+                query_args["taxon"] = taxon
+            query_response = QueryResponse(**query_args)
+            taxon = query_response.taxon
+            if taxon:
+                taxon_list = [taxon, *(taxon.children or [])]
+
+        if not taxon:
+            return f"No taxon {query_response.obs_query_description()}"
+
+        per_page = ctx.per_page
+        with_index = self.format == Format.rich
+        # TODO: support taxon lists other than of children (e.g. descendants of
+        # a specific rank, siblings, etc.)
+        # - as a simple first deliverable, we just hardwire the list to children
+        formatter = TaxonListFormatter(
+            taxon_list,
+            per_rank="child",
+            query_response=query_response,
+            with_indent=True,
+            per_page=per_page,
+            with_index=with_index,
+            sort_by=sort_by,
+            order=order,
+            short_description="Children",
         )
         ctx.page_formatter = formatter
         ctx.page = 0
