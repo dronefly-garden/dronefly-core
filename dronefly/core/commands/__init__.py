@@ -61,11 +61,10 @@ class Context:
         """Return iNat API default for user param default, if any, otherwise global default."""
         if inat_param not in INAT_USER_DEFAULT_PARAMS:
             return None
+        default = None
         if self.author:
-            default = getattr(self.author, inat_param, None) or INAT_DEFAULTS.get(
-                inat_param
-            )
-        else:
+            default = getattr(self.author, inat_param, None)
+        if not default:
             default = INAT_DEFAULTS.get(inat_param)
         return default
 
