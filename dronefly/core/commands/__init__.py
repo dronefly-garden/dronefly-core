@@ -312,7 +312,8 @@ class Commands:
                 else:
                     taxon_list = _children
                 # List all ranks at the same level, not just the specified rank
-                _per_rank = RANKS_FOR_LEVEL[rank_level]
+                if _per_rank != "child":
+                    _per_rank = RANKS_FOR_LEVEL[rank_level]
 
         per_page = ctx.per_page
         with_index = self.format == Format.rich
