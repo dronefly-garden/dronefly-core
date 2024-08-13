@@ -311,11 +311,11 @@ class Commands:
                         taxon_list = [*_children, *_descendants.all()]
                 else:
                     taxon_list = _children
+                # List all ranks at the same level, not just the specified rank
+                _per_rank = RANKS_FOR_LEVEL[rank_level]
 
         per_page = ctx.per_page
         with_index = self.format == Format.rich
-        # List all ranks at the same level, not just the specified rank
-        _per_rank = RANKS_FOR_LEVEL[rank_level]
         formatter = TaxonListFormatter(
             taxon_list,
             per_rank=_per_rank,
