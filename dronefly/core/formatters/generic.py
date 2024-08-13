@@ -34,7 +34,9 @@ from dronefly.core.constants import (
     TAXON_PRIMARY_RANKS,
     TRINOMIAL_ABBR,
     RANK_EQUIVALENTS,
+    RANKS_FOR_LEVEL,
     RANK_LEVELS,
+    RANK_LEVEL_NAMES,
 )
 from dronefly.core.formatters.constants import (
     ICONS,
@@ -196,6 +198,8 @@ def taxa_per_rank(
         _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
     )
 
+    if not any(taxon.rank in include_ranks for taxon in taxon_list):
+        return []
     tree = make_tree(
         taxon_list,
         include_ranks=include_ranks,
@@ -256,9 +260,11 @@ def format_datetime(time, compact=False):
     return formatted_time
 
 
-def included_ranks(per_rank):
+def included_ranks(per_rank: str):
     if per_rank == "main":
-        ranks = COMMON_RANKS
+        ranks = []
+        for rank in COMMON_RANKS:
+            ranks += RANKS_FOR_LEVEL[RANK_LEVELS[rank]]
     else:
         ranks = list(RANK_LEVELS.keys())
     return ranks
@@ -266,7 +272,7 @@ def included_ranks(per_rank):
 
 def filter_taxon_list(
     taxon_list: list[Taxon],
-    per_rank: str,
+    per_rank: Union[list[str], str],
     taxon: Taxon,
     root_taxon_id: int = None,
     sort_by: str = None,
@@ -302,8 +308,24 @@ def filter_taxon_list(
             taxon_list, per_rank, _root_taxon_id, sort_by, order
         )
     else:
-        rank = RANK_EQUIVALENTS[per_rank] if per_rank in RANK_EQUIVALENTS else per_rank
-        ranks = p.plural_noun(rank)
+        _per_rank = per_rank
+        _ranks = []
+        if isinstance(per_rank, str):
+            _per_rank = [per_rank]
+        per_rank = []
+        for _rank in _per_rank:
+            rank = RANK_EQUIVALENTS[_rank] if _rank in RANK_EQUIVALENTS else _rank
+            rank_name = p.plural_noun(RANK_LEVEL_NAMES[RANK_LEVELS[_rank]])
+            # Add all ranks at the same level to the filter, described as
+            # the most commonly used rank at that level,
+            # - e.g. "genus" =>
+            #   per_rank = ["genus", "genushybrid"]
+            #   described as "genera"
+            if rank not in per_rank:
+                per_rank += RANKS_FOR_LEVEL[RANK_LEVELS[_rank]]
+                _ranks.append(rank_name)
+        # List of arbitrary ranks (e.g. "subfamily/species"):
+        ranks = "/".join(_ranks)
         generate_taxa = taxa_per_rank(
             taxon_list, per_rank, root_taxon_id, sort_by, order
         )
@@ -713,7 +735,7 @@ class TaxonListFormatter(ListFormatter):
     def __init__(
         self,
         taxon_list: list[Taxon],
-        per_rank: str,
+        per_rank: Union[list[str], str],
         query_response: QueryResponse,
         with_url: bool = True,
         with_taxa: bool = True,
@@ -735,8 +757,8 @@ class TaxonListFormatter(ListFormatter):
             into a tree. This can be a life list other list of descendants
             of a common root taxon.
 
-        per_rank: str
-            Rank to include in list of taxa, or one of the special values:
+        per_rank: list[str], str
+            Rank(s) to include in list of taxa, or one of the special values:
                 - 'leaf' (default) = leaf taxa
                 - 'child' = all child taxa regardless of rank
                 - 'main' = any of the most commonly used ranks

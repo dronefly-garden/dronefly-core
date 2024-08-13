@@ -6,7 +6,14 @@ from attrs import define
 from rich.markdown import Markdown
 
 from ..clients.inat import iNatClient
-from ..constants import INAT_DEFAULTS, INAT_USER_DEFAULT_PARAMS, RANK_KEYWORDS
+from ..constants import (
+    INAT_DEFAULTS,
+    INAT_USER_DEFAULT_PARAMS,
+    RANK_EQUIVALENTS,
+    RANKS_FOR_LEVEL,
+    RANK_KEYWORDS,
+    RANK_LEVELS,
+)
 
 from ..parsers import NaturalParser
 from ..formatters.generic import (
@@ -15,6 +22,7 @@ from ..formatters.generic import (
     ListFormatter,
     ObservationFormatter,
     TaxonFormatter,
+    p,
 )
 from ..models.user import User
 from ..query.query import get_base_query_args, QueryResponse
@@ -97,7 +105,14 @@ class Commands:
     def _parse(self, query_str):
         return self.parser.parse(query_str)
 
-    def _get_formatted_page(self, formatter, page: int = 0, selected: int = 0):
+    def _get_formatted_page(
+        self,
+        formatter,
+        page: int = 0,
+        selected: int = 0,
+        header: str = None,
+        footer: str = None,
+    ):
         if getattr(formatter, "format_page", None):
             markdown_text = formatter.format_page(page, selected)
             last_page = formatter.last_page()
@@ -107,6 +122,10 @@ class Commands:
                 )
         else:
             markdown_text = formatter.format()
+        if header or footer:
+            markdown_text = "\n\n".join(
+                [item for item in (header, markdown_text, footer) if item is not None]
+            )
         return self._format_markdown(markdown_text)
 
     def _format_markdown(self, markdown_text: str):
@@ -208,9 +227,11 @@ class Commands:
 
     def taxon_list(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
-        # per_rank = query.per or "main"
-        # if per_rank not in [*RANK_KEYWORDS, "leaf", "child", "main", "any"]:
-        #    return "Specify `per <rank-or-keyword>`"
+        per_rank = query.per or "child"
+        if per_rank not in [*RANK_KEYWORDS, "child"]:
+            return "Specify `per <rank>` or `per child` (default)"
+        _per_rank = per_rank
+        rank_level = None
         sort_by = query.sort_by or None
         if sort_by not in [None, "obs", "name"]:
             return "Specify `sort by obs` or `sort by name` (default)"
@@ -221,6 +242,8 @@ class Commands:
         query_args = get_base_query_args(query)
         taxon = None
         taxon_list = []
+        short_description = ""
+        msg = None
         with self.inat_client.set_ctx(ctx) as client:
             # Handle a useful subset of query args in a simplistic way for now
             # (i.e. no config table lookup yet) to model full query in bot
@@ -232,27 +255,77 @@ class Commands:
                 query_args["taxon"] = taxon
             query_response = QueryResponse(**query_args)
             taxon = query_response.taxon
-            if taxon:
-                taxon_list = [taxon, *(taxon.children or [])]
+            if not taxon:
+                return f"No taxon {query_response.obs_query_description()}"
 
-        if not taxon:
-            return f"No taxon {query_response.obs_query_description()}"
+            _taxon_list = [
+                taxon,
+                *[_taxon for _taxon in taxon.children if _taxon.is_active],
+            ]
+            if per_rank == "child":
+                short_description = "Children"
+                taxon_list = _taxon_list
+            else:
+                _per_rank = RANK_EQUIVALENTS.get(per_rank) or per_rank
+                rank_level = RANK_LEVELS[_per_rank]
+                if rank_level >= taxon.rank_level:
+                    return self._format_markdown(
+                        "\N{WARNING SIGN}  "
+                        f"**The rank `{per_rank}` is not lower than "
+                        "the taxon rank: `{taxon.rank}`.**"
+                    )
+                short_description = p.plural(_per_rank).capitalize()
+                _children = [
+                    child for child in _taxon_list if child.rank_level == rank_level
+                ]
+                _without_rank_ids = [
+                    child.id for child in _taxon_list if child not in _children
+                ]
+                if len(_without_rank_ids) > 0:
+                    # One chance at retrieving the remaining children, i.e. if the
+                    # remainder (direct children - those at the specified rank level)
+                    # don't constitute a single page of results, then show children
+                    # instead.
+                    _descendants = client.taxa.search(
+                        taxon_id=_without_rank_ids,
+                        rank_level=rank_level,
+                        is_active=True,
+                        per_page=500,
+                    )
+                    # The choice of 2500 as our limit is arbitrary:
+                    # - will take 5 more API calls to satisfy
+                    # - encompasses the largest genera (e.g. Astragalus)
+                    # - meant to limit unreasonable sized queries so they don't make
+                    #   excessive API demands
+                    # - TODO: switch to using a local DB built from full taxonomy dump
+                    #   so we can lift this restriction
+                    if _descendants.count() > 2500:
+                        short_description = "Children"
+                        msg = (
+                            f"\N{WARNING SIGN}  **Too many {p.plural(_per_rank)}. "
+                            "Listing children instead:**"
+                        )
+                        _per_rank = "child"
+                        taxon_list = _taxon_list
+                    else:
+                        taxon_list = [*_children, *_descendants.all()]
+                else:
+                    taxon_list = _children
 
         per_page = ctx.per_page
         with_index = self.format == Format.rich
-        # TODO: support taxon lists other than of children (e.g. descendants of
-        # a specific rank, siblings, etc.)
-        # - as a simple first deliverable, we just hardwire the list to children
+        # List all ranks at the same level, not just the specified rank
+        _per_rank = RANKS_FOR_LEVEL[rank_level]
         formatter = TaxonListFormatter(
             taxon_list,
-            per_rank="child",
+            per_rank=_per_rank,
             query_response=query_response,
             with_indent=True,
             per_page=per_page,
             with_index=with_index,
             sort_by=sort_by,
             order=order,
-            short_description="Children",
+            short_description=short_description,
         )
         ctx.page_formatter = formatter
         ctx.page = 0
@@ -262,7 +335,8 @@ class Commands:
         if first_page:
             # TODO: Provide a method in the formatter to set the title:
             formatter.pages[0]["header"] = title
-        return self._get_formatted_page(formatter, 0, 0)
+        page = self._get_formatted_page(formatter, 0, 0, header=msg)
+        return page
 
     def next(self, ctx: Context):
         if not ctx.page_formatter:
