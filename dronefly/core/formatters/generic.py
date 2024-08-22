@@ -214,7 +214,8 @@ def taxa_per_rank(
             )
         else:
             root_taxon = taxon_list[0]
-    for taxon in tree.flatten():
+    hide_root = include_ranks and len(include_ranks) == 1
+    for taxon in tree.flatten(hide_root=hide_root):
         included = True
         # TODO: determine if the taxon is a leaf some other way if the object
         # doesn't have both both a direct & descendant count
