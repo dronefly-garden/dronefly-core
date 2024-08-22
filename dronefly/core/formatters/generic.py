@@ -198,20 +198,12 @@ def taxa_per_rank(
         _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
     )
 
-    if not any(taxon.rank in include_ranks for taxon in taxon_list):
-        return []
     tree = make_tree(
         taxon_list,
         include_ranks=include_ranks,
         root_id=root_taxon_id,
         sort_key=sort_key,
         # max_depth=max_depth,
-    )
-    hide_root = (
-        tree.id == ROOT_TAXON_ID
-        or include_ranks
-        and len(include_ranks) == 1
-        and tree.rank != include_ranks[0]
     )
     root_taxon = None
     if max_depth == 1:
@@ -222,7 +214,7 @@ def taxa_per_rank(
             )
         else:
             root_taxon = taxon_list[0]
-    for taxon in tree.flatten(hide_root=hide_root):
+    for taxon in tree.flatten():
         included = True
         # TODO: determine if the taxon is a leaf some other way if the object
         # doesn't have both both a direct & descendant count
@@ -266,7 +258,7 @@ def included_ranks(per_rank: str):
         for rank in COMMON_RANKS:
             ranks += RANKS_FOR_LEVEL[RANK_LEVELS[rank]]
     else:
-        ranks = list(RANK_LEVELS.keys())
+        ranks = [key for key in RANK_LEVELS.keys() if key != "stateofmatter"]
     return ranks
 
 
