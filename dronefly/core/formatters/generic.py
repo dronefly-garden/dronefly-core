@@ -1453,3 +1453,32 @@ class QualifiedTaxonFormatter(TaxonFormatter):
             if filter:
                 description.append(filter)
             return " ".join(description)
+
+
+class UserFormatter(BaseFormatter):
+    def __init__(
+        self,
+        user: User,
+    ):
+        """
+        Parameters
+        ----------
+        user: User
+            The user to format.
+        """
+        self.user = user
+
+    def format(self, with_link: bool = True):
+        """Format the user as markdown.
+
+        with_link: bool, optional
+            Link to user's profile.
+        """
+        name = self.user.name
+        if name:
+            name += f" ({self.user.login})"
+        else:
+            name = self.user.login
+        if with_link:
+            name = f"[{name}]({self.user.url})"
+        return name

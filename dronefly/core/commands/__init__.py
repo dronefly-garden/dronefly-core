@@ -3,10 +3,12 @@ import re
 from typing import Union
 
 from attrs import define
+from requests import HTTPError
 from rich.markdown import Markdown
 
 from ..clients.inat import iNatClient
 from ..constants import (
+    CONFIG_PATH,
     INAT_DEFAULTS,
     INAT_USER_DEFAULT_PARAMS,
     RANK_EQUIVALENTS,
@@ -22,8 +24,10 @@ from ..formatters.generic import (
     ListFormatter,
     ObservationFormatter,
     TaxonFormatter,
+    UserFormatter,
     p,
 )
+from ..models.config import Config
 from ..models.user import User
 from ..query.query import get_base_query_args, QueryResponse
 
@@ -101,6 +105,7 @@ class Commands:
     inat_client: iNatClient = iNatClient()
     parser: NaturalParser = NaturalParser()
     format: Format = Format.discord_markdown
+    config: Config = Config()
 
     def _parse(self, query_str):
         return self.parser.parse(query_str)
@@ -129,6 +134,7 @@ class Commands:
         return self._format_markdown(markdown_text)
 
     def _format_markdown(self, markdown_text: str):
+        """Format Rich vs. Discord markdown."""
         if self.format == Format.rich:
             # Richify the markdown:
             # - In Discord markdown, all newlines are rendered as line breaks
@@ -149,6 +155,22 @@ class Commands:
             # and isn't at the end of the string, emit a line break:
             rich_markdown = re.sub(RICH_NO_BQ_NEWLINE_PAT, r"\1 \\\n", rich_markdown)
             response = Markdown(rich_markdown)
+        else:
+            # Return the literal markdown for Discord to render
+            response = markdown_text
+        return response
+
+    def _simple_format_markdown(self, markdown_text: str):
+        """Simplified formatter for Rich vs. Discord markdown.
+
+        Discord vs. Rich linebreak rendering is harder than we thought, e.g.
+        `_format_markdown()` doesn't give correct results with point-form
+        or numbered lists. If special handling of newlines isn't needed, then
+        use this helper instead.
+        """
+        if self.format == Format.rich:
+            # Richify the markdown
+            response = Markdown(markdown_text)
         else:
             # Return the literal markdown for Discord to render
             response = markdown_text
@@ -456,3 +478,65 @@ class Commands:
         response = self._get_formatted_page(formatter)
 
         return response
+
+    def user(self, ctx: Context, user_id: str):
+        with self.inat_client.set_ctx(ctx) as client:
+            user = None
+            try:
+                user = client.users(user_id)
+            except HTTPError as err:
+                if err.response.status_code == 404:
+                    pass
+            if not user:
+                return "User not found."
+
+            return self._format_markdown(UserFormatter(user).format())
+
+    def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
+        if user_abbrev != "me":
+            return "Only `user add me <user-id>` is supported at this time."
+        user_config = self.config.user(ctx.author.id)
+        configured_user_id = None
+        if user_config:
+            configured_user_id = user_config.get("inat_user_id")
+
+        with self.inat_client.set_ctx(ctx) as client:
+            user = None
+            try:
+                user = client.users(user_id)
+            except HTTPError as err:
+                if err.response.status_code == 404:
+                    pass
+            if not user:
+                return "User not found."
+
+            response = ""
+            redefining = False
+            if configured_user_id:
+                if configured_user_id == user.id:
+                    return "User already added."
+                configured_user = None
+                try:
+                    configured_user = client.users(configured_user_id)
+                except HTTPError as err:
+                    if err.response.status_code == 404:
+                        pass
+                if configured_user:
+                    configured_user_str = UserFormatter(configured_user).format()
+                else:
+                    configured_user_str = f"User id not found: {configured_user_id}"
+                redefining = True
+                response += (
+                    f"- Already defined as another user: {configured_user_str}\n"
+                )
+                response += "- To change to the specified user:\n"
+
+            response += f"1. Confirm this is you: {UserFormatter(user).format()}\n"
+            add_or_mod = "modify" if redefining else "add"
+            response += f"2. Edit `{CONFIG_PATH}` and {add_or_mod}:\n"
+            response += (
+                f"```toml\n[users.{ctx.author.id}]\ninat_user_id = {user.id}\n```\n"
+            )
+            response += "3. Restart dronefly-cli."
+
+            return self._simple_format_markdown(response)

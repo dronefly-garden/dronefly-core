@@ -1,4 +1,12 @@
+from platformdirs import user_data_dir
+import os
+
 from pyinaturalist.constants import COMMON_RANKS, RANK_EQUIVALENTS, RANK_LEVELS
+
+
+USER_DATA_PATH = os.path.join(user_data_dir(), "dronefly-core")
+CONFIG_PATH = os.path.join(USER_DATA_PATH, "config.toml")
+
 
 # Map Dronefly User param names to iNat API param names:
 INAT_USER_DEFAULT_PARAMS = {
