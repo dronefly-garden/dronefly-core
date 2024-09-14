@@ -163,6 +163,7 @@ class UnixlikeParser:
                 per=" ".join(vals.per),
                 project=" ".join(vals.project),
                 sort_by=sort_by,
+                order=vals.order,
                 options=vals.options,
                 obs_d1=obs_d1,
                 obs_d2=obs_d2,
