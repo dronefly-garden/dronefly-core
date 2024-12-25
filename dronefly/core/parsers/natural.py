@@ -208,6 +208,12 @@ class NaturalParser(UnixlikeParser):
             expanded_tokens.extend(["--from", params["from"]])
         if "of" in params:
             expanded_tokens.extend(["--of", params["of"]])
+        if "sort by" in params:
+            expanded_tokens.extend(["--sort-by", params["sort by"]])
+        if "asc" in params:
+            expanded_tokens.extend(["--asc"])
+        if "desc" in params:
+            expanded_tokens.extend(["--desc"])
         if opts:
             expanded_tokens.extend(["--opt", *opts])
 

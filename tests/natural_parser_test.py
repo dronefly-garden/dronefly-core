@@ -115,6 +115,10 @@ class TestNaturalParser:
         parsed = parser.parse("my myrtle warbler")
         assert str(parsed) == "myrtle warbler by me"
 
+    def test_macro_sort_by_and_order(self, parser):
+        parsed = parser.parse("my oldest")
+        assert str(parsed) == "by me sort by observed order asc"
+
     def test_macros_combined(self, parser):
         parsed = parser.parse("my home birds")
         assert str(parsed) == "birds from home by me"
