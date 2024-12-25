@@ -13,7 +13,7 @@ def parser():
     return NaturalParser()
 
 
-class TestUnixlikeParser:
+class TestNaturalParser:
     def test_standard_order(self, parser):
         parsed = parser.parse("by benarmstrong from nova scotia")
         assert str(parsed) == "from nova scotia by benarmstrong"
