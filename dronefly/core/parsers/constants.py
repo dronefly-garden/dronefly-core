@@ -36,7 +36,7 @@ MACROS = {
     "species": {"opt": ["hrank=species"]},
     "unseen": {"not by": "me", "from": "home"},
     "most": {"per": "species", "sort by": "obs"},
-    "fewest": {"per": "species", "sort by": "obs", "asc": None},
+    "least": {"per": "species", "sort by": "obs", "asc": None},
 }
 # Groups of taxa:
 # - can't function in place of a single taxon, and are typically only used in
