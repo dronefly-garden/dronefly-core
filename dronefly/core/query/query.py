@@ -523,10 +523,14 @@ class QueryResponse:
                     with_or_and, lrank, hrank
                 )
             else:
-                higher_or_lower = "higher" if lrank else "lower"
-                message += " {} rank {} or {}".format(
-                    with_or_and, hrank or lrank, higher_or_lower
-                )
+                # For some commands "species and higher" filter is added only to
+                # make it match results on the web. Including this in the description
+                # would just be confusing.
+                if lrank != "species":
+                    higher_or_lower = "higher" if lrank else "lower"
+                    message += " {} rank {} or {}".format(
+                        with_or_and, hrank or lrank, higher_or_lower
+                    )
         order_by = kwargs.get("order_by")
         order = kwargs.get("order")
         if order:
