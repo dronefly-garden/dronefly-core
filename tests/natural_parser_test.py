@@ -123,6 +123,10 @@ class TestNaturalParser:
         parsed = parser.parse("my home birds")
         assert str(parsed) == "birds from home by me"
 
+    def test_macros_combined_complex(self, parser):
+        parsed = parser.parse("rarest unseen")
+        assert str(parsed) == "from home not by me per species sort by obs order asc"
+
     def test_group_opt(self, parser):
         parsed = parser.parse("herps")
         assert str(parsed) == "opt taxon_ids=20978,26036"

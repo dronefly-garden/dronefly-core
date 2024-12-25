@@ -214,6 +214,8 @@ class NaturalParser(UnixlikeParser):
             expanded_tokens.extend(["--asc"])
         if "desc" in params:
             expanded_tokens.extend(["--desc"])
+        if "per" in params:
+            expanded_tokens.extend(["--per", params["per"]])
         if opts:
             expanded_tokens.extend(["--opt", *opts])
 

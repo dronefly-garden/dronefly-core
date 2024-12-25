@@ -35,6 +35,7 @@ MACROS = {
     "spp": {"opt": ["hrank=species"]},
     "species": {"opt": ["hrank=species"]},
     "unseen": {"not by": "me", "from": "home"},
+    "rarest": {"per": "species", "sort by": "obs", "asc": None},
 }
 # Groups of taxa:
 # - can't function in place of a single taxon, and are typically only used in
