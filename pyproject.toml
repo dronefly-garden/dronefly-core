@@ -7,7 +7,7 @@ extend-ignore = "E203"
 
 [tool.poetry]
 name = "dronefly-core"
-version = "0.3.9.dev2"
+version = "0.3.9"
 description = "Core dronefly components"
 authors = ["Ben Armstrong <synrg@debian.org>"]
 license = "AGPL-3.0-or-later"
@@ -18,7 +18,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.11,<3.13"
-pyinaturalist = "=0.20.0.dev1"
+pyinaturalist = "^0.20.0"
 dateparser = "^1.1.1"
 filelock = "^3.13.3"
 inflect = "^5.3.0"
