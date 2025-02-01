@@ -1,5 +1,3 @@
-from typing import Any
-
 from .source import PageSource
 
 
@@ -7,7 +5,7 @@ class BaseMenu:
     def __init__(
         self,
         source: PageSource,
-        **kwargs: Any,
+        current_page: int = 0,
     ) -> None:
         self._source = source
-        super().__init__(**kwargs)
+        self.current_page = current_page

@@ -6,13 +6,13 @@ which is then fairly easy to render to other formats as needed.
 from __future__ import annotations
 import copy
 from datetime import datetime as dt
-import functools
 from math import ceil
 import re
 from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from dronefly.core.query.query import QueryResponse
+    from dronefly.core.menus.taxon_list import TaxonListSource
 
 import html2markdown
 import inflect
@@ -27,18 +27,15 @@ from pyinaturalist import (
     TaxonSummary,
     User,
 )
-from pyinaturalist.models.taxon import make_tree
-from pyinaturalist.constants import COMMON_RANKS, ROOT_TAXON_ID
+from pyinaturalist.constants import ROOT_TAXON_ID
 
-from dronefly.core.constants import (
+from ..constants import (
     TAXON_PRIMARY_RANKS,
     TRINOMIAL_ABBR,
-    RANK_EQUIVALENTS,
-    RANKS_FOR_LEVEL,
     RANK_LEVELS,
-    RANK_LEVEL_NAMES,
 )
-from dronefly.core.formatters.constants import (
+from ..utils import included_ranks
+from .constants import (
     ICONS,
     WWW_BASE_URL,
 )
@@ -132,106 +129,6 @@ def escape_markdown(
         return _MARKDOWN_ESCAPE_REGEX.sub(r"\\\1", text)
 
 
-def _sort_rank_name(order):
-    """Generate a sort key in `order` by rank and name."""
-
-    def reverse_taxon_name(taxon):
-        reverse_key = functools.cmp_to_key(lambda a, b: (a < b) - (a > b))
-        return reverse_key(taxon.name)
-
-    def sort_key(taxon):
-        taxon_name_key = reverse_taxon_name(taxon) if order == "desc" else taxon.name
-        return (taxon.rank_level or 0) * -1, taxon_name_key
-
-    return sort_key
-
-
-def _sort_rank_obs_name(order):
-    """Generate a sort key in `order` by rank, descendant obs count, and name."""
-
-    def sort_key(taxon):
-        _order = 1 if order == "asc" else -1
-        if getattr(taxon, "descendant_obs_count", None):
-            obs_count = taxon.descendant_obs_count
-        else:
-            obs_count = taxon.observations_count
-        return (
-            (taxon.rank_level or 0) * -1,
-            obs_count * _order,
-            taxon.name,
-        )
-
-    return sort_key
-
-
-def taxa_per_rank(
-    taxon_list: list[Union[Taxon, TaxonCount]],
-    ranks_to_count: Union[list[str], str],
-    root_taxon_id: int = None,
-    sort_by: str = None,
-    order: str = None,
-):
-    """Generate taxa matching ranks to count in treewise order."""
-    include_leaves = False
-    include_ranks = None
-    max_depth = 0
-    if isinstance(ranks_to_count, list):
-        include_ranks = ranks_to_count
-    else:
-        if ranks_to_count == "leaf":
-            include_leaves = True
-            include_ranks = None
-        elif ranks_to_count == "child":
-            # TODO: support make_tree(max_depth=#) in pyinat instead of the following kludge
-            # TODO: support max_depth > 1 for children & grandchildren, etc.
-            max_depth = 1
-            # include all ranks in the tree so that ancestry isn't broken. later, we
-            # filter out any taxa that aren't children. moving support for max_depth
-            # into
-            include_ranks = included_ranks("any")
-        else:
-            # single rank case:
-            include_ranks = [ranks_to_count]
-
-    # generate a sort key that uses the specified order:
-    sort_key = (
-        _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
-    )
-
-    tree = make_tree(
-        taxon_list,
-        include_ranks=include_ranks,
-        root_id=root_taxon_id,
-        sort_key=sort_key,
-        # max_depth=max_depth,
-    )
-    root_taxon = None
-    if max_depth == 1:
-        if root_taxon_id:
-            root_taxon = next(
-                (taxon for taxon in taxon_list if taxon.id == root_taxon_id),
-                taxon_list[0],
-            )
-        else:
-            root_taxon = taxon_list[0]
-    hide_root = tree.id == ROOT_TAXON_ID or include_ranks and len(include_ranks) == 1
-    for taxon in tree.flatten(hide_root=hide_root):
-        included = True
-        # TODO: determine if the taxon is a leaf some other way if the object
-        # doesn't have both both a direct & descendant count
-        if include_leaves and getattr(taxon, "descendant_obs_count", None):
-            included = taxon.count == taxon.descendant_obs_count
-        elif max_depth == 1:
-            if getattr(taxon, "ancestors", None):
-                included = taxon.ancestors and taxon.ancestors[-1].id == root_taxon.id
-            else:
-                included = (
-                    taxon.ancestor_ids and taxon.ancestor_ids[-1] == root_taxon.id
-                )
-        if included:
-            yield taxon
-
-
 def format_datetime(time, compact=False):
     """Format datetime with compact option that drops less relevant parts."""
     hour = time.strftime("%I").lstrip("0")
@@ -251,117 +148,6 @@ def format_datetime(time, compact=False):
         wday = time.strftime("%a")
         formatted_time = f"{wday} {mon} {day}, {year} · {hour}:{minute} {am_pm}"
     return formatted_time
-
-
-def included_ranks(per_rank: str):
-    if per_rank == "main":
-        ranks = []
-        for rank in COMMON_RANKS:
-            ranks += RANKS_FOR_LEVEL[RANK_LEVELS[rank]]
-    else:
-        ranks = [key for key in RANK_LEVELS.keys() if key != "stateofmatter"]
-    return ranks
-
-
-def filter_taxon_list(
-    taxon_list: list[Taxon],
-    per_rank: Union[list[str], str],
-    taxon: Taxon,
-    root_taxon_id: int = None,
-    sort_by: str = None,
-    order: str = None,
-):
-    ranks = None
-    rank_totals = {}
-    if per_rank in ("main", "any"):
-        ranks_to_count = included_ranks(per_rank)
-        if taxon:
-            if per_rank == "main" and taxon.rank not in ranks_to_count:
-                rank_level = RANK_LEVELS[taxon.rank]
-                ranks_to_count = [
-                    rank for rank in ranks_to_count if RANK_LEVELS[rank] < rank_level
-                ]
-                ranks_to_count.append(taxon.rank)
-            else:
-                ranks_to_count = ranks_to_count[: ranks_to_count.index(taxon.rank) + 1]
-        ranks = "main ranks" if per_rank == "main" else "ranks"
-        generate_taxa = taxa_per_rank(
-            taxon_list, ranks_to_count, root_taxon_id, sort_by, order
-        )
-    elif per_rank in ("leaf", "child"):
-        ranks = "leaf taxa" if per_rank == "leaf" else "child taxa"
-        if per_rank == "child" and not root_taxon_id:
-            # `per child` is only meaningful when the taxon list is for a
-            # single root taxon. Otherwise, default to the first taxon (usually
-            # 'Life')
-            _root_taxon_id = taxon.id if taxon else taxon_list[0].id
-        else:
-            _root_taxon_id = root_taxon_id
-        generate_taxa = taxa_per_rank(
-            taxon_list, per_rank, _root_taxon_id, sort_by, order
-        )
-    else:
-        _per_rank = per_rank
-        _ranks = []
-        if isinstance(per_rank, str):
-            _per_rank = [per_rank]
-        per_rank = []
-        for _rank in _per_rank:
-            rank = RANK_EQUIVALENTS[_rank] if _rank in RANK_EQUIVALENTS else _rank
-            rank_name = p.plural_noun(RANK_LEVEL_NAMES[RANK_LEVELS[_rank]])
-            # Add all ranks at the same level to the filter, described as
-            # the most commonly used rank at that level,
-            # - e.g. "genus" =>
-            #   per_rank = ["genus", "genushybrid"]
-            #   described as "genera"
-            if rank not in per_rank:
-                per_rank += RANKS_FOR_LEVEL[RANK_LEVELS[_rank]]
-                _ranks.append(rank_name)
-        # List of arbitrary ranks (e.g. "subfamily/species"):
-        ranks = "/".join(_ranks)
-        generate_taxa = taxa_per_rank(
-            taxon_list, per_rank, root_taxon_id, sort_by, order
-        )
-    counted_taxa = []
-    counted_taxon_ids = []
-    tot = {}
-    max_taxon_count_digits = 1
-    max_direct_count_digits = 1
-    for _taxon in generate_taxa:
-        counted_taxon_ids.append(_taxon.id)
-        if getattr(_taxon, "descendant_obs_count", None):
-            taxon_count_digits = len(str(_taxon.descendant_obs_count))
-            direct_count_digits = len(str(_taxon.count))
-            if direct_count_digits > max_direct_count_digits:
-                max_direct_count_digits = direct_count_digits
-            if taxon_count_digits > max_taxon_count_digits:
-                max_taxon_count_digits = taxon_count_digits
-        else:
-            taxon_count_digits = len(str(_taxon.observations_count))
-            if taxon_count_digits > max_taxon_count_digits:
-                max_taxon_count_digits = taxon_count_digits
-        counted_taxa.append(_taxon)
-        rank = _taxon.rank
-        tot[rank] = tot.get(_taxon.rank, 0) + 1
-    max_rank_digits = len(str(max(tot.values()))) if tot else 1
-    rank_totals = {
-        rank: f"`{str(tot[rank]).rjust(max_rank_digits)}` {p.plural_noun(rank, tot[rank])}"
-        for rank in tot
-    }
-    if per_rank in ("leaf", "child"):
-        # generate a sort key that uses the specified order:
-        sort_key = (
-            _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
-        )
-        counted_taxa.sort(key=sort_key)
-    return (
-        counted_taxa,
-        counted_taxon_ids,
-        ranks,
-        rank_totals,
-        max_taxon_count_digits,
-        max_direct_count_digits,
-    )
 
 
 def format_taxon_list_summary(
@@ -725,49 +511,38 @@ class BaseCountFormatter(BaseFormatter):
 
 
 class TaxonListFormatter(ListFormatter):
+    """
+    Attributes
+    ----------
+    source: TaxonListSource
+        Source of taxa including ancestors, enabling arrangement
+        into a tree. This can be a life list other list of descendants
+        of a common root taxon. The source must be set before any
+        format methods can be called.
+    """
+
+    source: TaxonListSource
+
     def __init__(
         self,
-        taxon_list: list[Taxon],
-        per_rank: Union[list[str], str],
-        query_response: QueryResponse,
         with_url: bool = True,
         with_taxa: bool = True,
         with_indent: bool = False,
         with_index: bool = False,
         with_direct: bool = False,
         with_common: bool = False,
-        per_page: int = 20,
-        root_taxon_id: int = None,
-        sort_by: str = None,
-        order: str = None,
         short_description: str = "Life list",
     ):
         """
         Parameters
         ----------
-        taxon_list: list[Taxon]
-            List of taxa including ancestors, enabling arrangement
-            into a tree. This can be a life list other list of descendants
-            of a common root taxon.
-
-        per_rank: list[str], str
-            Rank(s) to include in list of taxa, or one of the special values:
-                - 'leaf' (default) = leaf taxa
-                - 'child' = all child taxa regardless of rank
-                - 'main' = any of the most commonly used ranks
-                - 'any' = every rank in the taxon list
-
-        query_response: QueryResponse
-            The query response contains all iNat objects in the query
-            except for the taxon_list itself (e.g. user, place, etc.)
-
         with_url: bool, optional
             When True, link the title to a user's life list, provided the query
             was for a single user.
 
         with_taxa: bool, optional
             When True, format() and format_page() format the specified
-            page of taxa on the taxon_list as a per_page sized page.
+            page of taxa on the source as a per_page sized page.
 
             The first page links to the observations in the query
             and the last page ends with a total per rank in the query.
@@ -789,29 +564,12 @@ class TaxonListFormatter(ListFormatter):
             parentheses.
 
         with_common: bool, optional
-            When with_common is True, if the taxon_list contains common names, then
+            When with_common is True, if the source contains common names, then
             common names are included in the output.
-
-        per_page: int, optional
-            The number of taxa to include in each page.
-
-        root_taxon_id: int, optional
-            If specified, make the taxon with this ID the root. The taxon with
-            this ID must be in the taxon list data.
-
-        sort_by: str, optional
-            If specified, sort ascending by `name` (default) or descending by number of `obs`.
-
-        order: str, optional
-            If specified, use `asc` (ascending) or `desc` (descending) as the order for the
-            `sort_by` key.
 
         short_description: str, optional [default: `Life list`]
             Short description of Taxon list that appears in the title.
         """
-        self.taxon_list = taxon_list
-        self.per_rank = per_rank
-        self.query_response = query_response
         self.with_url = with_url
         self.with_taxa = with_taxa
         self.with_indent = with_indent
@@ -819,32 +577,17 @@ class TaxonListFormatter(ListFormatter):
         self.with_direct = with_direct
         self.with_common = with_common
         self.pages = []
-        self.per_page = per_page if per_page >= 0 else 0
-        self.root_taxon_id = root_taxon_id
-        self.sort_by = sort_by
-        self.order = order
         self.short_description = short_description
-        (
-            self.taxa,
-            self.taxon_ids,
-            self.ranks,
-            self.rank_totals,
-            self.count_digits,
-            self.direct_digits,
-        ) = filter_taxon_list(
-            self.taxon_list,
-            self.per_rank,
-            self.query_response.taxon,
-            self.root_taxon_id,
-            self.sort_by,
-            self.order,
-        )
 
     def format(
-        self, with_title: bool = True, page: int = 0, selected: Optional[int] = None
+        self,
+        page: Union[Taxon, list[Taxon]] = None,
+        selected: Optional[int] = None,
+        with_title: bool = True,
+        with_summary: bool = False,
     ):
         """Format the taxon list as markdown."""
-        description = self.format_page(page, selected)
+        description = self.format_page(page, selected, with_summary=with_summary)
         if with_title:
             description = "\n\n".join([self.format_title(), description])
         return description
@@ -862,22 +605,25 @@ class TaxonListFormatter(ListFormatter):
               query is for one user. The website doesn't have life list pages
               for any other kind of query.
         """
-        title = (
-            f"{self.short_description} {self.query_response.obs_query_description()}"
-        )
+        title = f"{self.short_description} {self.source.query_response.obs_query_description()}"
         if self.with_url:
-            if self.query_response.user:
-                url = lifelists_url_from_query_response(self.query_response)
+            if self.source.query_response.user:
+                url = lifelists_url_from_query_response(self.source.query_response)
                 title = format_link(title, url)
         return title
 
-    def format_page(self, page: int = 0, selected: Optional[int] = None):
+    def format_page(
+        self,
+        page: Union[Taxon, list[Taxon]] = None,
+        selected: Optional[int] = None,
+        with_summary: bool = False,
+    ):
         """Format the taxon list description."""
 
         def indent_level(taxon: Taxon):
-            if self.per_rank not in ("main", "any"):
+            if self.source.per_rank not in ("main", "any"):
                 return 0
-            root_indent_level = self.taxa[0].indent_level
+            root_indent_level = self.source.entries[0].indent_level
             return taxon.indent_level - root_indent_level
 
         def indent_child(taxon: Taxon):
@@ -895,16 +641,16 @@ class TaxonListFormatter(ListFormatter):
                 if ancestors[0].id == ROOT_TAXON_ID:
                     del ancestors[0]
                 if ancestors:
-                    header_ranks = included_ranks(self.per_rank)
+                    header_ranks = included_ranks(self.source.per_rank)
                     header_names = [
                         format_taxon_name(parent, with_rank=False)
                         for parent in ancestors
                         if parent.rank in header_ranks
                     ]
                     if header_names:
-                        counts_width = self.count_digits
+                        counts_width = self.source.count_digits
                         if self.with_direct:
-                            counts_width += self.direct_digits + 2
+                            counts_width += self.source.direct_digits + 2
                         return (
                             f"`{' ' * counts_width}` __"
                             + " > ".join(header_names)
@@ -912,10 +658,10 @@ class TaxonListFormatter(ListFormatter):
                         )
             return None
 
-        def format_page_of_taxa(page_of_taxa):
-            query_response = self.query_response
+        def format_page_of_taxa(page: list[Taxon]):
+            query_response = self.source.query_response
             formatted_taxa = []
-            for taxon in page_of_taxa:
+            for taxon in page:
                 taxon_count = 0
                 formatted_count = ""
                 formatted_direct = ""
@@ -929,21 +675,23 @@ class TaxonListFormatter(ListFormatter):
                     #   a cue that the species count might be improved with more
                     #   ID refinements
                     if self.with_direct:
-                        formatted_direct = " " * (self.direct_digits + 2)
+                        formatted_direct = " " * (self.source.direct_digits + 2)
                         if taxon.count > 0:
                             formatted_direct = f"({taxon.count})".rjust(
-                                self.direct_digits + 2
+                                self.source.direct_digits + 2
                             )
                             is_leaf = taxon.count == taxon.descendant_obs_count
                             terminal_rank = taxon.rank_level <= RANK_LEVELS["species"]
                             if is_leaf:
                                 if terminal_rank:
-                                    formatted_direct = " " * (self.direct_digits + 2)
+                                    formatted_direct = " " * (
+                                        self.source.direct_digits + 2
+                                    )
                                 else:
-                                    formatted_count = " " * self.count_digits
+                                    formatted_count = " " * self.source.count_digits
                 else:
                     taxon_count = taxon.observations_count
-                formatted_count = str(taxon_count).rjust(self.count_digits)
+                formatted_count = str(taxon_count).rjust(self.source.count_digits)
                 taxon_name = format_taxon_name(taxon, with_common=False)
                 formatted_name = format_link(
                     taxon_name, taxon_obs_url(query_response, taxon)
@@ -960,31 +708,27 @@ class TaxonListFormatter(ListFormatter):
                 )
             return formatted_taxa
 
-        def make_structured_page(page):
+        def make_structured_page(page: list[Taxon]):
             structured_page = {
                 "header": None,
                 "entries_header": None,
                 "entries": [],
                 "footer": None,
             }
-            with_page_headers = self.per_rank in ("main", "any")
-            if self.taxa and self.with_taxa:
-                page_of_taxa = self.get_page_of_taxa(page)
-                if page_of_taxa:
-                    formatted_taxa = format_page_of_taxa(page_of_taxa)
-                    if with_page_headers and indent_level(page_of_taxa[0]) > 1:
-                        structured_page["entries_header"] = make_page_header(
-                            page_of_taxa[0]
-                        )
-                    structured_page["entries"] = formatted_taxa
-            if page == self.last_page():
+            with_page_headers = self.source.per_rank in ("main", "any")
+            if page and self.with_taxa:
+                formatted_taxa = format_page_of_taxa(page)
+                if with_page_headers and indent_level(page[0]) > 1:
+                    structured_page["entries_header"] = make_page_header(page[0])
+                structured_page["entries"] = formatted_taxa
+            if with_summary:
                 taxon_list_summary = format_taxon_list_summary(
-                    self.taxa, self.ranks, self.rank_totals
+                    self.source.entries, self.source.ranks, self.source.rank_totals
                 )
                 structured_page["footer"] = taxon_list_summary
             return structured_page
 
-        def taxon_obs_url(query_response, taxon):
+        def taxon_obs_url(query_response: QueryResponse, taxon: Taxon):
             obs_args = query_response.obs_args()
             # Replace multiple taxa in the original query with just the one:
             if "taxon_ids" in obs_args:
@@ -996,16 +740,17 @@ class TaxonListFormatter(ListFormatter):
                 }
             )
 
+        _page = [page] if isinstance(page, Taxon) else page
         last_cached_page = len(self.pages) - 1
         # Extend page cache with new formatted pages up to and including
         # requested page. Normally the user advances a page at a time, so this
         # formats and caches new pages efficiently for for the normal case,
         # while still supporting random access.
-        for new_page in range(last_cached_page, page):
+        for new_page in range(last_cached_page, _page):
             self.pages.append(make_structured_page(new_page + 1))
 
         # Return string built up from structured page parts:
-        structured_page = self.pages[page]
+        structured_page = self.pages[_page]
         sections = []
         if structured_page["header"]:
             sections.append(structured_page["header"])
@@ -1033,28 +778,10 @@ class TaxonListFormatter(ListFormatter):
 
         return "\n\n".join(sections)
 
-    def generate_pages(self):
-        for page in range(0, self.last_page() + 1):
-            formatted_page = self.format_page(page)
-            yield formatted_page
-
-    def get_first_page(self):
-        first_page = self.format_page(0, 0)
-        return first_page
-
-    def get_page_of_taxa(self, page: int):
-        if self.per_page > 0:
-            page_start = page * self.per_page
-            page_end = page_start + self.per_page
-        else:
-            page_start = 0
-            page_end = len(self.taxa) + 1
-        return self.taxa[page_start:page_end]
-
     def last_page(self):
-        if not (self.with_taxa and self.per_page > 0 and self.taxa):
+        if not (self.with_taxa and self.source.per_page > 0 and self.source.entries):
             return 0
-        return ceil(len(self.taxa) / self.per_page) - 1
+        return ceil(len(self.source.entries) / self.source.per_page) - 1
 
 
 class TaxonFormatter(BaseFormatter):
