@@ -6,7 +6,6 @@ which is then fairly easy to render to other formats as needed.
 from __future__ import annotations
 import copy
 from datetime import datetime as dt
-from math import ceil
 import re
 from typing import TYPE_CHECKING, Optional, Union
 
@@ -23,7 +22,6 @@ from pyinaturalist import (
     ListedTaxon,
     Observation,
     Taxon,
-    TaxonCount,
     TaxonSummary,
     User,
 )
@@ -34,6 +32,7 @@ from ..constants import (
     TRINOMIAL_ABBR,
     RANK_LEVELS,
 )
+from ..models.taxon_list import TaxonListMetadata
 from ..utils import included_ranks
 from .constants import (
     ICONS,
@@ -150,16 +149,14 @@ def format_datetime(time, compact=False):
     return formatted_time
 
 
-def format_taxon_list_summary(
-    taxa: list[TaxonCount], ranks: str, rank_totals: list[int]
-):
-    total = f"Total: {len(taxa)} {ranks}"
-    if rank_totals:
+def format_taxon_list_summary(meta: TaxonListMetadata):
+    total = f"Total: {len(meta.taxon_count)} {meta.ranks}"
+    if meta.rank_totals:
         rank_keys = reversed(
             [rank for rank in RANK_LEVELS.keys() if rank != "stateofmatter"]
         )
         rank_totals_by_rank = [
-            rank_totals[rank] for rank in rank_keys if rank_totals.get(rank)
+            meta.rank_totals[rank] for rank in rank_keys if meta.rank_totals.get(rank)
         ]
         response = "\n\n".join(["\n".join(rank_totals_by_rank), total])
     else:
@@ -511,6 +508,8 @@ class BaseCountFormatter(BaseFormatter):
 
 
 class TaxonListFormatter(ListFormatter):
+    _pages: dict[dict] = {}
+
     """
     Attributes
     ----------
@@ -576,18 +575,17 @@ class TaxonListFormatter(ListFormatter):
         self.with_index = with_index
         self.with_direct = with_direct
         self.with_common = with_common
-        self.pages = []
         self.short_description = short_description
 
     def format(
         self,
         page: Union[Taxon, list[Taxon]] = None,
+        page_number: Optional[int] = None,
         selected: Optional[int] = None,
         with_title: bool = True,
-        with_summary: bool = False,
     ):
         """Format the taxon list as markdown."""
-        description = self.format_page(page, selected, with_summary=with_summary)
+        description = self.format_page(page, page_number, selected)
         if with_title:
             description = "\n\n".join([self.format_title(), description])
         return description
@@ -615,19 +613,13 @@ class TaxonListFormatter(ListFormatter):
     def format_page(
         self,
         page: Union[Taxon, list[Taxon]] = None,
-        selected: Optional[int] = None,
-        with_summary: bool = False,
+        page_number: int = 0,
+        selected: int = 0,
     ):
         """Format the taxon list description."""
 
-        def indent_level(taxon: Taxon):
-            if self.source.per_rank not in ("main", "any"):
-                return 0
-            root_indent_level = self.source.entries[0].indent_level
-            return taxon.indent_level - root_indent_level
-
         def indent_child(taxon: Taxon):
-            level = indent_level(taxon)
+            level = taxon.indent_level
             return protect_leading_blanks(
                 "\N{EN SPACE}\N{THIN SPACE}" * (level - 1) + "└\N{THIN SPACE}"
                 if level >= 1
@@ -648,9 +640,10 @@ class TaxonListFormatter(ListFormatter):
                         if parent.rank in header_ranks
                     ]
                     if header_names:
-                        counts_width = self.source.count_digits
+                        meta = self.source.meta
+                        counts_width = meta.count_digits
                         if self.with_direct:
-                            counts_width += self.source.direct_digits + 2
+                            counts_width += meta.direct_digits + 2
                         return (
                             f"`{' ' * counts_width}` __"
                             + " > ".join(header_names)
@@ -665,6 +658,7 @@ class TaxonListFormatter(ListFormatter):
                 taxon_count = 0
                 formatted_count = ""
                 formatted_direct = ""
+                meta = self.source.meta
                 if getattr(taxon, "descendant_obs_count", None):
                     taxon_count = taxon.descendant_obs_count
                     # Format the direct column similarly to Dynamic Life Lists on
@@ -675,23 +669,21 @@ class TaxonListFormatter(ListFormatter):
                     #   a cue that the species count might be improved with more
                     #   ID refinements
                     if self.with_direct:
-                        formatted_direct = " " * (self.source.direct_digits + 2)
+                        formatted_direct = " " * (meta.direct_digits + 2)
                         if taxon.count > 0:
                             formatted_direct = f"({taxon.count})".rjust(
-                                self.source.direct_digits + 2
+                                meta.direct_digits + 2
                             )
                             is_leaf = taxon.count == taxon.descendant_obs_count
                             terminal_rank = taxon.rank_level <= RANK_LEVELS["species"]
                             if is_leaf:
                                 if terminal_rank:
-                                    formatted_direct = " " * (
-                                        self.source.direct_digits + 2
-                                    )
+                                    formatted_direct = " " * (meta.direct_digits + 2)
                                 else:
-                                    formatted_count = " " * self.source.count_digits
+                                    formatted_count = " " * meta.count_digits
                 else:
                     taxon_count = taxon.observations_count
-                formatted_count = str(taxon_count).rjust(self.source.count_digits)
+                formatted_count = str(taxon_count).rjust(meta.count_digits)
                 taxon_name = format_taxon_name(taxon, with_common=False)
                 formatted_name = format_link(
                     taxon_name, taxon_obs_url(query_response, taxon)
@@ -708,23 +700,23 @@ class TaxonListFormatter(ListFormatter):
                 )
             return formatted_taxa
 
-        def make_structured_page(page: list[Taxon]):
+        def make_structured_page(page: list[Taxon], page_number: int):
             structured_page = {
                 "header": None,
                 "entries_header": None,
                 "entries": [],
                 "footer": None,
             }
+            meta = self.source.meta
             with_page_headers = self.source.per_rank in ("main", "any")
             if page and self.with_taxa:
                 formatted_taxa = format_page_of_taxa(page)
-                if with_page_headers and indent_level(page[0]) > 1:
+                if with_page_headers and page[0].indent_level > 1:
                     structured_page["entries_header"] = make_page_header(page[0])
                 structured_page["entries"] = formatted_taxa
+            with_summary = page_number == self.last_page()
             if with_summary:
-                taxon_list_summary = format_taxon_list_summary(
-                    self.source.entries, self.source.ranks, self.source.rank_totals
-                )
+                taxon_list_summary = format_taxon_list_summary(meta)
                 structured_page["footer"] = taxon_list_summary
             return structured_page
 
@@ -741,16 +733,12 @@ class TaxonListFormatter(ListFormatter):
             )
 
         _page = [page] if isinstance(page, Taxon) else page
-        last_cached_page = len(self.pages) - 1
-        # Extend page cache with new formatted pages up to and including
-        # requested page. Normally the user advances a page at a time, so this
-        # formats and caches new pages efficiently for for the normal case,
-        # while still supporting random access.
-        for new_page in range(last_cached_page, _page):
-            self.pages.append(make_structured_page(new_page + 1))
+
+        if page_number not in self._pages:
+            self._pages[page_number] = make_structured_page(_page, page_number)
 
         # Return string built up from structured page parts:
-        structured_page = self.pages[_page]
+        structured_page = self._pages[page_number]
         sections = []
         if structured_page["header"]:
             sections.append(structured_page["header"])
@@ -781,7 +769,7 @@ class TaxonListFormatter(ListFormatter):
     def last_page(self):
         if not (self.with_taxa and self.source.per_page > 0 and self.source.entries):
             return 0
-        return ceil(len(self.source.entries) / self.source.per_page) - 1
+        return self.source.get_max_pages() - 1
 
 
 class TaxonFormatter(BaseFormatter):

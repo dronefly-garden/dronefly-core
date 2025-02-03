@@ -1,6 +1,5 @@
 import pytest
 from unittest.mock import Mock
-from dronefly.core.menus.menu import BaseMenu
 from dronefly.core.menus.taxon_list import TaxonListSource
 from dronefly.core.formatters import TaxonListFormatter
 from dronefly.core.query import QueryResponse
@@ -74,10 +73,9 @@ async def test_pagination(mock_formatter, mock_query_response, mock_taxa):
 @pytest.mark.asyncio
 async def test_formatting(mock_formatter, mock_query_response, mock_taxa):
     source = TaxonListSource(mock_taxa, mock_query_response, mock_formatter)
-    menu = Mock(spec=BaseMenu, source=source)
     page = await source.get_page(0)
-    formatted_page = source.format_page(menu=menu, page=page)
+    formatted_page = source.format_page(page=page, page_number=0, selected=0)
     assert formatted_page == "Formatted Page"
     source.formatter.format.assert_called_once_with(
-        source, menu=menu, page=page, summary=False
+        source, page=page, page_number=0, selected=0, with_summary=False
     )

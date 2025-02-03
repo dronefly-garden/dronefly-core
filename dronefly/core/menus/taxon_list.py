@@ -13,6 +13,7 @@ from pyinaturalist import (
 
 from .source import ListPageSource
 from .menu import BaseMenu
+from ..models.taxon_list import TaxonListMetadata
 from ..constants import RANKS_FOR_LEVEL, RANK_LEVEL_NAMES
 from ..formatters import TaxonListFormatter
 from ..query import QueryResponse
@@ -133,6 +134,32 @@ def filter_taxon_list(
     sort_by: str = None,
     order: str = None,
 ):
+    """Return filtered and ordered list supplemented with metadata.
+
+    Parameters:
+    -----------
+    taxon_list: list[Taxon]
+        A list of taxa.
+    per_rank: Union[list[str], str]
+        A rank, keyword representing a set of ranks, or list of ranks to include.
+    taxon: Taxon
+        The root taxon of the unfiltered, unordered list.
+    root_taxon_id: int
+        The optional root id of a subtree of taxa to output.
+    sort_by: str
+        An optional string keyword indicating the desired sort key.
+    order: str
+        An optional string keyword indicating the desired sort order.
+
+    Returns
+    -------
+    (sorted_taxa: list[Taxon], meta: TaxonListMetadata)
+        The filtered, ordered list and accumulated metadata.
+        - In addition to counting and listing aspects of the result set, the taxon
+          indent_levels are adjusted to flatten the list if a treewise per_rank
+          was not indicated, otherwise reduce the root taxon to 0 and lower all
+          taxa beneath it by the same amount.
+    """
     ranks = None
     rank_totals = {}
     if per_rank in ("main", "any"):
@@ -184,13 +211,20 @@ def filter_taxon_list(
         generate_taxa = taxa_per_rank(
             taxon_list, per_rank, root_taxon_id, sort_by, order
         )
+    # Count ranks, # of obs/spp, and adjust indent levels:
     counted_taxa = []
-    counted_taxon_ids = []
     tot = {}
     max_taxon_count_digits = 1
     max_direct_count_digits = 1
+    root_indent_level = None
+    no_indent = per_rank in ("main", "any")
     for _taxon in generate_taxa:
-        counted_taxon_ids.append(_taxon.id)
+        if no_indent:
+            _taxon.indent_level = 0
+        else:
+            if root_indent_level is None:
+                root_indent_level = _taxon.indent_level
+            _taxon.indent_level = _taxon.indent_level - root_indent_level
         if getattr(_taxon, "descendant_obs_count", None):
             taxon_count_digits = len(str(_taxon.descendant_obs_count))
             direct_count_digits = len(str(_taxon.count))
@@ -216,14 +250,14 @@ def filter_taxon_list(
             _sort_rank_obs_name(order) if sort_by == "obs" else _sort_rank_name(order)
         )
         counted_taxa.sort(key=sort_key)
-    return (
-        counted_taxa,
-        counted_taxon_ids,
+    meta = TaxonListMetadata(
         ranks,
         rank_totals,
         max_taxon_count_digits,
         max_direct_count_digits,
+        len(counted_taxa),
     )
+    return (counted_taxa, meta)
 
 
 class TaxonListSource(ListPageSource):
@@ -297,14 +331,7 @@ class TaxonListSource(ListPageSource):
         self.sort_by = sort_by
         self.order = order
         self._entries = entries
-        (
-            self.entries,
-            self.taxon_ids,
-            self.ranks,
-            self.rank_totals,
-            self.count_digits,
-            self.direct_digits,
-        ) = filter_taxon_list(
+        (self.entries, self.meta,) = filter_taxon_list(
             self._entries,
             self.per_rank,
             self.query_response.taxon,
@@ -323,6 +350,20 @@ class TaxonListSource(ListPageSource):
         return self._taxon_list_formatter
 
     def format_page(
-        self, menu: BaseMenu, page: Union[Taxon, list[Taxon]], summary: bool = False
+        self,
+        page: Union[Taxon, list[Taxon]],
+        page_number: int = 0,
+        selected: int = 0,
+        with_summary: bool = False,
     ):
-        return self.formatter.format(self, menu=menu, page=page, summary=summary)
+        return self.formatter.format(
+            self,
+            page=page,
+            page_number=page_number,
+            selected=selected,
+            with_summary=with_summary,
+        )
+
+
+class TaxonListMenu(BaseMenu):
+    pass
