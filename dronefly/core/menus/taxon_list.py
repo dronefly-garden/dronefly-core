@@ -217,7 +217,7 @@ def filter_taxon_list(
     max_taxon_count_digits = 1
     max_direct_count_digits = 1
     root_indent_level = None
-    no_indent = per_rank in ("main", "any")
+    no_indent = per_rank not in ("main", "any")
     for _taxon in generate_taxa:
         if no_indent:
             _taxon.indent_level = 0
