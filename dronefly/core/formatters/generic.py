@@ -150,7 +150,7 @@ def format_datetime(time, compact=False):
 
 
 def format_taxon_list_summary(meta: TaxonListMetadata):
-    total = f"Total: {len(meta.taxon_count)} {meta.ranks}"
+    total = f"Total: {meta.taxon_count} {meta.ranks}"
     if meta.rank_totals:
         rank_keys = reversed(
             [rank for rank in RANK_LEVELS.keys() if rank != "stateofmatter"]
