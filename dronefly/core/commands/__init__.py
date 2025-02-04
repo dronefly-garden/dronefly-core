@@ -176,7 +176,7 @@ class Commands:
             response = markdown_text
         return response
 
-    def life(self, ctx: Context, *args):
+    async def life(self, ctx: Context, *args):
         _args = " ".join(args) or "by me"
         query = self._parse(_args)
         per_rank = query.per or "main"
@@ -247,7 +247,7 @@ class Commands:
             formatter.pages[0]["header"] = title
         return self._get_formatted_page(formatter, 0, 0)
 
-    def taxon_list(self, ctx: Context, *args):
+    async def taxon_list(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
         per_rank = query.per or "child"
         if per_rank not in [*RANK_KEYWORDS, "child"]:
@@ -361,7 +361,7 @@ class Commands:
         page = self._get_formatted_page(formatter, 0, 0, header=msg)
         return page
 
-    def next(self, ctx: Context):
+    async def next(self, ctx: Context):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         ctx.page += 1
@@ -370,7 +370,7 @@ class Commands:
         ctx.selected = 0
         return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
-    def page(self, ctx: Context, page: int = 1):
+    async def page(self, ctx: Context, page: int = 1):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         last_page = ctx.page_formatter.last_page() + 1
@@ -383,7 +383,7 @@ class Commands:
         ctx.selected = 0
         return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
-    def sel(self, ctx: Context, sel: int = 1):
+    async def sel(self, ctx: Context, sel: int = 1):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         _page = ctx.page_formatter.get_page_of_taxa(ctx.page)
@@ -396,7 +396,7 @@ class Commands:
         ctx.selected = sel - 1
         return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
-    def prev(self, ctx: Context):
+    async def prev(self, ctx: Context):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         ctx.page -= 1
@@ -405,7 +405,7 @@ class Commands:
         ctx.selected = 0
         return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
 
-    def taxon(self, ctx: Context, *args):
+    async def taxon(self, ctx: Context, *args):
         taxon = None
         if len(args) == 0 or args[0] == "sel":
             formatter = ctx.page_formatter
@@ -438,7 +438,7 @@ class Commands:
 
         return response
 
-    def obs(self, ctx: Context, *args):
+    async def obs(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
@@ -479,7 +479,7 @@ class Commands:
 
         return response
 
-    def user(self, ctx: Context, user_id: str):
+    async def user(self, ctx: Context, user_id: str):
         with self.inat_client.set_ctx(ctx) as client:
             user = None
             try:
@@ -492,7 +492,7 @@ class Commands:
 
             return self._format_markdown(UserFormatter(user).format())
 
-    def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
+    async def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
         if user_abbrev != "me":
             return "Only `user add me <user-id>` is supported at this time."
         user_config = self.config.user(ctx.author.id)
