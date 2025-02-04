@@ -1,6 +1,6 @@
 from enum import Enum
 import re
-from typing import Union
+from typing import Any, Union
 
 from attrs import define
 from requests import HTTPError
@@ -27,6 +27,7 @@ from ..formatters.generic import (
     UserFormatter,
     p,
 )
+from ..menus.taxon_list import TaxonListSource
 from ..models.config import Config
 from ..models.user import User
 from ..query.query import get_base_query_args, QueryResponse
@@ -61,11 +62,11 @@ class Context:
     #   paged command results.
     # - Every command providing paged results must:
     #   - Set page_formatter to the formatter for the new results.
-    #   - Set page to the initial page number (default: 0).
+    #   - Set page_number to the initial page number (default: 0).
     # - Therefore, only a single command providing paged results can
     #   be active at a time.
     page_formatter: Union[BaseFormatter, ListFormatter] = None
-    page: int = 0
+    page_number: int = 0
     per_page: int = 0
     selected: int = 0
 
@@ -113,17 +114,21 @@ class Commands:
     def _get_formatted_page(
         self,
         formatter,
-        page: int = 0,
+        page_number: int = 0,
         selected: int = 0,
         header: str = None,
         footer: str = None,
+        page: list[Any] = None,
     ):
         if getattr(formatter, "format_page", None):
-            markdown_text = formatter.format_page(page, selected)
+            if page is None:
+                markdown_text = formatter.format_page(page_number, selected)
+            else:
+                markdown_text = formatter.format_page(page, page_number, selected)
             last_page = formatter.last_page()
             if last_page > 0:
                 markdown_text = "\n\n".join(
-                    [markdown_text, f"Page {page + 1}/{last_page + 1}"]
+                    [markdown_text, f"Page {page_number + 1}/{last_page + 1}"]
                 )
         else:
             markdown_text = formatter.format()
@@ -228,24 +233,35 @@ class Commands:
         with_index = self.format == Format.rich
         taxon_list = life_list.data
         formatter = TaxonListFormatter(
-            taxon_list,
-            per_rank,
-            query_response,
             with_indent=True,
-            per_page=per_page,
             with_index=with_index,
+        )
+        root_taxon_id = taxon.id if taxon else None
+        source = TaxonListSource(
+            entries=taxon_list,
+            query_response=query_response,
+            formatter=formatter,
+            root_taxon_id=root_taxon_id,
+            per_page=per_page,
+            per_rank=per_rank,
             sort_by=sort_by,
             order=order,
         )
+        formatter.source = source
         ctx.page_formatter = formatter
-        ctx.page = 0
+        ctx.page_number = 0
         ctx.selected = 0
         title = formatter.format_title()
-        first_page = formatter.get_first_page() or ""
-        if first_page:
+        page = await source.get_page(ctx.page_number) or ""
+        if page:
             # TODO: Provide a method in the formatter to set the title:
-            formatter.pages[0]["header"] = title
-        return self._get_formatted_page(formatter, 0, 0)
+            formatter.format_page(
+                page, ctx.page_number, ctx.selected
+            )  # prime the _pages cache
+            formatter._pages[ctx.page_number]["header"] = title
+        return self._get_formatted_page(
+            formatter, ctx.page_number, ctx.selected, page=page
+        )
 
     async def taxon_list(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
@@ -351,42 +367,46 @@ class Commands:
             short_description=short_description,
         )
         ctx.page_formatter = formatter
-        ctx.page = 0
+        ctx.page_number = 0
         ctx.selected = 0
         title = formatter.format_title()
         first_page = formatter.get_first_page() or ""
         if first_page:
             # TODO: Provide a method in the formatter to set the title:
-            formatter.pages[0]["header"] = title
+            formatter._pages[0]["header"] = title
         page = self._get_formatted_page(formatter, 0, 0, header=msg)
         return page
 
     async def next(self, ctx: Context):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
-        ctx.page += 1
-        if ctx.page > ctx.page_formatter.last_page():
-            ctx.page = 0
+        ctx.page_number += 1
+        if ctx.page_number > ctx.page_formatter.last_page():
+            ctx.page_number = 0
         ctx.selected = 0
-        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
+        return self._get_formatted_page(
+            ctx.page_formatter, ctx.page_number, ctx.selected
+        )
 
-    async def page(self, ctx: Context, page: int = 1):
+    async def page(self, ctx: Context, page_number: int = 1):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         last_page = ctx.page_formatter.last_page() + 1
-        if page > last_page or page < 1:
+        if page_number > last_page or page_number < 1:
             msg = "Specify page 1"
             if last_page > 1:
                 msg += f" through {last_page}"
             return msg
-        ctx.page = page - 1
+        ctx.page_number = page_number - 1
         ctx.selected = 0
-        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
+        return self._get_formatted_page(
+            ctx.page_formatter, ctx.page_number, ctx.selected
+        )
 
     async def sel(self, ctx: Context, sel: int = 1):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
-        _page = ctx.page_formatter.get_page_of_taxa(ctx.page)
+        _page = ctx.page_formatter.get_page_of_taxa(ctx.page_number)
         page_len = len(_page)
         if sel > page_len or sel < 1:
             msg = "Specify entry 1"
@@ -394,23 +414,27 @@ class Commands:
                 msg += f" through {page_len}"
             return msg
         ctx.selected = sel - 1
-        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
+        return self._get_formatted_page(
+            ctx.page_formatter, ctx.page_number, ctx.selected
+        )
 
     async def prev(self, ctx: Context):
         if not ctx.page_formatter:
             return "Type a command that has pages first"
-        ctx.page -= 1
-        if ctx.page < 0:
-            ctx.page = ctx.page_formatter.last_page()
+        ctx.page_number -= 1
+        if ctx.page_number < 0:
+            ctx.page_number = ctx.page_formatter.last_page()
         ctx.selected = 0
-        return self._get_formatted_page(ctx.page_formatter, ctx.page, ctx.selected)
+        return self._get_formatted_page(
+            ctx.page_formatter, ctx.page_number, ctx.selected
+        )
 
     async def taxon(self, ctx: Context, *args):
         taxon = None
         if len(args) == 0 or args[0] == "sel":
             formatter = ctx.page_formatter
             if formatter and getattr(formatter, "get_page_of_taxa", None):
-                page = formatter.get_page_of_taxa(ctx.page)
+                page = formatter.get_page_of_taxa(ctx.page_number)
                 with self.inat_client.set_ctx(ctx) as client:
                     taxon = client.taxa.populate(page[ctx.selected])
             else:
