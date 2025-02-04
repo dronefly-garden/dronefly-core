@@ -331,7 +331,7 @@ class TaxonListSource(ListPageSource):
         self.sort_by = sort_by
         self.order = order
         self._entries = entries
-        (self.entries, self.meta,) = filter_taxon_list(
+        (_entries, self.meta,) = filter_taxon_list(
             self._entries,
             self.per_rank,
             self.query_response.taxon,
@@ -339,7 +339,7 @@ class TaxonListSource(ListPageSource):
             self.sort_by,
             self.order,
         )
-        super().__init__(entries, per_page=per_page, **kwargs)
+        super().__init__(_entries, per_page=per_page, **kwargs)
         self.formatter.source = self
 
     def is_paginating(self):
