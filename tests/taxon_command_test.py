@@ -20,8 +20,9 @@ def ctx():
 
 
 # TODO: Mock communication with iNatClient
-def test_taxon_with_result(cmd, ctx):
-    response = re.sub(r"\[[0-9,]*?\]", "[19,999,999]", cmd.taxon(ctx, "birds"))
+@pytest.mark.asyncio
+async def test_taxon_with_result(cmd, ctx):
+    response = re.sub(r"\[[0-9,]*?\]", "[19,999,999]", await cmd.taxon(ctx, "birds"))
     assert response == (
         "[Class Aves (Birds)](https://www.inaturalist.org/taxa/3)\nis a class with "
         "[19,999,999](https://www.inaturalist.org/observations?taxon_id=3) observations in: "
@@ -29,9 +30,11 @@ def test_taxon_with_result(cmd, ctx):
     )
 
 
-def test_taxon_with_no_result(cmd, ctx):
-    assert cmd.taxon(ctx, "xyzzy") == "Nothing found"
+@pytest.mark.asyncio
+async def test_taxon_with_no_result(cmd, ctx):
+    assert await cmd.taxon(ctx, "xyzzy") == "Nothing found"
 
 
-def test_taxon_with_group_macro(cmd, ctx):
-    assert cmd.taxon(ctx, "herps") == "Not a taxon"
+@pytest.mark.asyncio
+async def test_taxon_with_group_macro(cmd, ctx):
+    assert await cmd.taxon(ctx, "herps") == "Not a taxon"
