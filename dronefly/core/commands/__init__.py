@@ -249,9 +249,6 @@ class Commands:
             order=order,
         )
         formatter.source = source
-        ctx.page_formatter = formatter
-        ctx.page_number = 0
-        ctx.selected = 0
         title = formatter.format_title()
         page = await source.get_page(ctx.page_number) or ""
         if page:
@@ -260,7 +257,12 @@ class Commands:
                 page, ctx.page_number, ctx.selected
             )  # prime the _pages cache
             formatter._pages[ctx.page_number]["header"] = title
-        return await self._get_formatted_page(formatter, ctx.page_number, ctx.selected)
+        ctx.page_formatter = formatter
+        ctx.page_number = 0
+        ctx.selected = 0
+        return await self._get_formatted_page(
+            ctx.page_formatter, ctx.page_number, ctx.selected
+        )
 
     async def taxon_list(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
@@ -355,26 +357,33 @@ class Commands:
         per_page = ctx.per_page
         with_index = self.format == Format.rich
         formatter = TaxonListFormatter(
-            taxon_list,
-            per_rank=_per_rank,
-            query_response=query_response,
             with_indent=True,
-            per_page=per_page,
             with_index=with_index,
-            sort_by=sort_by,
-            order=order,
             short_description=short_description,
         )
+        source = TaxonListSource(
+            entries=taxon_list,
+            query_response=query_response,
+            formatter=formatter,
+            root_taxon_id=taxon.id,
+            per_page=per_page,
+            per_rank=per_rank,
+            sort_by=sort_by,
+            order=order,
+        )
+        formatter.source = source
+        title = formatter.format_title()
+        page = await source.get_page(ctx.page_number) or ""
+        if page:
+            # TODO: Provide a method in the formatter to set the title:
+            formatter.format_page(page, ctx.page_number, ctx.selected)
+            formatter._pages[0]["header"] = title
         ctx.page_formatter = formatter
         ctx.page_number = 0
         ctx.selected = 0
-        title = formatter.format_title()
-        first_page = formatter.get_first_page() or ""
-        if first_page:
-            # TODO: Provide a method in the formatter to set the title:
-            formatter._pages[0]["header"] = title
-        page = await self._get_formatted_page(formatter, 0, 0, header=msg)
-        return page
+        return await self._get_formatted_page(
+            ctx.page_formatter, ctx.page_number, ctx.selected, header=msg
+        )
 
     async def next(self, ctx: Context):
         if not ctx.page_formatter:
