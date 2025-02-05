@@ -700,7 +700,8 @@ class TaxonListFormatter(ListFormatter):
                 )
             return formatted_taxa
 
-        def make_structured_page(page: list[Taxon], page_number: int):
+        def make_page_content(page: list[Taxon], with_summary: bool = False):
+            """Format all parts of the page content."""
             structured_page = {
                 "header": None,
                 "entries_header": None,
@@ -714,11 +715,37 @@ class TaxonListFormatter(ListFormatter):
                 if with_page_headers and page[0].indent_level > 1:
                     structured_page["entries_header"] = make_page_header(page[0])
                 structured_page["entries"] = formatted_taxa
-            with_summary = page_number == self.last_page()
             if with_summary:
-                taxon_list_summary = format_taxon_list_summary(meta)
-                structured_page["footer"] = taxon_list_summary
+                structured_page["footer"] = format_taxon_list_summary(meta)
             return structured_page
+
+        def assemble_page(content: dict, selected: int = 0):
+            """Assemble page content into a formatted page."""
+            sections = []
+            if content["header"]:
+                sections.append(content["header"])
+            if content["entries_header"]:
+                sections.append(content["entries_header"])
+            if content["entries"]:
+                entries = []
+                for (index, entry) in enumerate(content["entries"]):
+                    _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
+                    if selected == index:
+                        _s = ">"
+                        _n = "**__"
+                        _e = "__**"
+                    else:
+                        _s = "\N{EN SPACE}"
+                        _n = ""
+                        _e = ""
+                    entries.append(
+                        f"{_i}`{entry['count']}{entry['direct']}`"
+                        f"{_s}{entry['indent']}{_n}{entry['name']}{_e}"
+                    )
+                sections.append("\n".join(entries))
+            if content["footer"]:
+                sections.append(content["footer"])
+            return "\n\n".join(sections)
 
         def taxon_obs_url(query_response: QueryResponse, taxon: Taxon):
             obs_args = query_response.obs_args()
@@ -732,39 +759,10 @@ class TaxonListFormatter(ListFormatter):
                 }
             )
 
+        with_summary = page_number == self.last_page()
         _page = [page] if isinstance(page, Taxon) else page
-
-        if page_number not in self._pages:
-            self._pages[page_number] = make_structured_page(_page, page_number)
-
-        # Return string built up from structured page parts:
-        structured_page = self._pages[page_number]
-        sections = []
-        if structured_page["header"]:
-            sections.append(structured_page["header"])
-        if structured_page["entries_header"]:
-            sections.append(structured_page["entries_header"])
-        if structured_page["entries"]:
-            entries = []
-            for (index, entry) in enumerate(structured_page["entries"]):
-                _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
-                if selected == index:
-                    _s = ">"
-                    _n = "**__"
-                    _e = "__**"
-                else:
-                    _s = "\N{EN SPACE}"
-                    _n = ""
-                    _e = ""
-                entries.append(
-                    f"{_i}`{entry['count']}{entry['direct']}`"
-                    f"{_s}{entry['indent']}{_n}{entry['name']}{_e}"
-                )
-            sections.append("\n".join(entries))
-        if structured_page["footer"]:
-            sections.append(structured_page["footer"])
-
-        return "\n\n".join(sections)
+        page_content = make_page_content(_page, with_summary=with_summary)
+        return assemble_page(page_content, selected)
 
     def last_page(self):
         if not (self.with_taxa and self.source.per_page > 0 and self.source.entries):

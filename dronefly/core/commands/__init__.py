@@ -249,19 +249,12 @@ class Commands:
             order=order,
         )
         formatter.source = source
-        title = formatter.format_title()
-        page = await source.get_page(ctx.page_number) or ""
-        if page:
-            # TODO: Provide a method in the formatter to set the title:
-            formatter.format_page(
-                page, ctx.page_number, ctx.selected
-            )  # prime the _pages cache
-            formatter._pages[ctx.page_number]["header"] = title
         ctx.page_formatter = formatter
         ctx.page_number = 0
         ctx.selected = 0
+        title = formatter.format_title() if source.meta.taxon_count > 0 else None
         return await self._get_formatted_page(
-            ctx.page_formatter, ctx.page_number, ctx.selected
+            ctx.page_formatter, ctx.page_number, ctx.selected, header=title
         )
 
     async def taxon_list(self, ctx: Context, *args):
@@ -347,7 +340,7 @@ class Commands:
                         _per_rank = "child"
                         taxon_list = _taxon_list
                     else:
-                        taxon_list = [*_children, *_descendants.all()]
+                        taxon_list = [taxon, *_children, *_descendants.all()]
                 else:
                     taxon_list = _children
                 # List all ranks at the same level, not just the specified rank
@@ -367,22 +360,21 @@ class Commands:
             formatter=formatter,
             root_taxon_id=taxon.id,
             per_page=per_page,
-            per_rank=per_rank,
+            per_rank=_per_rank,
             sort_by=sort_by,
             order=order,
         )
         formatter.source = source
-        title = formatter.format_title()
-        page = await source.get_page(ctx.page_number) or ""
-        if page:
-            # TODO: Provide a method in the formatter to set the title:
-            formatter.format_page(page, ctx.page_number, ctx.selected)
-            formatter._pages[0]["header"] = title
+        title = formatter.format_title() if source.meta.taxon_count > 0 else None
         ctx.page_formatter = formatter
         ctx.page_number = 0
         ctx.selected = 0
+        title_lines = [msg] if msg else []
+        if title:
+            title_lines.append(title)
+        title = "\n".join(title_lines)
         return await self._get_formatted_page(
-            ctx.page_formatter, ctx.page_number, ctx.selected, header=msg
+            ctx.page_formatter, ctx.page_number, ctx.selected, header=title
         )
 
     async def next(self, ctx: Context):
