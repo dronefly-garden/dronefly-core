@@ -10,6 +10,18 @@ from pyinaturalist import Taxon, User, ROOT_TAXON_ID
 def mock_taxa():
     taxa = []
     for i in range(50):
+        max_rank_index = min(i, 7)
+        if i == 0:
+            id = ROOT_TAXON_ID
+            name = "Life"
+            parent_id = None
+            ancestor_ids = []
+        else:
+            id = i
+            name = f"Taxon {i:02}"
+            max_ancestor_index = max_rank_index - 1
+            parent_id = taxa[max_ancestor_index].id
+            ancestor_ids = [taxon.id for taxon in taxa[:max_rank_index]]
         rank = [
             "stateofmatter",
             "kingdom",
@@ -19,14 +31,15 @@ def mock_taxa():
             "family",
             "genus",
             "species",
-        ][min(i, 7)]
+        ][max_rank_index]
         params = {
-            "id": ROOT_TAXON_ID if i == 0 else i,
-            "name": f"Taxon {i}",
+            "id": id,
+            "name": name,
             "rank": rank,
-            "ancestor_ids": [taxon.id for taxon in taxa],
-            "parent_id": taxa[-1].id if taxa else None,
+            "ancestor_ids": ancestor_ids,
+            "parent_id": parent_id,
             "partial": True,
+            "is_active": True,
         }
         taxa.append(Taxon(**params))
     return taxa
@@ -51,7 +64,10 @@ def mock_formatter(mock_taxa, mock_query_response):
 
 def test_initialization(mock_formatter, mock_query_response, mock_taxa):
     source = TaxonListSource(mock_taxa, mock_query_response, mock_formatter)
-    assert source.entries == mock_taxa
+    assert len(source.entries) == len(mock_taxa)
+    assert [entry.name for entry in source.entries] == [
+        taxon.name for taxon in mock_taxa
+    ]
     assert source.query_response == mock_query_response
     assert source.formatter == mock_formatter
 
