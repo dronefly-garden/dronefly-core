@@ -1,10 +1,23 @@
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
+from pyinaturalist import COMMON_RANKS, RANK_LEVELS
+
+from dronefly.core.constants import RANKS_FOR_LEVEL
 from dronefly.core.formatters.constants import WWW_BASE_URL
 
 if TYPE_CHECKING:
     from dronefly.core.query.query import QueryResponse
+
+
+def included_ranks(per_rank: str):
+    if per_rank == "main":
+        ranks = []
+        for rank in COMMON_RANKS:
+            ranks += RANKS_FOR_LEVEL[RANK_LEVELS[rank]]
+    else:
+        ranks = [key for key in RANK_LEVELS.keys() if key != "stateofmatter"]
+    return ranks
 
 
 def lifelists_url_from_query_response(query_response: "QueryResponse"):
