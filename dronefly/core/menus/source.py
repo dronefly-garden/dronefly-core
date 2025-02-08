@@ -153,9 +153,12 @@ class ListPageSource(PageSource):
         self.entries = entries
         self.per_page = per_page
 
-        pages, left_over = divmod(len(entries), per_page)
-        if left_over:
-            pages += 1
+        if per_page:
+            pages, left_over = divmod(len(entries), per_page)
+            if left_over:
+                pages += 1
+        else:
+            pages = 1
 
         self._max_pages = pages
 
@@ -181,6 +184,8 @@ class ListPageSource(PageSource):
         """
         if self.per_page == 1:
             return self.entries[page_number]
+        elif self.per_page == 0:
+            return self.entries
         else:
             base = page_number * self.per_page
             return self.entries[base : base + self.per_page]
