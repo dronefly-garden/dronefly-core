@@ -237,12 +237,10 @@ class Commands:
             with_indent=True,
             with_index=with_index,
         )
-        root_taxon_id = taxon.id if taxon else None
         source = TaxonListSource(
             entries=taxon_list,
             query_response=query_response,
             formatter=formatter,
-            root_taxon_id=root_taxon_id,
             per_page=per_page,
             per_rank=per_rank,
             sort_by=sort_by,
@@ -358,7 +356,6 @@ class Commands:
             entries=taxon_list,
             query_response=query_response,
             formatter=formatter,
-            root_taxon_id=taxon.id,
             per_page=per_page,
             per_rank=_per_rank,
             sort_by=sort_by,
