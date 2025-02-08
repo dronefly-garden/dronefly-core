@@ -340,7 +340,7 @@ class Commands:
                         _per_rank = "child"
                         taxon_list = _taxon_list
                     else:
-                        taxon_list = [taxon, *_children, *_descendants.all()]
+                        taxon_list = [*_children, *_descendants.all()]
                 else:
                     taxon_list = _children
                 # List all ranks at the same level, not just the specified rank
