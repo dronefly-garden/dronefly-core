@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from dronefly.core.query.query import QueryResponse
     from dronefly.core.menus.taxon_list import TaxonListSource
+    from dronefly.core.menus.taxon_counts import TaxonCountsSource
 
 import html2markdown
 import inflect
@@ -21,7 +22,9 @@ from pyinaturalist import (
     JsonResponse,
     ListedTaxon,
     Observation,
+    Place,
     Taxon,
+    TaxonCount,
     TaxonSummary,
     User,
 )
@@ -75,6 +78,15 @@ p = inflect.engine()
 p.defnoun("phylum", "phyla")
 p.defnoun("subphylum", "subphyla")
 p.defnoun("subgenus", "subgenera")
+
+TAXON_PLACES_HEADER = "__obs# (spp#) from place:__"
+TAXON_PLACES_HEADER_PAT = re.compile(re.escape(TAXON_PLACES_HEADER) + "\n")
+TAXON_COUNTS_HEADER = "__obs# (spp#) by user:__"
+TAXON_COUNTS_HEADER_PAT = re.compile(re.escape(TAXON_COUNTS_HEADER) + "\n")
+TAXON_IDBY_HEADER = "__obs# (spp#) identified by user:__"
+TAXON_IDBY_HEADER_PAT = re.compile(re.escape(TAXON_IDBY_HEADER) + "\n")
+TAXON_NOTBY_HEADER = "__obs# (spp#) unobserved by user:__"
+TAXON_NOTBY_HEADER_PAT = re.compile(re.escape(TAXON_NOTBY_HEADER) + "\n")
 
 
 def protect_leading_blanks(text: str = ""):
@@ -486,6 +498,57 @@ def format_quality_grade(options: dict = {}):
     return adjectives
 
 
+# TODO: relocate this (in our own controller?)
+def get_obs_spp_counts(client, query_response):
+    (obs_count_args, species_count_args) = query_response.get_obs_spp_count_args()
+    observations_count = client.observations.search(**obs_count_args).count()
+    if observations_count:
+        species_count = client.observations.species_counts(
+            per_page=0, **species_count_args
+        ).count()
+    return (observations_count, species_count)
+
+
+def format_user_taxon_count(
+    user: Union[User, str],
+    taxon: Taxon = None,
+    observations_count: int = 0,
+    species_count: int = 0,
+    **obs_args,
+):
+    """Format user observation & species counts for taxon."""
+    if isinstance(user, str):
+        login = "*total*"
+    else:
+        login = user.login
+    url = obs_url_from_v1(obs_args)
+    if taxon and RANK_LEVELS[taxon.rank] <= RANK_LEVELS["species"]:
+        link = f"[{observations_count:,}]({url}) {login}"
+    else:
+        link = f"[{observations_count:,} ({species_count:,})]({url}) {login}"
+    return f"{link} "
+
+
+async def format_place_taxon_count(
+    place: Union[Place, str],
+    taxon: Taxon = None,
+    observations_count: int = 0,
+    species_count: int = 0,
+    **obs_args,
+):
+    """Format user observation & species counts for taxon."""
+    if isinstance(place, str):
+        name = "*total*"
+    else:
+        name = place.display_name
+    url = obs_url_from_v1(obs_args)
+    if taxon and RANK_LEVELS[taxon.rank] <= RANK_LEVELS["species"]:
+        link = f"[{observations_count:,}]({url}) {name}"
+    else:
+        link = f"[{observations_count:,} ({species_count:,})]({url}) {name}"
+    return f"{link} "
+
+
 class BaseFormatter:
     def format():
         raise NotImplementedError
@@ -508,8 +571,6 @@ class BaseCountFormatter(BaseFormatter):
 
 
 class TaxonListFormatter(ListFormatter):
-    _pages: dict[dict] = {}
-
     """
     Attributes
     ----------
@@ -768,6 +829,23 @@ class TaxonListFormatter(ListFormatter):
         if not (self.with_taxa and self.source.per_page > 0 and self.source.entries):
             return 0
         return self.source.get_max_pages() - 1
+
+
+class TaxonCountsFormatter(ListFormatter):
+    """
+    Attributes
+    ----------
+    source: TaxonCountsSource
+        Source of taxon counts per place or per user.
+    """
+
+    source: TaxonCountsSource
+
+    def format_page(
+        self,
+        page: Union[TaxonCount, list[TaxonCount]] = None,
+    ):
+        """Format a page of taxon counts."""
 
 
 class TaxonFormatter(BaseFormatter):
