@@ -1,5 +1,7 @@
 """Module to access iNaturalist API."""
+import asyncio
 from contextlib import contextmanager
+from functools import partial
 from inspect import signature
 import os
 from typing import Optional
@@ -12,6 +14,17 @@ from pyinaturalist import (
 from pyinaturalist.constants import RequestParams
 
 from ..constants import INAT_DEFAULTS, USER_DATA_PATH
+
+
+def asyncify(client: pyiNatClient, method):
+    async def async_wrapper(*args, **kwargs):
+        future = client.loop.run_in_executor(None, partial(method, *args, **kwargs))
+        try:
+            return await asyncio.wait_for(future, timeout=20)
+        except TimeoutError:
+            raise LookupError("iNaturalist API request timed out")
+
+    return async_wrapper
 
 
 class iNatClient(pyiNatClient):
@@ -32,6 +45,11 @@ class iNatClient(pyiNatClient):
             **kwargs,
         }
         super().__init__(*args, **_kwargs)
+        self.taxa.populate = asyncify(self, self.taxa.populate)
+        self.observations.taxon_summary = asyncify(
+            self, self.observations.taxon_summary
+        )
+        self.observations.life_list = asyncify(self, self.observations.life_list)
 
     def add_client_settings(
         self,
