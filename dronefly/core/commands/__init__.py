@@ -1,3 +1,4 @@
+import asyncio
 from enum import Enum
 import re
 from typing import Union
@@ -96,17 +97,21 @@ class Context:
 # - Context
 #   - user, channel, etc.
 #   - affects which settings are passed to inat (e.g. home place for conservation status)
-@define
 class Commands:
     """A Dronefly command processor."""
 
-    # TODO: platform: dronefly.Platform
-    # - e.g. discord, commandline, web
-
-    inat_client: iNatClient = iNatClient()
-    parser: NaturalParser = NaturalParser()
-    format: Format = Format.discord_markdown
-    config: Config = Config()
+    def __init__(
+        self,
+        loop: asyncio.BaseEventLoop,
+        format: Format = Format.discord_markdown,
+    ):
+        self.loop = loop
+        # TODO: platform: dronefly.Platform
+        # - e.g. discord, commandline, web
+        self.format = format
+        self.inat_client = iNatClient(loop=loop)
+        self.parser = NaturalParser()
+        self.config = Config()
 
     def _parse(self, query_str):
         return self.parser.parse(query_str)
@@ -201,31 +206,37 @@ class Commands:
             # (i.e. no config table lookup yet) to model full query in bot
             if query.user == "me":
                 if ctx.author.inat_user_id:
-                    query_args["user"] = client.users.from_ids(
-                        ctx.author.inat_user_id
-                    ).one()
+                    query_args["user"] = await anext(
+                        aiter(client.users.from_ids(ctx.author.inat_user_id)), None
+                    )
                 else:
                     return "Your iNat user is not known"
             elif query.user == "any":
                 # i.e. override default "by me" when no arguments are given
                 pass
             else:
-                user = client.users.autocomplete(q=query.user).one()
+                user = await anext(aiter(client.users.autocomplete(q=query.user)), None)
                 if user:
                     query_args["user"] = user
             if query and query.main and query.main.terms:
                 main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str).one()
+                taxon = await anext(
+                    aiter(client.taxa.autocomplete(q=main_query_str)), None
+                )
                 query_args["taxon"] = taxon
             if query.place:
-                place = client.places.autocomplete(q=query.place).one()
+                place = await anext(
+                    aiter(client.places.autocomplete(q=query.place)), None
+                )
                 query_args["place"] = place
             if query.project:
-                project = client.projects.search(q=query.project).one()
+                project = await anext(
+                    aiter(client.projects.search(q=query.project)), None
+                )
                 query_args["project"] = project
             query_response = QueryResponse(**query_args)
             obs_args = query_response.obs_args()
-            life_list = client.observations.life_list(**obs_args)
+            life_list = await client.observations.life_list(**obs_args)
 
         if not life_list:
             return f"No life list {query_response.obs_query_description()}"
@@ -279,9 +290,11 @@ class Commands:
             # (i.e. no config table lookup yet) to model full query in bot
             if query and query.main and query.main.terms:
                 main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str).one()
+                taxon = await anext(
+                    aiter(client.taxa.autocomplete(q=main_query_str)), None
+                )
                 if taxon:
-                    taxon = client.taxa.populate(taxon)
+                    taxon = await client.taxa.populate(taxon)
                 query_args["taxon"] = taxon
             query_response = QueryResponse(**query_args)
             taxon = query_response.taxon
@@ -316,12 +329,13 @@ class Commands:
                     # remainder (direct children - those at the specified rank level)
                     # don't constitute a single page of results, then show children
                     # instead.
-                    _descendants = client.taxa.search(
+                    descendants_paginator = client.taxa.search(
                         taxon_id=_without_rank_ids,
                         rank_level=rank_level,
                         is_active=True,
                         per_page=500,
                     )
+                    descendants_aiter = aiter(descendants_paginator)
                     # The choice of 2500 as our limit is arbitrary:
                     # - will take 5 more API calls to satisfy
                     # - encompasses the largest genera (e.g. Astragalus)
@@ -329,7 +343,8 @@ class Commands:
                     #   excessive API demands
                     # - TODO: switch to using a local DB built from full taxonomy dump
                     #   so we can lift this restriction
-                    if _descendants.count() > 2500:
+                    first_descendant = await anext(descendants_aiter, None)
+                    if descendants_paginator.count() > 2500:
                         short_description = "Children"
                         msg = (
                             f"\N{WARNING SIGN}  **Too many {p.plural(_per_rank)}. "
@@ -338,7 +353,10 @@ class Commands:
                         _per_rank = "child"
                         taxon_list = _taxon_list
                     else:
-                        taxon_list = [*_children, *_descendants.all()]
+                        # Now we can get the remaining descendants:
+                        taxon_list = [*_children, first_descendant]
+                        async for taxon in descendants_aiter:
+                            taxon_list.append(taxon)
                 else:
                     taxon_list = _children
                 # List all ranks at the same level, not just the specified rank
@@ -433,7 +451,7 @@ class Commands:
             if formatter and getattr(formatter, "source", None):
                 page = await formatter.source.get_page(ctx.page_number)
                 with self.inat_client.set_ctx(ctx) as client:
-                    taxon = client.taxa.populate(page[ctx.selected])
+                    taxon = await client.taxa.populate(page[ctx.selected])
             else:
                 return "Select a taxon first"
         else:
@@ -445,10 +463,12 @@ class Commands:
 
             with self.inat_client.set_ctx(ctx) as client:
                 main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str).one()
+                taxon = await anext(
+                    aiter(client.taxa.autocomplete(q=main_query_str)), None
+                )
                 if not taxon:
                     return "Nothing found"
-                taxon = client.taxa.populate(taxon)
+                taxon = await client.taxa.populate(taxon)
 
         formatter = TaxonFormatter(
             taxon,
@@ -468,21 +488,28 @@ class Commands:
 
         main_query_str = " ".join(query.main.terms)
         with self.inat_client.set_ctx(ctx) as client:
-            taxon = client.taxa.autocomplete(q=main_query_str).one()
+            taxon = await anext(aiter(client.taxa.autocomplete(q=main_query_str)), None)
             if not taxon:
                 return "No taxon found"
-            obs = client.observations.search(
-                user_id=ctx.author.inat_user_id,
-                taxon_id=taxon.id,
-                reverse=True,
-            ).one()
+            obs = await anext(
+                aiter(
+                    client.observations.search(
+                        user_id=ctx.author.inat_user_id,
+                        taxon_id=taxon.id,
+                        reverse=True,
+                    )
+                ),
+                None,
+            )
             if not obs:
                 return f"No observations by you found for: {taxon.full_name}"
 
-            taxon_summary = client.observations.taxon_summary(obs.id)
+            taxon_summary = await client.observations.taxon_summary(obs.id)
             if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
-                community_taxon = client.taxa.from_ids(obs.community_taxon_id).one()
-                community_taxon_summary = client.observations.taxon_summary(
+                community_taxon = await anext(
+                    aiter(client.taxa.from_ids(obs.community_taxon_id)), None
+                )
+                community_taxon_summary = await client.observations.taxon_summary(
                     obs.id, community=1
                 )
             else:
@@ -504,7 +531,7 @@ class Commands:
         with self.inat_client.set_ctx(ctx) as client:
             user = None
             try:
-                user = client.users(user_id)
+                user = await anext(aiter(client.users.from_ids(user_id)), None)
             except HTTPError as err:
                 if err.response.status_code == 404:
                     pass
@@ -524,7 +551,7 @@ class Commands:
         with self.inat_client.set_ctx(ctx) as client:
             user = None
             try:
-                user = client.users(user_id)
+                user = await anext(aiter(client.users.from_ids(user_id)), None)
             except HTTPError as err:
                 if err.response.status_code == 404:
                     pass
@@ -538,7 +565,9 @@ class Commands:
                     return "User already added."
                 configured_user = None
                 try:
-                    configured_user = client.users(configured_user_id)
+                    configured_user = await anext(
+                        aiter(client.users.from_ids(configured_user_id)), None
+                    )
                 except HTTPError as err:
                     if err.response.status_code == 404:
                         pass
