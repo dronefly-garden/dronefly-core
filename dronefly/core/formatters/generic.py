@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from dronefly.core.query.query import QueryResponse
     from dronefly.core.menus.taxon_list import TaxonListSource
-    from dronefly.core.menus.taxon_counts import TaxonCountsSource
+    from dronefly.core.menus.user_counts import UserCountsSource
 
 import html2markdown
 import inflect
@@ -24,9 +24,9 @@ from pyinaturalist import (
     Observation,
     Place,
     Taxon,
-    TaxonCount,
     TaxonSummary,
     User,
+    UserCount,
 )
 from pyinaturalist.constants import ROOT_TAXON_ID
 
@@ -498,19 +498,8 @@ def format_quality_grade(options: dict = {}):
     return adjectives
 
 
-# TODO: relocate this (in our own controller?)
-def get_obs_spp_counts(client, query_response):
-    (obs_count_args, species_count_args) = query_response.get_obs_spp_count_args()
-    observations_count = client.observations.search(**obs_count_args).count()
-    if observations_count:
-        species_count = client.observations.species_counts(
-            per_page=0, **species_count_args
-        ).count()
-    return (observations_count, species_count)
-
-
-def format_user_taxon_count(
-    user: Union[User, str],
+def format_user_count(
+    user: Union[UserCount, str],
     taxon: Taxon = None,
     observations_count: int = 0,
     species_count: int = 0,
@@ -536,7 +525,7 @@ async def format_place_taxon_count(
     species_count: int = 0,
     **obs_args,
 ):
-    """Format user observation & species counts for taxon."""
+    """Format place observation & species counts for taxon."""
     if isinstance(place, str):
         name = "*total*"
     else:
@@ -831,21 +820,39 @@ class TaxonListFormatter(ListFormatter):
         return self.source.get_max_pages() - 1
 
 
-class TaxonCountsFormatter(ListFormatter):
+class UserCountsFormatter(ListFormatter):
     """
     Attributes
     ----------
-    source: TaxonCountsSource
-        Source of taxon counts per place or per user.
+    source: UserCountsSource
+        Source of user observation/identification & species counts.
     """
 
-    source: TaxonCountsSource
+    source: UserCountsSource
 
     def format_page(
         self,
-        page: Union[TaxonCount, list[TaxonCount]] = None,
+        page: list[UserCount] = None,
     ):
-        """Format a page of taxon counts."""
+        """Format a page of user counts."""
+        formatted_page = []
+        for user_count in page:
+            obs_args = self.source.query_response.obs_args()
+            # FIXME: the obs arg added here depends on the base query,
+            # e.g. could be user_id, ident_user_id, etc.
+            # - when the source is instantiated, the kind of query
+            #   needs to be recorded as an attribute of the source
+            # - the obs & spp args need to be produced from the base
+            #   query & user id, not *just* the base query alone
+            formatted_entry = format_user_count(
+                user_count,
+                self.source.query_response.taxon,
+                user_count.observations_count,
+                user_count.species_count,
+                **obs_args,
+            )
+            formatted_page.append(formatted_entry)
+        return "\n".join(formatted_page)
 
 
 class TaxonFormatter(BaseFormatter):

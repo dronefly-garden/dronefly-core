@@ -6,9 +6,10 @@ import datetime as dt
 import re
 from typing import List, Optional, Union
 
-from dronefly.core.formatters.generic import format_taxon_name, format_user_name
-from dronefly.core.models.controlled_terms import ControlledTermSelector
-from dronefly.core.parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
+from ..clients.inat import iNatClient
+from ..formatters.generic import format_taxon_name, format_user_name
+from ..models.controlled_terms import ControlledTermSelector
+from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 from pyinaturalist.models import Place, Project, Taxon, User
 
 
@@ -545,23 +546,27 @@ class QueryResponse:
                 message += f" ordered by `{_order_by}`"
         return re.sub(r"^ ", "", message)
 
-    def get_obs_spp_count_args(self):
-        obs_args = self.obs_args()
-        obs_count_args = copy.copy(obs_args)
-        # TODO: Refactor. See same logic in obs_args in taxa.py and comment
-        # explaining why we use verifiable=any in these cases.
-        # - we don't have a QueryResponse here, but perhaps should
-        #   synthesize one from the embed
-        # - however, updating embeds is due to be rewritten soon, so it
-        #   should probably be sorted out in the rewrite
-        count_unverifiable_observations = (
-            obs_args.get("project_id")
-            or obs_args.get("user_id")
-            or obs_args.get("ident_user_id")
-        )
-        if count_unverifiable_observations:
-            obs_count_args["verifiable"] = "any"
-        species_count_args = copy.copy(obs_count_args)
-        if obs_args.get("unobserved_by_user_id"):
-            obs_count_args["lrank"] = "species"
-        return (obs_count_args, species_count_args)
+
+def get_obs_spp_count_args(obs_args):
+    obs_count_args = copy.copy(obs_args)
+    count_unverifiable_observations = (
+        obs_args.get("project_id")
+        or obs_args.get("user_id")
+        or obs_args.get("ident_user_id")
+    )
+    if count_unverifiable_observations:
+        obs_count_args["verifiable"] = "any"
+    species_count_args = copy.copy(obs_count_args)
+    if obs_args.get("unobserved_by_user_id"):
+        obs_count_args["lrank"] = "species"
+    species_count_args["count_only"] = True
+    return (obs_count_args, species_count_args)
+
+
+async def get_obs_spp_counts(obs_args: dict, client: iNatClient):
+    (obs_count_args, species_count_args) = get_obs_spp_count_args(obs_args)
+    observations_count = client.observations.search(**obs_count_args).count()
+    species_count = 0
+    if observations_count:
+        species_count = await client.observations.species_count(**species_count_args)
+    return (observations_count, species_count)
