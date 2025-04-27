@@ -7,7 +7,7 @@ extend-ignore = "E203"
 
 [tool.poetry]
 name = "dronefly-core"
-version = "0.4.2"
+version = "0.4.3.dev0"
 description = "Core dronefly components"
 authors = ["Ben Armstrong <synrg@debian.org>"]
 license = "AGPL-3.0-or-later"
