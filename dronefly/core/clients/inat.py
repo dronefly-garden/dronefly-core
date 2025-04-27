@@ -50,6 +50,9 @@ class iNatClient(pyiNatClient):
             self, self.observations.taxon_summary
         )
         self.observations.life_list = asyncify(self, self.observations.life_list)
+        self.observations.species_count = asyncify(
+            self, self.observations.species_count
+        )
 
     def add_client_settings(
         self,
