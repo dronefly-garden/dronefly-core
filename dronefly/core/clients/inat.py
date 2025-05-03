@@ -4,14 +4,25 @@ from inspect import signature
 import os
 from typing import Optional
 
+from pyinaturalist import session as pyinat_session
+from requests_ratelimiter import Limiter, RequestRate
+
 from pyinaturalist import (
-    ClientSession,
     FileLockSQLiteBucket,
     iNatClient as pyiNatClient,
 )
 from pyinaturalist.constants import RequestParams
 
 from ..constants import INAT_DEFAULTS, USER_DATA_PATH
+
+# Patch pyinaturalist session.REFRESH_LIMITER because pyinat's ClientSession
+# doesn't paramterize it.
+pyinat_session.RATELIMIT_FILE = os.path.join(USER_DATA_PATH, "ratelimit.db")
+pyinat_session.REFRESH_LIMITER = Limiter(
+    RequestRate(1, 122),
+    bucket_class=FileLockSQLiteBucket,
+    bucket_kwargs={"path": pyinat_session.RATELIMIT_FILE},
+)
 
 
 class iNatClient(pyiNatClient):
@@ -21,7 +32,7 @@ class iNatClient(pyiNatClient):
         ratelimit_path = os.path.join(USER_DATA_PATH, "ratelimit.db")
         lock_path = os.path.join(USER_DATA_PATH, "ratelimit.lock")
         cache_file = os.path.join(USER_DATA_PATH, "api_requests.db")
-        session = ClientSession(
+        session = pyinat_session.ClientSession(
             bucket_class=FileLockSQLiteBucket,
             cache_file=cache_file,
             ratelimit_path=ratelimit_path,
