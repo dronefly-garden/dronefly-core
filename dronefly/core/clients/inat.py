@@ -1,7 +1,6 @@
 """Module to access iNaturalist API."""
 from contextlib import contextmanager
 from inspect import signature
-import os
 from typing import Optional
 
 from pyinaturalist import (
@@ -11,24 +10,23 @@ from pyinaturalist import (
 )
 from pyinaturalist.constants import RequestParams
 
-from ..constants import INAT_DEFAULTS, USER_DATA_PATH
+from ..constants import INAT_DEFAULTS, RATELIMIT_FILE, RATELIMIT_LOCK_FILE, CACHE_FILE
+
+
+DRONEFLY_SESSION = ClientSession(
+    bucket_class=FileLockSQLiteBucket,
+    cache_file=CACHE_FILE,
+    ratelimit_path=RATELIMIT_FILE,
+    lock_path=RATELIMIT_LOCK_FILE,
+)
 
 
 class iNatClient(pyiNatClient):
     """iNat client based on pyinaturalist."""
 
     def __init__(self, *args, **kwargs):
-        ratelimit_path = os.path.join(USER_DATA_PATH, "ratelimit.db")
-        lock_path = os.path.join(USER_DATA_PATH, "ratelimit.lock")
-        cache_file = os.path.join(USER_DATA_PATH, "api_requests.db")
-        session = ClientSession(
-            bucket_class=FileLockSQLiteBucket,
-            cache_file=cache_file,
-            ratelimit_path=ratelimit_path,
-            lock_path=lock_path,
-        )
         _kwargs = {
-            "session": session,
+            "session": DRONEFLY_SESSION,
             **kwargs,
         }
         super().__init__(*args, **_kwargs)

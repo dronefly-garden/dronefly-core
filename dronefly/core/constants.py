@@ -6,7 +6,9 @@ from pyinaturalist.constants import COMMON_RANKS, RANK_EQUIVALENTS, RANK_LEVELS
 
 USER_DATA_PATH = os.path.join(user_data_dir(), "dronefly-core")
 CONFIG_PATH = os.path.join(USER_DATA_PATH, "config.toml")
-
+RATELIMIT_FILE = os.path.join(USER_DATA_PATH, "ratelimit.db")
+RATELIMIT_LOCK_FILE = os.path.join(USER_DATA_PATH, "ratelimit.lock")
+CACHE_FILE = os.path.join(USER_DATA_PATH, "api_requests.db")
 
 # Map Dronefly User param names to iNat API param names:
 INAT_USER_DEFAULT_PARAMS = {
