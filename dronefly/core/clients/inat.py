@@ -31,13 +31,13 @@ class iNatClient(pyiNatClient):
         }
         super().__init__(*args, **_kwargs)
 
-    def add_client_settings(
+    def add_defaults(
         self,
         request_function,
         kwargs: Optional[RequestParams] = None,
         auth: bool = False,
     ):
-        _kwargs = super().add_client_settings(request_function, kwargs, auth)
+        _kwargs = super().add_defaults(request_function, kwargs, auth)
 
         inat_defaults = self.ctx.get_inat_defaults() if self.ctx else INAT_DEFAULTS
         request_params = signature(request_function).parameters
