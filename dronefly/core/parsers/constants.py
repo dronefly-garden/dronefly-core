@@ -87,6 +87,7 @@ VALID_OBS_OPTS = [
     "endemic",
     "geoprivacy",
     "hrank",
+    "hour",
     "iconic_taxa",
     "id",
     "identified",
