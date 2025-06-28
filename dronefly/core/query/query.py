@@ -434,6 +434,7 @@ class QueryResponse:
                         "47125": "Angiospermae",
                         "211194": "Tracheophyta",
                         "355675": "Vertebrata",
+                        "118903": "Termitoidae",
                     }.get(without_taxon_id) or "taxon #" + without_taxon_id.replace(
                         ",", ", "
                     )

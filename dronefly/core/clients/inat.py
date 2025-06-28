@@ -3,7 +3,6 @@ import asyncio
 from contextlib import contextmanager
 from functools import partial
 from inspect import signature
-import os
 from typing import Optional
 
 from pyinaturalist import (
@@ -13,7 +12,15 @@ from pyinaturalist import (
 )
 from pyinaturalist.constants import RequestParams
 
-from ..constants import INAT_DEFAULTS, USER_DATA_PATH
+from ..constants import INAT_DEFAULTS, RATELIMIT_FILE, RATELIMIT_LOCK_FILE, CACHE_FILE
+
+
+DRONEFLY_SESSION = ClientSession(
+    bucket_class=FileLockSQLiteBucket,
+    cache_file=CACHE_FILE,
+    ratelimit_path=RATELIMIT_FILE,
+    lock_path=RATELIMIT_LOCK_FILE,
+)
 
 
 def asyncify(client: pyiNatClient, method):
@@ -31,17 +38,8 @@ class iNatClient(pyiNatClient):
     """iNat client based on pyinaturalist."""
 
     def __init__(self, *args, **kwargs):
-        ratelimit_path = os.path.join(USER_DATA_PATH, "ratelimit.db")
-        lock_path = os.path.join(USER_DATA_PATH, "ratelimit.lock")
-        cache_file = os.path.join(USER_DATA_PATH, "api_requests.db")
-        session = ClientSession(
-            bucket_class=FileLockSQLiteBucket,
-            cache_file=cache_file,
-            ratelimit_path=ratelimit_path,
-            lock_path=lock_path,
-        )
         _kwargs = {
-            "session": session,
+            "session": DRONEFLY_SESSION,
             **kwargs,
         }
         super().__init__(*args, **_kwargs)
@@ -54,13 +52,13 @@ class iNatClient(pyiNatClient):
             self, self.observations.species_count
         )
 
-    def add_client_settings(
+    def add_defaults(
         self,
         request_function,
         kwargs: Optional[RequestParams] = None,
         auth: bool = False,
     ):
-        _kwargs = super().add_client_settings(request_function, kwargs, auth)
+        _kwargs = super().add_defaults(request_function, kwargs, auth)
 
         inat_defaults = self.ctx.get_inat_defaults() if self.ctx else INAT_DEFAULTS
         request_params = signature(request_function).parameters
