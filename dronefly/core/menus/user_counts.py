@@ -1,4 +1,4 @@
-from pyinaturalist import UserCounts
+from pyinaturalist import UserCount
 
 from .source import ListPageSource
 from ..formatters import UserCountsFormatter
@@ -8,7 +8,7 @@ from ..query import QueryResponse
 class UserCountsSource(ListPageSource):
     def __init__(
         self,
-        entries: UserCounts,
+        entries: list[UserCount],
         query_response: QueryResponse,
         user_counts_formatter: UserCountsFormatter,
         **kwargs
@@ -18,7 +18,7 @@ class UserCountsSource(ListPageSource):
         super().__init__(entries, **kwargs)
 
     def is_paginating(self):
-        return False
+        return True
 
     @property
     def formatter(self) -> UserCountsFormatter:

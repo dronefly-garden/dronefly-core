@@ -832,7 +832,7 @@ class UserCountsFormatter(ListFormatter):
 
     def format_page(
         self,
-        page: list[UserCount] = None,
+        page: list[UserCount] = [],
     ):
         """Format a page of user counts."""
         formatted_page = []
