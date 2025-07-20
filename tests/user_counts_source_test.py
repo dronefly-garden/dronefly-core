@@ -16,7 +16,7 @@ def mock_user_counts():
                     "id": i,
                     "login": f"user{i}",
                     "name": f"User {i}",
-                    "observation_count": i,
+                    "observation_count": i + 1,
                     "species_count": i,
                 },
             }
@@ -28,7 +28,7 @@ def mock_user_counts():
 @pytest.fixture
 def mock_query_response(mock_user_counts):
     query_response = Mock(spec=QueryResponse)
-    query_response.taxon = mock_user_counts[0]
+    query_response.user = mock_user_counts[0]
     return query_response
 
 
@@ -45,7 +45,7 @@ def test_initialization(mock_formatter, mock_query_response, mock_user_counts):
     )
     assert len(source.entries) == len(mock_user_counts)
     assert [entry.name for entry in source.entries] == [
-        taxon.name for taxon in mock_user_counts
+        user.name for user in mock_user_counts
     ]
     assert source.query_response == mock_query_response
     assert source.formatter == mock_formatter

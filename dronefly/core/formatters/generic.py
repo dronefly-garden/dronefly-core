@@ -499,22 +499,29 @@ def format_quality_grade(options: dict = {}):
 
 
 def format_user_count(
-    user: Union[UserCount, str],
-    taxon: Taxon = None,
-    observations_count: int = 0,
-    species_count: int = 0,
-    **obs_args,
+    user_count: Union[UserCount, str],
+    query_response: QueryResponse,
 ):
     """Format user observation & species counts for taxon."""
-    if isinstance(user, str):
+    # FIXME: the obs arg added here depends on the base query,
+    # e.g. could be user_id, ident_user_id, etc.
+    # - when the source is instantiated, the kind of query
+    #   needs to be recorded as an attribute of the source
+    # - the obs & spp args need to be produced from the base
+    #   query & user id, not *just* the base query alone
+    obs_args = query_response.obs_args()
+    taxon = obs_args.get("taxon", None)
+    if isinstance(user_count, str):
         login = "*total*"
+        obs_args["user_id"] = user_count
     else:
-        login = user.login
+        login = user_count.login
+        obs_args["user_id"] = user_count.id
     url = obs_url_from_v1(obs_args)
     if taxon and RANK_LEVELS[taxon.rank] <= RANK_LEVELS["species"]:
-        link = f"[{observations_count:,}]({url}) {login}"
+        link = f"[{user_count.observation_count:,}]({url}) {login}"
     else:
-        link = f"[{observations_count:,} ({species_count:,})]({url}) {login}"
+        link = f"[{user_count.observation_count:,} ({user_count.species_count:,})]({url}) {login}"
     return f"{link} "
 
 
@@ -837,20 +844,7 @@ class UserCountsFormatter(ListFormatter):
         """Format a page of user counts."""
         formatted_page = []
         for user_count in page:
-            obs_args = self.source.query_response.obs_args()
-            # FIXME: the obs arg added here depends on the base query,
-            # e.g. could be user_id, ident_user_id, etc.
-            # - when the source is instantiated, the kind of query
-            #   needs to be recorded as an attribute of the source
-            # - the obs & spp args need to be produced from the base
-            #   query & user id, not *just* the base query alone
-            formatted_entry = format_user_count(
-                user_count,
-                self.source.query_response.taxon,
-                user_count.observations_count,
-                user_count.species_count,
-                **obs_args,
-            )
+            formatted_entry = format_user_count(user_count, self.source.query_response)
             formatted_page.append(formatted_entry)
         return "\n".join(formatted_page)
 
