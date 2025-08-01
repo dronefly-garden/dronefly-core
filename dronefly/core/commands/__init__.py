@@ -525,8 +525,8 @@ class Commands:
                 (observations_count, species_count) = await get_obs_spp_counts(
                     client=client, obs_args=obs_spp_counts_args
                 )
-            user_count_args["observation_count"] = observations_count
-            user_count_args["species_count"] = species_count
+            user_count_args["user"]["observation_count"] = observations_count
+            user_count_args["user"]["species_count"] = species_count
             user_count = UserCount.from_json(user_count_args)
 
             counts_formatter = UserCountsFormatter()
