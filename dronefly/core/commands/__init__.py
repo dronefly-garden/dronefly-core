@@ -544,7 +544,7 @@ class Commands:
         else:
             response = formatted_taxon_page
 
-        return response
+        return self._format_markdown(response)
 
     async def obs(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
