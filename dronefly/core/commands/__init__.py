@@ -1,9 +1,11 @@
 import asyncio
 from enum import Enum
+from inspect import signature
 import re
 from typing import Union
 
 from attrs import define
+from pyinaturalist import UserCount
 from requests import HTTPError
 from rich.markdown import Markdown
 
@@ -25,13 +27,15 @@ from ..formatters.generic import (
     ListFormatter,
     ObservationFormatter,
     TaxonFormatter,
+    UserCountsFormatter,
     UserFormatter,
     p,
 )
 from ..menus.taxon_list import TaxonListSource
+from ..menus.user_counts import UserCountsSource
 from ..models.config import Config
 from ..models.user import User
-from ..query.query import get_base_query_args, QueryResponse
+from ..query.query import get_base_query_args, QueryResponse, get_obs_spp_counts
 
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\> .*?)\n(?=\> )", re.MULTILINE)
@@ -66,6 +70,7 @@ class Context:
     #   - Set page_number to the initial page number (default: 0).
     # - Therefore, only a single command providing paged results can
     #   be active at a time.
+    counts_formatter: UserCountsSource = None
     page_formatter: Union[ListFormatter, BaseFormatter] = None
     page_number: int = 0
     per_page: int = 0
@@ -128,10 +133,16 @@ class Commands:
         if getattr(formatter, "format_page", None):
             if source:
                 page = await source.get_page(page_number)
-                markdown_text = formatter.format_page(page, page_number, selected)
+                sig = signature(formatter.format_page)
+                if len(sig.parameters) == 3:
+                    markdown_text = formatter.format_page(page, page_number, selected)
+                    last_page = formatter.last_page()
+                else:
+                    markdown_text = formatter.format_page(page)
+                    last_page = 0
             else:
                 markdown_text = formatter.format_page(page_number, selected)
-            last_page = formatter.last_page()
+                last_page = formatter.last_page()
             if last_page > 0:
                 markdown_text = "\n\n".join(
                     [markdown_text, f"Page {page_number + 1}/{last_page + 1}"]
@@ -142,7 +153,7 @@ class Commands:
             markdown_text = "\n\n".join(
                 [item for item in (header, markdown_text, footer) if item is not None]
             )
-        return self._format_markdown(markdown_text)
+        return markdown_text
 
     def _format_markdown(self, markdown_text: str):
         """Format Rich vs. Discord markdown."""
@@ -262,9 +273,10 @@ class Commands:
         ctx.page_number = 0
         ctx.selected = 0
         title = formatter.format_title() if source.meta.taxon_count > 0 else None
-        return await self._get_formatted_page(
+        formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected, header=title
         )
+        return self._format_markdown(formatted_page)
 
     async def taxon_list(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
@@ -388,9 +400,10 @@ class Commands:
         if title:
             title_lines.append(title)
         title = "\n".join(title_lines)
-        return await self._get_formatted_page(
+        formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected, header=title
         )
+        return self._format_markdown(formatted_page)
 
     async def next(self, ctx: Context):
         if not ctx.page_formatter:
@@ -399,9 +412,10 @@ class Commands:
         if ctx.page_number > ctx.page_formatter.last_page():
             ctx.page_number = 0
         ctx.selected = 0
-        return await self._get_formatted_page(
+        formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
+        return self._format_markdown(formatted_page)
 
     async def page(self, ctx: Context, page_number: int = 1):
         if not ctx.page_formatter:
@@ -414,9 +428,10 @@ class Commands:
             return msg
         ctx.page_number = page_number - 1
         ctx.selected = 0
-        return await self._get_formatted_page(
+        formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
+        return self._format_markdown(formatted_page)
 
     async def sel(self, ctx: Context, sel: int = 1):
         if not ctx.page_formatter:
@@ -429,9 +444,10 @@ class Commands:
                 msg += f" through {page_len}"
             return msg
         ctx.selected = sel - 1
-        return await self._get_formatted_page(
+        formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
+        return self._format_markdown(formatted_page)
 
     async def prev(self, ctx: Context):
         if not ctx.page_formatter:
@@ -440,12 +456,18 @@ class Commands:
         if ctx.page_number < 0:
             ctx.page_number = ctx.page_formatter.last_page()
         ctx.selected = 0
-        return await self._get_formatted_page(
+        formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
+        return self._format_markdown(formatted_page)
 
     async def taxon(self, ctx: Context, *args):
         taxon = None
+        user = None
+        user_count = None
+        per_page = ctx.per_page
+        query_response = None
+
         if len(args) == 0 or args[0] == "sel":
             formatter = ctx.page_formatter
             if formatter and getattr(formatter, "source", None):
@@ -470,12 +492,57 @@ class Commands:
                     return "Nothing found"
                 taxon = await client.taxa.populate(taxon)
 
+            if query.user:
+                if query.user == "me":
+                    user_id = ctx.author.inat_user_id
+                    try:
+                        user = await anext(aiter(client.users.from_ids(user_id)), None)
+                    except HTTPError as err:
+                        if err.response.status_code == 404:
+                            pass
+                    if not user:
+                        return "User not found."
+
         formatter = TaxonFormatter(
             taxon,
             lang=ctx.get_inat_user_default("inat_lang"),
             with_url=True,
         )
-        response = await self._get_formatted_page(formatter)
+        formatted_taxon_page = await self._get_formatted_page(formatter)
+
+        if user:
+            query_response = QueryResponse(
+                taxon=taxon,
+                user=user,
+            )
+            obs_spp_counts_args = query_response.obs_args()
+            obs_spp_counts_args["user"] = user
+            user_count_args = {
+                "user_id": user.id,
+                "user": user.to_dict(),
+            }
+            with self.inat_client.set_ctx(ctx) as client:
+                (observations_count, species_count) = await get_obs_spp_counts(
+                    client=client, obs_args=obs_spp_counts_args
+                )
+            user_count_args["observation_count"] = observations_count
+            user_count_args["species_count"] = species_count
+            user_count = UserCount.from_json(user_count_args)
+
+            counts_formatter = UserCountsFormatter()
+
+            user_counts_source = UserCountsSource(
+                entries=[user_count],
+                query_response=query_response,
+                user_counts_formatter=counts_formatter,
+                per_page=per_page,
+            )
+            counts_formatter.source = user_counts_source
+            ctx.counts_formatter = counts_formatter
+            formatted_user_counts = await self._get_formatted_page(counts_formatter)
+            response = "\n\n".join((formatted_taxon_page, formatted_user_counts))
+        else:
+            response = formatted_taxon_page
 
         return response
 
@@ -525,7 +592,7 @@ class Commands:
         )
         response = await self._get_formatted_page(formatter)
 
-        return response
+        return self._format_markdown(response)
 
     async def user(self, ctx: Context, user_id: str):
         with self.inat_client.set_ctx(ctx) as client:

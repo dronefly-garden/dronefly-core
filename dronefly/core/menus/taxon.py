@@ -1,3 +1,4 @@
+from .menu import BaseListMenu
 from .source import ListPageSource
 from ..formatters import TaxonFormatter
 from ..formatters.constants import WWW_BASE_URL
@@ -29,3 +30,7 @@ class TaxonSource(ListPageSource):
 
     def format_page(self):
         return self.formatter.format(with_ancestors=self.with_ancestors)
+
+
+class TaxonMenu(BaseListMenu):
+    """"""

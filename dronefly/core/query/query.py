@@ -560,7 +560,6 @@ def get_obs_spp_count_args(obs_args):
     species_count_args = copy.copy(obs_count_args)
     if obs_args.get("unobserved_by_user_id"):
         obs_count_args["lrank"] = "species"
-    species_count_args["count_only"] = True
     return (obs_count_args, species_count_args)
 
 
