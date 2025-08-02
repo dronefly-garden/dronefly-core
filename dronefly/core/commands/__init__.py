@@ -553,8 +553,7 @@ class Commands:
         else:
             response = formatted_taxon_page
 
-        if counts_formatter:
-            ctx.counts_formatter = counts_formatter
+        ctx.counts_formatter = counts_formatter
         return self._format_markdown(response)
 
     async def _user(self, ctx, client, user_str):
