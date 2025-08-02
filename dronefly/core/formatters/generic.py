@@ -546,6 +546,8 @@ async def format_place_taxon_count(
 
 
 class BaseFormatter:
+    writable: bool = False
+
     def format():
         raise NotImplementedError
 
@@ -836,6 +838,7 @@ class UserCountsFormatter(ListFormatter):
     """
 
     source: UserCountsSource
+    writable: bool = True
 
     def format_page(
         self,

@@ -70,7 +70,7 @@ class Context:
     #   - Set page_number to the initial page number (default: 0).
     # - Therefore, only a single command providing paged results can
     #   be active at a time.
-    counts_formatter: UserCountsSource = None
+    counts_formatter: UserCountsFormatter = None
     page_formatter: Union[ListFormatter, BaseFormatter] = None
     page_number: int = 0
     per_page: int = 0
@@ -199,6 +199,7 @@ class Commands:
         return response
 
     async def life(self, ctx: Context, *args):
+        """List lifelist of taxa"""
         _args = " ".join(args) or "by me"
         query = self._parse(_args)
         per_rank = query.per or "main"
@@ -279,6 +280,7 @@ class Commands:
         return self._format_markdown(formatted_page)
 
     async def taxon_list(self, ctx: Context, *args):
+        """List child taxa"""
         query = self._parse(" ".join(args))
         per_rank = query.per or "child"
         if per_rank not in [*RANK_KEYWORDS, "child"]:
@@ -406,6 +408,7 @@ class Commands:
         return self._format_markdown(formatted_page)
 
     async def next(self, ctx: Context):
+        """Go to next page"""
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         ctx.page_number += 1
@@ -418,6 +421,7 @@ class Commands:
         return self._format_markdown(formatted_page)
 
     async def page(self, ctx: Context, page_number: int = 1):
+        """Go to specified page"""
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         last_page = ctx.page_formatter.last_page() + 1
@@ -434,6 +438,7 @@ class Commands:
         return self._format_markdown(formatted_page)
 
     async def sel(self, ctx: Context, sel: int = 1):
+        """Select entry on current page"""
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         _page = await ctx.page_formatter.source.get_page(ctx.page_number)
@@ -450,6 +455,7 @@ class Commands:
         return self._format_markdown(formatted_page)
 
     async def prev(self, ctx: Context):
+        """Go to previous page"""
         if not ctx.page_formatter:
             return "Type a command that has pages first"
         ctx.page_number -= 1
@@ -461,12 +467,41 @@ class Commands:
         )
         return self._format_markdown(formatted_page)
 
+    async def _user_count(self, ctx, query_response, user):
+        def _user_count_args(user, observations_count, species_count):
+            user_count_args = {
+                "user_id": user.id,
+                "user": user.to_dict(),
+            }
+            user_count_args["user"]["observation_count"] = observations_count
+            user_count_args["user"]["species_count"] = species_count
+            return user_count_args
+
+        def _obs_spp_counts_args(query_response, user):
+            counts_query_response = QueryResponse(
+                taxon=query_response.taxon,
+                user=user,
+            )
+            obs_args = counts_query_response.obs_args()
+            obs_args["user"] = user
+            return obs_args
+
+        with self.inat_client.set_ctx(ctx) as client:
+            (observations_count, species_count) = await get_obs_spp_counts(
+                client=client, obs_args=_obs_spp_counts_args(query_response, user)
+            )
+        return UserCount.from_json(
+            _user_count_args(user, observations_count, species_count)
+        )
+
     async def taxon(self, ctx: Context, *args):
+        """Show taxon"""
         taxon = None
         user = None
         user_count = None
         per_page = ctx.per_page
         query_response = None
+        counts_formatter = None
 
         if len(args) == 0 or args[0] == "sel":
             formatter = ctx.page_formatter
@@ -493,15 +528,7 @@ class Commands:
                 taxon = await client.taxa.populate(taxon)
 
             if query.user:
-                if query.user == "me":
-                    user_id = ctx.author.inat_user_id
-                    try:
-                        user = await anext(aiter(client.users.from_ids(user_id)), None)
-                    except HTTPError as err:
-                        if err.response.status_code == 404:
-                            pass
-                    if not user:
-                        return "User not found."
+                user = await self._user(ctx, client, query.user)
 
         formatter = TaxonFormatter(
             taxon,
@@ -511,26 +538,9 @@ class Commands:
         formatted_taxon_page = await self._get_formatted_page(formatter)
 
         if user:
-            query_response = QueryResponse(
-                taxon=taxon,
-                user=user,
-            )
-            obs_spp_counts_args = query_response.obs_args()
-            obs_spp_counts_args["user"] = user
-            user_count_args = {
-                "user_id": user.id,
-                "user": user.to_dict(),
-            }
-            with self.inat_client.set_ctx(ctx) as client:
-                (observations_count, species_count) = await get_obs_spp_counts(
-                    client=client, obs_args=obs_spp_counts_args
-                )
-            user_count_args["user"]["observation_count"] = observations_count
-            user_count_args["user"]["species_count"] = species_count
-            user_count = UserCount.from_json(user_count_args)
-
+            query_response = QueryResponse(taxon=taxon)
+            user_count = await self._user_count(ctx, query_response, user)
             counts_formatter = UserCountsFormatter()
-
             user_counts_source = UserCountsSource(
                 entries=[user_count],
                 query_response=query_response,
@@ -538,15 +548,49 @@ class Commands:
                 per_page=per_page,
             )
             counts_formatter.source = user_counts_source
-            ctx.counts_formatter = counts_formatter
             formatted_user_counts = await self._get_formatted_page(counts_formatter)
             response = "\n\n".join((formatted_taxon_page, formatted_user_counts))
         else:
             response = formatted_taxon_page
 
+        if counts_formatter:
+            ctx.counts_formatter = counts_formatter
         return self._format_markdown(response)
 
+    async def _user(self, ctx, client, user_str):
+        user = None
+        try:
+            if user_str == "me":
+                user_id = ctx.author.inat_user_id
+                user = await anext(aiter(client.users.from_ids(user_id)), None)
+            else:
+                user = await anext(aiter(client.users.autocomplete(user_str)), None)
+        except HTTPError as err:
+            if err.response.status_code == 404:
+                pass
+        if not user:
+            raise ArgumentError("User not found.")
+        return user
+
+    async def add(self, ctx: Context, user_str):
+        """Add user to page"""
+        if not (ctx.counts_formatter and ctx.counts_formatter.writable):
+            return "Type a command that has writable pages first"
+        with self.inat_client.set_ctx(ctx) as client:
+            try:
+                user = await self._user(ctx, client, user_str)
+            except ArgumentError as err:
+                return str(err)
+            # TODO: update_source with added user and new total and output
+            # updated page (advancing to next page if needed)
+            source = ctx.counts_formatter.source
+            user_count = await self._user_count(ctx, source.query_response, user)
+            source.entries.append(user_count)
+            formatted_counts_page = await self._get_formatted_page(ctx.counts_formatter)
+            return self._format_markdown(formatted_counts_page)
+
     async def obs(self, ctx: Context, *args):
+        """Show observation"""
         query = self._parse(" ".join(args))
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
@@ -594,20 +638,17 @@ class Commands:
 
         return self._format_markdown(response)
 
-    async def user(self, ctx: Context, user_id: str):
+    async def user(self, ctx: Context, user_str: str):
+        """Show user"""
         with self.inat_client.set_ctx(ctx) as client:
-            user = None
             try:
-                user = await anext(aiter(client.users.from_ids(user_id)), None)
-            except HTTPError as err:
-                if err.response.status_code == 404:
-                    pass
-            if not user:
-                return "User not found."
-
+                user = await self._user(ctx, client, user_str)
+            except ArgumentError as err:
+                return str(err)
             return self._format_markdown(UserFormatter(user).format())
 
     async def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
+        """Add user to user table"""
         if user_abbrev != "me":
             return "Only `user add me <user-id>` is supported at this time."
         user_config = self.config.user(ctx.author.id)
