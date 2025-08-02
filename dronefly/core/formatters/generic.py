@@ -842,7 +842,7 @@ class UserCountsFormatter(ListFormatter):
         page: list[UserCount] = [],
     ):
         """Format a page of user counts."""
-        formatted_page = []
+        formatted_page = [TAXON_COUNTS_HEADER]
         for user_count in page:
             formatted_entry = format_user_count(user_count, self.source.query_response)
             formatted_page.append(formatted_entry)
