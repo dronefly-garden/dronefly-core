@@ -5,7 +5,6 @@ import re
 from typing import Union
 
 from attrs import define
-from pyinaturalist import UserCount
 from requests import HTTPError
 from rich.markdown import Markdown
 
@@ -22,6 +21,7 @@ from ..constants import (
 
 from ..parsers import NaturalParser
 from ..formatters.generic import (
+    format_user_count,
     BaseFormatter,
     TaxonListFormatter,
     ListFormatter,
@@ -35,7 +35,12 @@ from ..menus.taxon_list import TaxonListSource
 from ..menus.user_counts import UserCountsSource
 from ..models.config import Config
 from ..models.user import User
-from ..query.query import get_base_query_args, QueryResponse, get_obs_spp_counts
+from ..query.query import (
+    get_base_query_args,
+    get_user_count,
+    get_user_count_total,
+    QueryResponse,
+)
 
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\> .*?)\n(?=\> )", re.MULTILINE)
@@ -467,32 +472,15 @@ class Commands:
         )
         return self._format_markdown(formatted_page)
 
-    async def _user_count(self, ctx, query_response, user):
-        def _user_count_args(user, observations_count, species_count):
-            user_count_args = {
-                "user_id": user.id,
-                "user": user.to_dict(),
-            }
-            user_count_args["user"]["observation_count"] = observations_count
-            user_count_args["user"]["species_count"] = species_count
-            return user_count_args
-
-        def _obs_spp_counts_args(query_response, user):
-            counts_query_response = QueryResponse(
-                taxon=query_response.taxon,
-                user=user,
-            )
-            obs_args = counts_query_response.obs_args()
-            obs_args["user"] = user
-            return obs_args
-
+    async def _user_count(self, ctx, query_response, user_or_users):
         with self.inat_client.set_ctx(ctx) as client:
-            (observations_count, species_count) = await get_obs_spp_counts(
-                client=client, obs_args=_obs_spp_counts_args(query_response, user)
-            )
-        return UserCount.from_json(
-            _user_count_args(user, observations_count, species_count)
-        )
+            if isinstance(user_or_users, list):
+                user_count = await get_user_count_total(
+                    client, query_response, user_or_users
+                )
+            else:
+                user_count = await get_user_count(client, query_response, user_or_users)
+            return user_count
 
     async def taxon(self, ctx: Context, *args):
         """Show taxon"""
@@ -582,10 +570,18 @@ class Commands:
                 return str(err)
             # TODO: update_source with added user and new total and output
             # updated page (advancing to next page if needed)
-            source = ctx.counts_formatter.source
-            user_count = await self._user_count(ctx, source.query_response, user)
+            formatter = ctx.counts_formatter
+            source = formatter.source
+            query_response = source.query_response
+            user_count = await self._user_count(ctx, query_response, user)
             source.entries.append(user_count)
-            formatted_counts_page = await self._get_formatted_page(ctx.counts_formatter)
+            formatted_counts_page = await self._get_formatted_page(formatter)
+            if len(source.entries) > 1:
+                total_user_count = await self._user_count(
+                    ctx, query_response, source.entries
+                )
+                formatted_total = format_user_count(total_user_count, query_response)
+                formatted_counts_page += f"\n{formatted_total}"
             return self._format_markdown(formatted_counts_page)
 
     async def obs(self, ctx: Context, *args):

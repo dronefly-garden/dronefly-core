@@ -6,11 +6,12 @@ import datetime as dt
 import re
 from typing import List, Optional, Union
 
+from pyinaturalist.models import Place, Project, Taxon, User, UserCount
+
 from ..clients.inat import iNatClient
 from ..formatters.generic import format_taxon_name, format_user_name
 from ..models.controlled_terms import ControlledTermSelector
 from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
-from pyinaturalist.models import Place, Project, Taxon, User
 
 
 @define
@@ -563,6 +564,25 @@ def get_obs_spp_count_args(obs_args):
     return (obs_count_args, species_count_args)
 
 
+TOTAL_USER = User.from_json(
+    {
+        "id": -1,
+        "login": "*total*",
+        "name": "",
+    }
+)
+
+
+def _user_count_args(user, observations_count, species_count):
+    user_count_args = {
+        "user_id": user.id,
+        "user": user.to_dict(),
+    }
+    user_count_args["user"]["observation_count"] = observations_count
+    user_count_args["user"]["species_count"] = species_count
+    return user_count_args
+
+
 async def get_obs_spp_counts(obs_args: dict, client: iNatClient):
     (obs_count_args, species_count_args) = get_obs_spp_count_args(obs_args)
     observations_count = client.observations.search(**obs_count_args).count()
@@ -570,3 +590,31 @@ async def get_obs_spp_counts(obs_args: dict, client: iNatClient):
     if observations_count:
         species_count = await client.observations.species_count(**species_count_args)
     return (observations_count, species_count)
+
+
+async def get_user_count(client, query_response, user):
+    """Synthesize a UserCount object for a base query_response + single user"""
+    (observations_count, species_count) = await get_obs_spp_counts(
+        client=client,
+        obs_args={
+            **query_response.obs_args(),
+            "user_id": user.id,
+        },
+    )
+    return UserCount.from_json(
+        _user_count_args(user, observations_count, species_count)
+    )
+
+
+async def get_user_count_total(client, query_response, users: Union[UserCount, User]):
+    """Synthesize a UserCount object for a base query_response + list of user counts or users"""
+    (observations_count, species_count) = await get_obs_spp_counts(
+        client=client,
+        obs_args={
+            **query_response.obs_args(),
+            "user_id": ",".join(str(user.id) for user in users),
+        },
+    )
+    return UserCount.from_json(
+        _user_count_args(TOTAL_USER, observations_count, species_count)
+    )
