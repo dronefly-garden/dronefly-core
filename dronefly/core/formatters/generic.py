@@ -825,9 +825,14 @@ class CountsFormatter(ListFormatter):
         page: list[Union[UserCount, PlaceCount]] = [],
     ):
         """Format a page of user counts."""
-        formatted_page = [TAXON_COUNTS_HEADER]
-        for user_count in page:
-            formatted_entry = format_count(user_count, self.source.query_response)
+        header = (
+            TAXON_COUNTS_HEADER
+            if isinstance(page[0], UserCount)
+            else TAXON_PLACES_HEADER
+        )
+        formatted_page = [header]
+        for count in page:
+            formatted_entry = format_count(count, self.source.query_response)
             formatted_page.append(formatted_entry)
         return "\n".join(formatted_page)
 
