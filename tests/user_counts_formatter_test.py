@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock
-from dronefly.core.formatters.generic import UserCountsFormatter
+from dronefly.core.formatters.generic import UserCountsFormatter, TAXON_COUNTS_HEADER
 from dronefly.core.query import QueryResponse
 from pyinaturalist import UserCount
 
@@ -62,8 +62,8 @@ def test_format(mock_source):
     formatter.source = mock_source
     page = mock_source.entries[:10]
     formatted_page = formatter.format_page(page)
-    expected_output = (
-        "[2 (1)](https://www.inaturalist.org/observations?user_id=1&taxon_id=1) user1 \n"
+    expected_output = TAXON_COUNTS_HEADER + (
+        "\n[2 (1)](https://www.inaturalist.org/observations?user_id=1&taxon_id=1) user1 \n"
         "[3 (2)](https://www.inaturalist.org/observations?user_id=2&taxon_id=1) user2 "
     )
     assert formatted_page == expected_output

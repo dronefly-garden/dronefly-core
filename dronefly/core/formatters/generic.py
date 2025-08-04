@@ -499,7 +499,7 @@ def format_quality_grade(options: dict = {}):
 
 
 def format_user_count(
-    user_count: Union[UserCount, str],
+    user_count: UserCount,
     query_response: QueryResponse,
 ):
     """Format user observation & species counts for taxon."""
@@ -511,12 +511,8 @@ def format_user_count(
     #   query & user id, not *just* the base query alone
     obs_args = query_response.obs_args()
     taxon = obs_args.get("taxon", None)
-    if isinstance(user_count, str):
-        login = "*total*"
-        obs_args["user_id"] = user_count
-    else:
-        login = user_count.login
-        obs_args["user_id"] = user_count.id
+    login = user_count.login
+    obs_args["user_id"] = user_count.id
     url = obs_url_from_v1(obs_args)
     if taxon and RANK_LEVELS[taxon.rank] <= RANK_LEVELS["species"]:
         link = f"[{user_count.observation_count:,}]({url}) {login}"
