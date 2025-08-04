@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock
-from dronefly.core.formatters.generic import UserCountsFormatter, TAXON_COUNTS_HEADER
+from dronefly.core.formatters.generic import CountsFormatter, TAXON_COUNTS_HEADER
 from dronefly.core.query import QueryResponse
 from pyinaturalist import UserCount
 
@@ -52,13 +52,13 @@ def mock_menu():
 
 
 def test_initialization(mock_source, mock_user_counts):
-    formatter = UserCountsFormatter()
+    formatter = CountsFormatter()
     formatter.source = mock_source
     assert formatter.source.entries == mock_user_counts
 
 
 def test_format(mock_source):
-    formatter = UserCountsFormatter()
+    formatter = CountsFormatter()
     formatter.source = mock_source
     page = mock_source.entries[:10]
     formatted_page = formatter.format_page(page)

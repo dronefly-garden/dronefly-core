@@ -21,18 +21,18 @@ from ..constants import (
 
 from ..parsers import NaturalParser
 from ..formatters.generic import (
-    format_user_count,
+    format_count,
     BaseFormatter,
     TaxonListFormatter,
     ListFormatter,
     ObservationFormatter,
     TaxonFormatter,
-    UserCountsFormatter,
+    CountsFormatter,
     UserFormatter,
     p,
 )
 from ..menus.taxon_list import TaxonListSource
-from ..menus.user_counts import UserCountsSource
+from ..menus.counts import CountsSource
 from ..models.config import Config
 from ..models.user import User
 from ..query.query import (
@@ -75,7 +75,7 @@ class Context:
     #   - Set page_number to the initial page number (default: 0).
     # - Therefore, only a single command providing paged results can
     #   be active at a time.
-    counts_formatter: UserCountsFormatter = None
+    counts_formatter: CountsFormatter = None
     page_formatter: Union[ListFormatter, BaseFormatter] = None
     page_number: int = 0
     per_page: int = 0
@@ -528,11 +528,11 @@ class Commands:
         if user:
             query_response = QueryResponse(taxon=taxon)
             user_count = await self._user_count(ctx, query_response, user)
-            counts_formatter = UserCountsFormatter()
-            user_counts_source = UserCountsSource(
+            counts_formatter = CountsFormatter()
+            user_counts_source = CountsSource(
                 entries=[user_count],
                 query_response=query_response,
-                user_counts_formatter=counts_formatter,
+                counts_formatter=counts_formatter,
                 per_page=per_page,
             )
             counts_formatter.source = user_counts_source
@@ -580,7 +580,7 @@ class Commands:
                 total_user_count = await self._user_count(
                     ctx, query_response, source.entries
                 )
-                formatted_total = format_user_count(total_user_count, query_response)
+                formatted_total = format_count(total_user_count, query_response)
                 formatted_counts_page += f"\n{formatted_total}"
             return self._format_markdown(formatted_counts_page)
 

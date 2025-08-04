@@ -10,9 +10,10 @@ import re
 from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
-    from dronefly.core.query.query import QueryResponse
-    from dronefly.core.menus.taxon_list import TaxonListSource
-    from dronefly.core.menus.user_counts import UserCountsSource
+    from ..query import QueryResponse
+    from ..menus.taxon_list import TaxonListSource
+    from ..menus.counts import CountsSource
+    from ..models import PlaceCount
 
 import html2markdown
 import inflect
@@ -22,7 +23,6 @@ from pyinaturalist import (
     JsonResponse,
     ListedTaxon,
     Observation,
-    Place,
     Taxon,
     TaxonSummary,
     User,
@@ -498,46 +498,30 @@ def format_quality_grade(options: dict = {}):
     return adjectives
 
 
-def format_user_count(
-    user_count: UserCount,
+def format_count(
+    count: Union[UserCount, PlaceCount],
     query_response: QueryResponse,
 ):
-    """Format user observation & species counts for taxon."""
-    # FIXME: the obs arg added here depends on the base query,
-    # e.g. could be user_id, ident_user_id, etc.
-    # - when the source is instantiated, the kind of query
-    #   needs to be recorded as an attribute of the source
-    # - the obs & spp args need to be produced from the base
-    #   query & user id, not *just* the base query alone
+    """Format observation & species counts for a user or place."""
     obs_args = query_response.obs_args()
+    if isinstance(count, UserCount):
+        # FIXME: the obs arg added here depends on the base query,
+        # e.g. could be user_id, ident_user_id, etc.
+        # - when the source is instantiated, the kind of query
+        #   needs to be recorded as an attribute of the source
+        # - the obs & spp args need to be produced from the base
+        #   query & user id, not *just* the base query alone
+        name = count.login
+        obs_args["user_id"] = count.id
+    else:
+        name = count.name
+        obs_args["place_id"] = count.id
+    url = obs_url_from_v1(obs_args)
     taxon = obs_args.get("taxon", None)
-    login = user_count.login
-    obs_args["user_id"] = user_count.id
-    url = obs_url_from_v1(obs_args)
     if taxon and RANK_LEVELS[taxon.rank] <= RANK_LEVELS["species"]:
-        link = f"[{user_count.observation_count:,}]({url}) {login}"
+        link = f"[{count.observation_count:,}]({url}) {name}"
     else:
-        link = f"[{user_count.observation_count:,} ({user_count.species_count:,})]({url}) {login}"
-    return f"{link} "
-
-
-async def format_place_taxon_count(
-    place: Union[Place, str],
-    taxon: Taxon = None,
-    observations_count: int = 0,
-    species_count: int = 0,
-    **obs_args,
-):
-    """Format place observation & species counts for taxon."""
-    if isinstance(place, str):
-        name = "*total*"
-    else:
-        name = place.display_name
-    url = obs_url_from_v1(obs_args)
-    if taxon and RANK_LEVELS[taxon.rank] <= RANK_LEVELS["species"]:
-        link = f"[{observations_count:,}]({url}) {name}"
-    else:
-        link = f"[{observations_count:,} ({species_count:,})]({url}) {name}"
+        link = f"[{count.observation_count:,} ({count.species_count:,})]({url}) {name}"
     return f"{link} "
 
 
@@ -825,25 +809,25 @@ class TaxonListFormatter(ListFormatter):
         return self.source.get_max_pages() - 1
 
 
-class UserCountsFormatter(ListFormatter):
+class CountsFormatter(ListFormatter):
     """
     Attributes
     ----------
-    source: UserCountsSource
-        Source of user observation/identification & species counts.
+    source: CountsSource
+        Source of observation/identification & species counts for a user or place.
     """
 
-    source: UserCountsSource
+    source: CountsSource
     writable: bool = True
 
     def format_page(
         self,
-        page: list[UserCount] = [],
+        page: list[Union[UserCount, PlaceCount]] = [],
     ):
         """Format a page of user counts."""
         formatted_page = [TAXON_COUNTS_HEADER]
         for user_count in page:
-            formatted_entry = format_user_count(user_count, self.source.query_response)
+            formatted_entry = format_count(user_count, self.source.query_response)
             formatted_page.append(formatted_entry)
         return "\n".join(formatted_page)
 

@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock
-from dronefly.core.menus.user_counts import UserCountsSource
-from dronefly.core.formatters import UserCountsFormatter
+from dronefly.core.menus.counts import CountsSource
+from dronefly.core.formatters import CountsFormatter
 from dronefly.core.query import QueryResponse
 from pyinaturalist import UserCount
 
@@ -35,12 +35,12 @@ def mock_query_response(mock_user_counts):
 @pytest.fixture
 def mock_formatter(mock_user_counts, mock_query_response):
     attrs = {"format_page.return_value": "Formatted Page"}
-    formatter = Mock(spec=UserCountsFormatter, **attrs)
+    formatter = Mock(spec=CountsFormatter, **attrs)
     return formatter
 
 
 def test_initialization(mock_formatter, mock_query_response, mock_user_counts):
-    source = UserCountsSource(
+    source = CountsSource(
         mock_user_counts, mock_query_response, mock_formatter, per_page=20
     )
     assert len(source.entries) == len(mock_user_counts)
@@ -53,7 +53,7 @@ def test_initialization(mock_formatter, mock_query_response, mock_user_counts):
 
 @pytest.mark.asyncio
 async def test_pagination(mock_formatter, mock_query_response, mock_user_counts):
-    source = UserCountsSource(
+    source = CountsSource(
         mock_user_counts, mock_query_response, mock_formatter, per_page=20
     )
     page = await source.get_page(0)
@@ -69,7 +69,7 @@ async def test_pagination(mock_formatter, mock_query_response, mock_user_counts)
 
 @pytest.mark.asyncio
 async def test_formatting(mock_formatter, mock_query_response, mock_user_counts):
-    source = UserCountsSource(
+    source = CountsSource(
         mock_user_counts, mock_query_response, mock_formatter, per_page=20
     )
     page = await source.get_page(0)
