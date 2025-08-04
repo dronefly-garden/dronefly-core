@@ -19,7 +19,7 @@ class PlaceCount(Place):
         """Flatten out count + place fields into a single-level dict before initializing"""
         if "results" in value:
             value = value["results"]
-        if "user" in value:
+        if "place" in value:
             value = value.copy()
             value.update(value.pop("place"))
         if "observation_count" in value and "count" not in value:
