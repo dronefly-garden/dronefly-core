@@ -514,7 +514,7 @@ def format_count(
         name = count.login
         obs_args["user_id"] = count.id
     else:
-        name = count.name
+        name = count.display_name
         obs_args["place_id"] = count.id
     url = obs_url_from_v1(obs_args)
     taxon = obs_args.get("taxon", None)

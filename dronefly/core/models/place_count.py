@@ -30,7 +30,7 @@ class PlaceCount(Place):
     def _row(self) -> TableRow:
         return {
             "ID": self.id,
-            "Name": self.name,
+            "Display Name": self.display_name,
             "Count": self.count,
         }
 

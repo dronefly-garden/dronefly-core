@@ -10,7 +10,7 @@ from pyinaturalist.models import Place, Project, Taxon, User, UserCount
 
 from ..clients.inat import iNatClient
 from ..formatters.generic import format_taxon_name, format_user_name
-from ..models.controlled_terms import ControlledTermSelector
+from ..models import ControlledTermSelector, PlaceCount
 from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 
 
@@ -583,6 +583,16 @@ def _user_count_args(user, observations_count, species_count):
     return user_count_args
 
 
+def _place_count_args(place, observations_count, species_count):
+    place_count_args = {
+        "place_id": place.id,
+        "place": place.to_dict(),
+    }
+    place_count_args["place"]["observation_count"] = observations_count
+    place_count_args["place"]["species_count"] = species_count
+    return place_count_args
+
+
 async def get_obs_spp_counts(obs_args: dict, client: iNatClient):
     (obs_count_args, species_count_args) = get_obs_spp_count_args(obs_args)
     observations_count = client.observations.search(**obs_count_args).count()
@@ -617,4 +627,18 @@ async def get_user_count_total(client, query_response, users: Union[UserCount, U
     )
     return UserCount.from_json(
         _user_count_args(TOTAL_USER, observations_count, species_count)
+    )
+
+
+async def get_place_count(client, query_response, place):
+    """Synthesize a PlaceCount object for a base query_response + single place"""
+    (observations_count, species_count) = await get_obs_spp_counts(
+        client=client,
+        obs_args={
+            **query_response.obs_args(),
+            "place_id": place.id,
+        },
+    )
+    return PlaceCount.from_json(
+        _place_count_args(place, observations_count, species_count)
     )

@@ -7,6 +7,7 @@ from typing import Union
 from attrs import define
 from requests import HTTPError
 from rich.markdown import Markdown
+from pyinaturalist import UserCount
 
 from ..clients.inat import iNatClient
 from ..constants import (
@@ -33,12 +34,12 @@ from ..formatters.generic import (
 )
 from ..menus.taxon_list import TaxonListSource
 from ..menus.counts import CountsSource
-from ..models.config import Config
-from ..models.user import User
+from ..models import Config, User
 from ..query.query import (
     get_base_query_args,
     get_user_count,
     get_user_count_total,
+    get_place_count,
     QueryResponse,
 )
 
@@ -482,11 +483,17 @@ class Commands:
                 user_count = await get_user_count(client, query_response, user_or_users)
             return user_count
 
+    async def _place_count(self, ctx, query_response, place):
+        with self.inat_client.set_ctx(ctx) as client:
+            place_count = await get_place_count(client, query_response, place)
+            return place_count
+
     async def taxon(self, ctx: Context, *args):
         """Show taxon"""
         taxon = None
         user = None
-        user_count = None
+        place = None
+        count = None
         per_page = ctx.per_page
         query_response = None
         counts_formatter = None
@@ -518,6 +525,9 @@ class Commands:
             if query.user:
                 user = await self._user(ctx, client, query.user)
 
+            if query.place:
+                place = await self._place(ctx, client, query.place)
+
         formatter = TaxonFormatter(
             taxon,
             lang=ctx.get_inat_user_default("inat_lang"),
@@ -525,19 +535,22 @@ class Commands:
         )
         formatted_taxon_page = await self._get_formatted_page(formatter)
 
-        if user:
+        if user or place:
             query_response = QueryResponse(taxon=taxon)
-            user_count = await self._user_count(ctx, query_response, user)
+            if user:
+                count = await self._user_count(ctx, query_response, user)
+            else:
+                count = await self._place_count(ctx, query_response, place)
             counts_formatter = CountsFormatter()
-            user_counts_source = CountsSource(
-                entries=[user_count],
+            counts_source = CountsSource(
+                entries=[count],
                 query_response=query_response,
                 counts_formatter=counts_formatter,
                 per_page=per_page,
             )
-            counts_formatter.source = user_counts_source
-            formatted_user_counts = await self._get_formatted_page(counts_formatter)
-            response = "\n\n".join((formatted_taxon_page, formatted_user_counts))
+            counts_formatter.source = counts_source
+            formatted_counts = await self._get_formatted_page(counts_formatter)
+            response = "\n\n".join((formatted_taxon_page, formatted_counts))
         else:
             response = formatted_taxon_page
 
@@ -559,24 +572,47 @@ class Commands:
             raise ArgumentError("User not found.")
         return user
 
-    async def add(self, ctx: Context, user_str):
-        """Add user to page"""
+    async def _place(self, ctx, client, place_str):
+        place = None
+        try:
+            if place_str == "home":
+                place_id = ctx.author.inat_place_id
+                place = await anext(aiter(client.places.from_ids(place_id)), None)
+            else:
+                place = await anext(aiter(client.places.autocomplete(place_str)), None)
+        except HTTPError as err:
+            if err.response.status_code == 404:
+                pass
+        if not place:
+            raise ArgumentError("Place not found.")
+        return place
+
+    async def add(self, ctx: Context, *args):
+        """Add user or place to page"""
         if not (ctx.counts_formatter and ctx.counts_formatter.writable):
             return "Type a command that has writable pages first"
+        user_or_place_str = " ".join(args)
         with self.inat_client.set_ctx(ctx) as client:
+            add_user = isinstance(ctx.counts_formatter.source.entries[0], UserCount)
             try:
-                user = await self._user(ctx, client, user_str)
+                if add_user:
+                    user_or_place = await self._user(ctx, client, user_or_place_str)
+                else:
+                    user_or_place = await self._place(ctx, client, user_or_place_str)
             except ArgumentError as err:
                 return str(err)
-            # TODO: update_source with added user and new total and output
-            # updated page (advancing to next page if needed)
+            # TODO: update_source with added user or place and (if user) new
+            # total and output updated page (advancing to next page if needed)
             formatter = ctx.counts_formatter
             source = formatter.source
             query_response = source.query_response
-            user_count = await self._user_count(ctx, query_response, user)
-            source.entries.append(user_count)
+            if add_user:
+                count = await self._user_count(ctx, query_response, user_or_place)
+            else:
+                count = await self._place_count(ctx, query_response, user_or_place)
+            source.entries.append(count)
             formatted_counts_page = await self._get_formatted_page(formatter)
-            if len(source.entries) > 1:
+            if add_user and len(source.entries) > 1:
                 total_user_count = await self._user_count(
                     ctx, query_response, source.entries
                 )

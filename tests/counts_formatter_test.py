@@ -60,6 +60,7 @@ def mock_place_counts():
                 "place": {
                     "id": i,
                     "name": f"Place {i}",
+                    "display_name": f"Display Place {i}",
                     "observation_count": i + 1,
                     "species_count": i,
                 },
@@ -126,7 +127,9 @@ def test_place_format(mock_place_source):
     print("page=", page)
     formatted_page = formatter.format_page(page)
     expected_output = TAXON_PLACES_HEADER + (
-        "\n[2 (1)](https://www.inaturalist.org/observations?taxon_id=1&place_id=1) Place 1 \n"
-        "[3 (2)](https://www.inaturalist.org/observations?taxon_id=1&place_id=2) Place 2 "
+        "\n[2 (1)](https://www.inaturalist.org/observations?taxon_id=1&place_id=1) "
+        "Display Place 1 \n"
+        "[3 (2)](https://www.inaturalist.org/observations?taxon_id=1&place_id=2) "
+        "Display Place 2 "
     )
     assert formatted_page == expected_output
