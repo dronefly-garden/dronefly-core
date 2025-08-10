@@ -135,14 +135,6 @@ async def _place(client, place_str):
     return place
 
 
-async def _user_count(client, query_response, user_or_users):
-    if isinstance(user_or_users, list):
-        user_count = await get_user_count_total(client, query_response, user_or_users)
-    else:
-        user_count = await get_user_count(client, query_response, user_or_users)
-    return user_count
-
-
 # TODO: everything below needs to be broken down into different layers
 # handling each thing:
 # - Context
@@ -562,7 +554,7 @@ class Commands:
             if user or place:
                 query_response = QueryResponse(taxon=taxon)
                 if user:
-                    count = await _user_count(client, query_response, user)
+                    count = await get_user_count(client, query_response, user)
                 else:
                     count = await (client, query_response, place)
                 counts_formatter = CountsFormatter()
@@ -601,13 +593,13 @@ class Commands:
             source = formatter.source
             query_response = source.query_response
             if add_user:
-                count = await _user_count(client, query_response, user_or_place)
+                count = await get_user_count(client, query_response, user_or_place)
             else:
                 count = await get_place_count(client, query_response, user_or_place)
             source.entries.append(count)
             formatted_counts_page = await self._get_formatted_page(formatter)
             if add_user and len(source.entries) > 1:
-                total_user_count = await _user_count(
+                total_user_count = await get_user_count_total(
                     client, query_response, source.entries
                 )
                 formatted_total = format_count(total_user_count, query_response)
