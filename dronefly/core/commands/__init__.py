@@ -143,11 +143,6 @@ async def _user_count(client, query_response, user_or_users):
     return user_count
 
 
-async def _place_count(client, query_response, place):
-    place_count = await get_place_count(client, query_response, place)
-    return place_count
-
-
 # TODO: everything below needs to be broken down into different layers
 # handling each thing:
 # - Context
@@ -569,7 +564,7 @@ class Commands:
                 if user:
                     count = await _user_count(client, query_response, user)
                 else:
-                    count = await _place_count(client, query_response, place)
+                    count = await (client, query_response, place)
                 counts_formatter = CountsFormatter()
                 counts_source = CountsSource(
                     entries=[count],
@@ -608,7 +603,7 @@ class Commands:
             if add_user:
                 count = await _user_count(client, query_response, user_or_place)
             else:
-                count = await _place_count(client, query_response, user_or_place)
+                count = await get_place_count(client, query_response, user_or_place)
             source.entries.append(count)
             formatted_counts_page = await self._get_formatted_page(formatter)
             if add_user and len(source.entries) > 1:
