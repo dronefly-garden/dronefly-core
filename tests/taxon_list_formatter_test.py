@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import Mock
 from dronefly.core.formatters.generic import TaxonListFormatter
-from dronefly.core.menus.taxon_list import TaxonListMetadata
+from dronefly.core.models import TaxonListMetadata
 from dronefly.core.query import QueryResponse
 from pyinaturalist import Taxon, User, ROOT_TAXON_ID
 

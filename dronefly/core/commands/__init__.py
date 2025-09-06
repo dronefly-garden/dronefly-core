@@ -3,15 +3,12 @@ from enum import Enum
 import re
 from typing import Union
 
-from attrs import define
 from requests import HTTPError
 from rich.markdown import Markdown
 
 from ..clients.inat import iNatClient
 from ..constants import (
     CONFIG_PATH,
-    INAT_DEFAULTS,
-    INAT_USER_DEFAULT_PARAMS,
     RANK_EQUIVALENTS,
     RANKS_FOR_LEVEL,
     RANK_KEYWORDS,
@@ -19,19 +16,16 @@ from ..constants import (
 )
 
 from ..parsers import NaturalParser
+from ..query import get_base_query_args, prepare_query, QueryResponse
 from ..formatters.generic import (
-    BaseFormatter,
-    TaxonListFormatter,
-    ListFormatter,
     ObservationFormatter,
+    TaxonListFormatter,
     TaxonFormatter,
     UserFormatter,
     p,
 )
 from ..menus.taxon_list import TaxonListSource
-from ..models.config import Config
-from ..models.user import User
-from ..query.query import get_base_query_args, QueryResponse
+from ..models import BaseFormatter, Config, Context, ListFormatter
 
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\> .*?)\n(?=\> )", re.MULTILINE)
@@ -51,45 +45,6 @@ class CommandError(NameError):
 class Format(Enum):
     discord_markdown = 1
     rich = 2
-
-
-@define
-class Context:
-    """A Dronefly command context."""
-
-    author: User = User()
-    # Optional page formatter and current page:
-    # - Provides support for next & prev commands to navigate through
-    #   paged command results.
-    # - Every command providing paged results must:
-    #   - Set page_formatter to the formatter for the new results.
-    #   - Set page_number to the initial page number (default: 0).
-    # - Therefore, only a single command providing paged results can
-    #   be active at a time.
-    page_formatter: Union[ListFormatter, BaseFormatter] = None
-    page_number: int = 0
-    per_page: int = 0
-    selected: int = 0
-
-    def get_inat_user_default(self, inat_param: str):
-        """Return iNat API default for user param default, if any, otherwise global default."""
-        if inat_param not in INAT_USER_DEFAULT_PARAMS:
-            return None
-        default = None
-        if self.author:
-            default = getattr(self.author, inat_param, None)
-        if not default:
-            default = INAT_DEFAULTS.get(inat_param)
-        return default
-
-    def get_inat_defaults(self):
-        """Return all iNat API defaults."""
-        defaults = {**INAT_DEFAULTS}
-        for user_param, inat_param in INAT_USER_DEFAULT_PARAMS.items():
-            default = self.get_inat_user_default(user_param)
-            if default is not None:
-                defaults[inat_param] = default
-        return defaults
 
 
 # TODO: everything below needs to be broken down into different layers
@@ -200,8 +155,8 @@ class Commands:
         if order not in [None, "asc", "desc"]:
             return "Specify `order asc` or `order desc`"
 
-        query_args = get_base_query_args(query)
         with self.inat_client.set_ctx(ctx) as client:
+            query_args = await prepare_query(client, self.config, query)
             # Handle a useful subset of query args in a simplistic way for now
             # (i.e. no config table lookup yet) to model full query in bot
             if query.user == "me":
@@ -224,16 +179,6 @@ class Commands:
                     aiter(client.taxa.autocomplete(q=main_query_str)), None
                 )
                 query_args["taxon"] = taxon
-            if query.place:
-                place = await anext(
-                    aiter(client.places.autocomplete(q=query.place)), None
-                )
-                query_args["place"] = place
-            if query.project:
-                project = await anext(
-                    aiter(client.projects.search(q=query.project)), None
-                )
-                query_args["project"] = project
             query_response = QueryResponse(**query_args)
             obs_args = query_response.obs_args()
             life_list = await client.observations.life_list(**obs_args)

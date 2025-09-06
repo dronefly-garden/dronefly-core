@@ -5,10 +5,12 @@ import datetime as dt
 import re
 from typing import List, Optional, Union
 
-from dronefly.core.formatters.generic import format_taxon_name, format_user_name
-from dronefly.core.models.controlled_terms import ControlledTermSelector
-from dronefly.core.parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 from pyinaturalist.models import Place, Project, Taxon, User
+
+from ..clients.inat import iNatClient
+from ..formatters.generic import format_taxon_name, format_user_name
+from ..models import Config, ControlledTermSelector
+from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 
 
 @define
@@ -249,6 +251,41 @@ def get_base_query_args(query):
     args["added"] = DateSelector(**_added)
     args["sort_by"] = query.sort_by if has_value(query.sort_by) else None
     args["order"] = query.order if has_value(query.order) else None
+    return args
+
+
+async def prepare_query(client: iNatClient, config: Config, query: Query):
+    """Get all requested iNat entities."""
+    args = get_base_query_args(query)
+
+    if has_value(query.project):
+        project_id = config.project(query.project)
+        if project_id:
+            project = await anext(
+                aiter(client.projects.from_ids(project_id)),
+                None,
+            )
+        else:
+            project = await anext(
+                aiter(client.projects.search(q=query.project)),
+                None,
+            )
+        args["project"] = project
+
+    if has_value(query.place):
+        place_id = config.place(query.place)
+        if place_id:
+            place = await anext(
+                aiter(client.places.from_ids(place_id)),
+                None,
+            )
+        else:
+            project = await anext(
+                aiter(client.places.search(q=query.place)),
+                None,
+            )
+        args["place"] = place
+    # return QueryResponse(**args)
     return args
 
 

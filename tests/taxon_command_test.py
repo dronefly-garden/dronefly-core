@@ -7,7 +7,7 @@ import re
 
 import pytest
 from dronefly.core import Commands
-from dronefly.core.commands import Context  # noqa: F401
+from dronefly.core.models.context import Context  # noqa: F401
 
 
 @pytest.fixture
