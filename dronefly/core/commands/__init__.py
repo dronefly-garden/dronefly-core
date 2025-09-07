@@ -173,12 +173,6 @@ class Commands:
                 user = await anext(aiter(client.users.autocomplete(q=query.user)), None)
                 if user:
                     query_args["user"] = user
-            if query and query.main and query.main.terms:
-                main_query_str = " ".join(query.main.terms)
-                taxon = await anext(
-                    aiter(client.taxa.autocomplete(q=main_query_str)), None
-                )
-                query_args["taxon"] = taxon
             query_response = QueryResponse(**query_args)
             obs_args = query_response.obs_args()
             life_list = await client.observations.life_list(**obs_args)
