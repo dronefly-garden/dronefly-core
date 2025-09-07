@@ -11,7 +11,7 @@ from ..formatters.generic import format_taxon_name, format_user_name
 from ..models import Config, ControlledTermSelector
 from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 from .base import TaxonQuery, Query
-from .query_taxon import match_taxon
+from .taxon import match_taxon
 
 
 EMPTY_QUERY = Query()
