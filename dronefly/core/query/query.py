@@ -8,7 +8,7 @@ from pyinaturalist.models import Place, Project, Taxon, User
 
 from ..clients.inat import iNatClient
 from ..formatters.generic import format_taxon_name, format_user_name
-from ..models import Config, ControlledTermSelector
+from ..models import Config, ControlledTermSelector, match_controlled_term
 from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 from .base import TaxonQuery, Query
 from .taxon import match_taxon
@@ -95,6 +95,14 @@ def get_base_query_args(query):
     return args
 
 
+async def match_annotation(client, query_term: str, query_term_value: str):
+    controlled_terms = await client.annotations.all()
+    controlled_term = match_controlled_term(
+        controlled_terms, query_term, query_term_value
+    )
+    return controlled_term
+
+
 async def match_project(client, config, project_str):
     """Match project abbrev, place id, or first search result for text to search for."""
     project_id = config.project(project_str)
@@ -131,7 +139,7 @@ async def match_place(client, config, place_str):
     return place
 
 
-async def match_user(client, config, user_str):
+async def match_user(client, user_str):
     """Match 'me', user id, or user login."""
     if user_str == "me":
         user_id = client.ctx.author.inat_user_id
@@ -173,7 +181,9 @@ async def prepare_query(
     for user_field in ("user", "unobserved_by", "except_by", "id_by"):
         user_attr = getattr(query, user_field)
         if has_value(user_attr):
-            args[user_field] = await match_user(client, config, user_attr)
+            args[user_field] = await match_user(client, user_attr)
+    if has_value(query.controlled_term):
+        args["controlled_term"] = await match_annotation(client, *query.controlled_term)
     return QueryResponse(**args)
 
 
