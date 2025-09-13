@@ -156,24 +156,7 @@ class Commands:
             return "Specify `order asc` or `order desc`"
 
         with self.inat_client.set_ctx(ctx) as client:
-            query_args = await prepare_query(client, self.config, query)
-            # Handle a useful subset of query args in a simplistic way for now
-            # (i.e. no config table lookup yet) to model full query in bot
-            if query.user == "me":
-                if ctx.author.inat_user_id:
-                    query_args["user"] = await anext(
-                        aiter(client.users.from_ids(ctx.author.inat_user_id)), None
-                    )
-                else:
-                    return "Your iNat user is not known"
-            elif query.user == "any":
-                # i.e. override default "by me" when no arguments are given
-                pass
-            else:
-                user = await anext(aiter(client.users.autocomplete(q=query.user)), None)
-                if user:
-                    query_args["user"] = user
-            query_response = QueryResponse(**query_args)
+            query_response = await prepare_query(client, self.config, query)
             obs_args = query_response.obs_args()
             life_list = await client.observations.life_list(**obs_args)
 

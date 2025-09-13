@@ -96,7 +96,10 @@ def get_base_query_args(query):
 
 
 async def match_project(client, config, project_str):
+    """Match project abbrev, place id, or first search result for text to search for."""
     project_id = config.project(project_str)
+    if not project_id and project_id.isdigit():
+        project_id = project_str
     if project_id:
         project = await anext(
             aiter(client.projects.from_ids(int(project_id))),
@@ -111,18 +114,36 @@ async def match_project(client, config, project_str):
 
 
 async def match_place(client, config, place_str):
+    """Match place abbrev, place id, or first autocomplete result for text to search for."""
     place_id = config.place(place_str)
+    if not place_id and place_str.isdigit():
+        place_id = place_str
     if place_id:
         place = await anext(
-            aiter(client.places.from_ids(int(place_id))),
+            aiter(client.places.from_ids(place_id)),
             None,
         )
     else:
         place = await anext(
-            aiter(client.places.search(q=place_str)),
+            aiter(client.places.autocomplete(q=place_str)),
             None,
         )
     return place
+
+
+async def match_user(client, config, user_str):
+    """Match 'me', user id, or user login."""
+    if user_str == "me":
+        user_id = client.ctx.author.inat_user_id
+    if user_str == "any":
+        return None
+    if not user_id:
+        user_id = user_str
+    user = await anext(
+        aiter(client.users.from_ids(user_id)),
+        None,
+    )
+    return user
 
 
 async def prepare_query(
@@ -149,8 +170,11 @@ async def prepare_query(
         args["taxon"] = await match_taxon(client, query, **_args)
     else:
         args["taxon"] = None
-    # return QueryResponse(**args)
-    return args
+    for user_field in ("user", "unobserved_by", "except_by", "id_by"):
+        user_attr = getattr(query, user_field)
+        if has_value(user_attr):
+            args[user_field] = await match_user(client, config, user_attr)
+    return QueryResponse(**args)
 
 
 async def get_taxon_preferred_establishment_means(ctx, taxon):
