@@ -147,13 +147,13 @@ class Commands:
         query = self._parse(_args)
         per_rank = query.per or "main"
         if per_rank not in [*RANK_KEYWORDS, "leaf", "child", "main", "any"]:
-            return "Specify `per <rank-or-keyword>`"
+            raise ArgumentError("Specify `per <rank-or-keyword>`")
         sort_by = query.sort_by or None
         if sort_by not in [None, "obs", "name"]:
-            return "Specify `sort by obs` or `sort by name` (default)"
+            raise ArgumentError("Specify `sort by obs` or `sort by name` (default)")
         order = query.order or None
         if order not in [None, "asc", "desc"]:
-            return "Specify `order asc` or `order desc`"
+            raise ArgumentError("Specify `order asc` or `order desc`")
 
         with self.inat_client.set_ctx(ctx) as client:
             query_response = await prepare_query(client, self.config, query)
@@ -161,7 +161,7 @@ class Commands:
             life_list = await client.observations.life_list(**obs_args)
 
         if not life_list:
-            return f"No life list {query_response.obs_query_description()}"
+            raise LookupError(f"No life list {query_response.obs_query_description()}")
 
         per_page = ctx.per_page
         with_index = self.format == Format.rich
@@ -192,15 +192,15 @@ class Commands:
         query = self._parse(" ".join(args))
         per_rank = query.per or "child"
         if per_rank not in [*RANK_KEYWORDS, "child"]:
-            return "Specify `per <rank>` or `per child` (default)"
+            raise ArgumentError("Specify `per <rank>` or `per child` (default)")
         _per_rank = per_rank
         rank_level = None
         sort_by = query.sort_by or None
         if sort_by not in [None, "obs", "name"]:
-            return "Specify `sort by obs` or `sort by name` (default)"
+            raise ArgumentError("Specify `sort by obs` or `sort by name` (default)")
         order = query.order or None
         if order not in [None, "asc", "desc"]:
-            return "Specify `order asc` or `order desc`"
+            raise ArgumentError("Specify `order asc` or `order desc`")
 
         query_args = get_base_query_args(query)
         taxon = None
@@ -221,7 +221,7 @@ class Commands:
             query_response = QueryResponse(**query_args)
             taxon = query_response.taxon
             if not taxon:
-                return f"No taxon {query_response.obs_query_description()}"
+                raise LookupError(f"No taxon {query_response.obs_query_description()}")
 
             _taxon_list = [
                 taxon,
@@ -234,10 +234,10 @@ class Commands:
                 _per_rank = RANK_EQUIVALENTS.get(per_rank) or per_rank
                 rank_level = RANK_LEVELS[_per_rank]
                 if rank_level >= taxon.rank_level:
-                    return self._format_markdown(
+                    raise ArgumentError(
                         "\N{WARNING SIGN}  "
                         f"**The rank `{per_rank}` is not lower than "
-                        "the taxon rank: `{taxon.rank}`.**"
+                        f"the taxon rank: `{taxon.rank}`.**"
                     )
                 short_description = p.plural(_per_rank).capitalize()
                 _children = [
@@ -316,7 +316,7 @@ class Commands:
 
     async def next(self, ctx: Context):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         ctx.page_number += 1
         if ctx.page_number > ctx.page_formatter.last_page():
             ctx.page_number = 0
@@ -327,13 +327,13 @@ class Commands:
 
     async def page(self, ctx: Context, page_number: int = 1):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         last_page = ctx.page_formatter.last_page() + 1
         if page_number > last_page or page_number < 1:
             msg = "Specify page 1"
             if last_page > 1:
                 msg += f" through {last_page}"
-            return msg
+            raise ArgumentError(msg)
         ctx.page_number = page_number - 1
         ctx.selected = 0
         return await self._get_formatted_page(
@@ -342,14 +342,14 @@ class Commands:
 
     async def sel(self, ctx: Context, sel: int = 1):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         _page = await ctx.page_formatter.source.get_page(ctx.page_number)
         page_len = len(_page)
         if sel > page_len or sel < 1:
             msg = "Specify entry 1"
             if page_len > 1:
                 msg += f" through {page_len}"
-            return msg
+            raise ArgumentError(msg)
         ctx.selected = sel - 1
         return await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
@@ -357,7 +357,7 @@ class Commands:
 
     async def prev(self, ctx: Context):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         ctx.page_number -= 1
         if ctx.page_number < 0:
             ctx.page_number = ctx.page_formatter.last_page()
@@ -375,13 +375,13 @@ class Commands:
                 with self.inat_client.set_ctx(ctx) as client:
                     taxon = await client.taxa.populate(page[ctx.selected])
             else:
-                return "Select a taxon first"
+                raise CommandError("Select a taxon first")
         else:
             query = self._parse(" ".join(args))
             # TODO: Handle all query clauses, not just main.terms
             # TODO: Doesn't do any ranking or filtering of results
             if not query.main or not query.main.terms:
-                return "Not a taxon"
+                raise ArgumentError("Not a taxon")
 
             with self.inat_client.set_ctx(ctx) as client:
                 main_query_str = " ".join(query.main.terms)
@@ -389,7 +389,7 @@ class Commands:
                     aiter(client.taxa.autocomplete(q=main_query_str)), None
                 )
                 if not taxon:
-                    return "Nothing found"
+                    raise LookupError("Nothing found")
                 taxon = await client.taxa.populate(taxon)
 
         formatter = TaxonFormatter(
@@ -406,13 +406,13 @@ class Commands:
         # TODO: Handle all query clauses, not just main.terms
         # TODO: Doesn't do any ranking or filtering of results
         if not query.main or not query.main.terms:
-            return "Not a taxon"
+            raise ArgumentError("Not a taxon")
 
         main_query_str = " ".join(query.main.terms)
         with self.inat_client.set_ctx(ctx) as client:
             taxon = await anext(aiter(client.taxa.autocomplete(q=main_query_str)), None)
             if not taxon:
-                return "No taxon found"
+                raise LookupError("No taxon found")
             obs = await anext(
                 aiter(
                     client.observations.search(
@@ -424,7 +424,9 @@ class Commands:
                 None,
             )
             if not obs:
-                return f"No observations by you found for: {taxon.full_name}"
+                raise LookupError(
+                    f"No observations by you found for: {taxon.full_name}"
+                )
 
             taxon_summary = await client.observations.taxon_summary(obs.id)
             if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
@@ -458,13 +460,15 @@ class Commands:
                 if err.response.status_code == 404:
                     pass
             if not user:
-                return "User not found."
+                raise LookupError("User not found.")
 
             return self._format_markdown(UserFormatter(user).format())
 
     async def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
         if user_abbrev != "me":
-            return "Only `user add me <user-id>` is supported at this time."
+            raise ArgumentError(
+                "Only `user add me <user-id>` is supported at this time."
+            )
         user_config = self.config.user(ctx.author.id)
         configured_user_id = None
         if user_config:
@@ -478,13 +482,13 @@ class Commands:
                 if err.response.status_code == 404:
                     pass
             if not user:
-                return "User not found."
+                raise LookupError("User not found.")
 
             response = ""
             redefining = False
             if configured_user_id:
                 if configured_user_id == user.id:
-                    return "User already added."
+                    raise ArgumentError("User already added.")
                 configured_user = None
                 try:
                     configured_user = await anext(
@@ -497,6 +501,7 @@ class Commands:
                     configured_user_str = UserFormatter(configured_user).format()
                 else:
                     configured_user_str = f"User id not found: {configured_user_id}"
+                    raise LookupError(configured_user_str)
                 redefining = True
                 response += (
                     f"- Already defined as another user: {configured_user_str}\n"
