@@ -6,7 +6,7 @@ import asyncio
 import re
 
 import pytest
-from dronefly.core import Commands
+from dronefly.core.commands import ArgumentError, Commands
 from dronefly.core.models.context import Context  # noqa: F401
 
 
@@ -43,12 +43,16 @@ async def test_taxon_with_result(cmd, ctx):
 
 @pytest.mark.asyncio(scope="session")
 async def test_taxon_with_no_result(cmd, ctx):
-    assert await cmd.taxon(ctx, "xyzzy") == "Nothing found"
+    with pytest.raises(LookupError) as err:
+        await cmd.taxon(ctx, "xyzzy")
+        assert str(err) == "Nothing found"
 
 
 @pytest.mark.asyncio(scope="session")
 async def test_taxon_with_group_macro(cmd, ctx):
-    assert await cmd.taxon(ctx, "herps") == "Not a taxon"
+    with pytest.raises(ArgumentError) as err:
+        await cmd.taxon(ctx, "herps")
+        assert str(err) == "Not a taxon"
 
 
 @pytest.mark.asyncio(scope="session")

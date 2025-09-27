@@ -16,7 +16,7 @@ from ..constants import (
 )
 
 from ..parsers import NaturalParser
-from ..query import get_base_query_args, prepare_query, QueryResponse
+from ..query import prepare_query
 from ..formatters.generic import (
     ObservationFormatter,
     TaxonListFormatter,
@@ -202,27 +202,17 @@ class Commands:
         if order not in [None, "asc", "desc"]:
             raise ArgumentError("Specify `order asc` or `order desc`")
 
-        query_args = get_base_query_args(query)
         taxon = None
         taxon_list = []
         short_description = ""
         msg = None
         with self.inat_client.set_ctx(ctx) as client:
-            # Handle a useful subset of query args in a simplistic way for now
-            # (i.e. no config table lookup yet) to model full query in bot
-            if query and query.main and query.main.terms:
-                main_query_str = " ".join(query.main.terms)
-                taxon = await anext(
-                    aiter(client.taxa.autocomplete(q=main_query_str)), None
-                )
-                if taxon:
-                    taxon = await client.taxa.populate(taxon)
-                query_args["taxon"] = taxon
-            query_response = QueryResponse(**query_args)
+            query_response = await prepare_query(client, self.config, query)
             taxon = query_response.taxon
             if not taxon:
                 raise LookupError(f"No taxon {query_response.obs_query_description()}")
 
+            taxon = await client.taxa.populate(taxon)
             _taxon_list = [
                 taxon,
                 *[_taxon for _taxon in taxon.children if _taxon.is_active],
@@ -384,13 +374,10 @@ class Commands:
                 raise ArgumentError("Not a taxon")
 
             with self.inat_client.set_ctx(ctx) as client:
-                main_query_str = " ".join(query.main.terms)
-                taxon = await anext(
-                    aiter(client.taxa.autocomplete(q=main_query_str)), None
-                )
-                if not taxon:
+                query_response = await prepare_query(client, self.config, query)
+                if not query_response.taxon:
                     raise LookupError("Nothing found")
-                taxon = await client.taxa.populate(taxon)
+                taxon = await client.taxa.populate(query_response.taxon)
 
         formatter = TaxonFormatter(
             taxon,
