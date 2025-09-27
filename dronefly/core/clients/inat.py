@@ -45,7 +45,7 @@ class iNatClient(pyiNatClient):
             **kwargs,
         }
         super().__init__(*args, **_kwargs)
-        self.annotations.all = asyncify(self, self.annotations.all)
+        self.annotations.async_all = asyncify(self, self.annotations.all)
         self.taxa.populate = asyncify(self, self.taxa.populate)
         self.observations.taxon_summary = asyncify(
             self, self.observations.taxon_summary

@@ -96,7 +96,7 @@ def get_base_query_args(query):
 
 
 async def match_annotation(client, query_term: str, query_term_value: str):
-    controlled_terms = await client.annotations.all()
+    controlled_terms = await client.annotations.async_all()
     controlled_term = match_controlled_term(
         controlled_terms, query_term, query_term_value
     )

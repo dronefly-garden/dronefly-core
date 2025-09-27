@@ -16,6 +16,7 @@ from ..constants import (
 )
 
 from ..parsers import NaturalParser
+from ..parsers.constants import VALID_OBS_SORT_BY
 from ..query import prepare_query
 from ..formatters.generic import (
     ObservationFormatter,
@@ -45,6 +46,14 @@ class CommandError(NameError):
 class Format(Enum):
     discord_markdown = 1
     rich = 2
+
+
+def _check_obs_query_fields(query_response):
+    sort_by = query_response.sort_by
+    if sort_by is not None and sort_by not in VALID_OBS_SORT_BY:
+        raise ArgumentError(
+            f"Invalid `sort by`. Must be one of: `{', '.join(VALID_OBS_SORT_BY.keys())}`"
+        )
 
 
 # TODO: everything below needs to be broken down into different layers
@@ -390,29 +399,19 @@ class Commands:
 
     async def obs(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
-        # TODO: Handle all query clauses, not just main.terms
-        # TODO: Doesn't do any ranking or filtering of results
-        if not query.main or not query.main.terms:
-            raise ArgumentError("Not a taxon")
 
-        main_query_str = " ".join(query.main.terms)
         with self.inat_client.set_ctx(ctx) as client:
-            taxon = await anext(aiter(client.taxa.autocomplete(q=main_query_str)), None)
-            if not taxon:
-                raise LookupError("No taxon found")
-            obs = await anext(
-                aiter(
-                    client.observations.search(
-                        user_id=ctx.author.inat_user_id,
-                        taxon_id=taxon.id,
-                        reverse=True,
-                    )
-                ),
-                None,
-            )
+            query_response = await prepare_query(client, self.config, query)
+            _check_obs_query_fields(query_response)
+            if query_response.taxon:
+                query_response.taxon = await client.taxa.populate(query_response.taxon)
+            obs_args = query_response.obs_args()
+            obs_args["reverse"] = True
+            obs_args["limit"] = 1
+            obs = await anext(aiter(client.observations.search(**obs_args)), None)
             if not obs:
                 raise LookupError(
-                    f"No observations by you found for: {taxon.full_name}"
+                    f"No observation found {query_response.obs_query_description()}"
                 )
 
             taxon_summary = await client.observations.taxon_summary(obs.id)
@@ -424,7 +423,7 @@ class Commands:
                     obs.id, community=1
                 )
             else:
-                community_taxon = taxon
+                community_taxon = query_response.taxon
                 community_taxon_summary = taxon_summary
 
         formatter = ObservationFormatter(
