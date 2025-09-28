@@ -1,9 +1,9 @@
 """Naturalist information system query module."""
-from dataclasses import dataclass, field
 import datetime as dt
 import re
 from typing import List, Optional, Union
 
+from attrs import define, field
 from pyinaturalist.models import Place, Project, Taxon, User
 
 from ..clients.inat import iNatClient
@@ -26,7 +26,7 @@ class _Params(dict):
             self[key] = value
 
 
-@dataclass
+@define
 class DateSelector:
     """A date selector object."""
 
@@ -201,7 +201,7 @@ async def get_taxon_preferred_establishment_means(ctx, taxon):
     return next(find_means, establishment_means)
 
 
-@dataclass
+@define
 class QueryResponse:
     """A generic query response object.
 
@@ -238,7 +238,7 @@ class QueryResponse:
     order: Optional[str] = None
     adjectives: Optional[List[str]] = field(init=False)
 
-    def __post_init__(self):
+    def __attrs_post_init__(self):
         adjectives = []
         if self.options:
             quality_grade = (self.options.get("quality_grade") or "").split(",")
