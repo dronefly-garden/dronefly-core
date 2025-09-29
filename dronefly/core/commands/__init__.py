@@ -1,16 +1,14 @@
+import asyncio
 from enum import Enum
 import re
 from typing import Union
 
-from attrs import define
 from requests import HTTPError
 from rich.markdown import Markdown
 
 from ..clients.inat import iNatClient
 from ..constants import (
     CONFIG_PATH,
-    INAT_DEFAULTS,
-    INAT_USER_DEFAULT_PARAMS,
     RANK_EQUIVALENTS,
     RANKS_FOR_LEVEL,
     RANK_KEYWORDS,
@@ -18,19 +16,17 @@ from ..constants import (
 )
 
 from ..parsers import NaturalParser
+from ..parsers.constants import VALID_OBS_SORT_BY
+from ..query import prepare_query
 from ..formatters.generic import (
-    BaseFormatter,
-    TaxonListFormatter,
-    ListFormatter,
     ObservationFormatter,
+    TaxonListFormatter,
     TaxonFormatter,
     UserFormatter,
     p,
 )
 from ..menus.taxon_list import TaxonListSource
-from ..models.config import Config
-from ..models.user import User
-from ..query.query import get_base_query_args, QueryResponse
+from ..models import BaseFormatter, Config, Context, ListFormatter
 
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\> .*?)\n(?=\> )", re.MULTILINE)
@@ -52,43 +48,12 @@ class Format(Enum):
     rich = 2
 
 
-@define
-class Context:
-    """A Dronefly command context."""
-
-    author: User = User()
-    # Optional page formatter and current page:
-    # - Provides support for next & prev commands to navigate through
-    #   paged command results.
-    # - Every command providing paged results must:
-    #   - Set page_formatter to the formatter for the new results.
-    #   - Set page_number to the initial page number (default: 0).
-    # - Therefore, only a single command providing paged results can
-    #   be active at a time.
-    page_formatter: Union[ListFormatter, BaseFormatter] = None
-    page_number: int = 0
-    per_page: int = 0
-    selected: int = 0
-
-    def get_inat_user_default(self, inat_param: str):
-        """Return iNat API default for user param default, if any, otherwise global default."""
-        if inat_param not in INAT_USER_DEFAULT_PARAMS:
-            return None
-        default = None
-        if self.author:
-            default = getattr(self.author, inat_param, None)
-        if not default:
-            default = INAT_DEFAULTS.get(inat_param)
-        return default
-
-    def get_inat_defaults(self):
-        """Return all iNat API defaults."""
-        defaults = {**INAT_DEFAULTS}
-        for user_param, inat_param in INAT_USER_DEFAULT_PARAMS.items():
-            default = self.get_inat_user_default(user_param)
-            if default is not None:
-                defaults[inat_param] = default
-        return defaults
+def _check_obs_query_fields(query_response):
+    sort_by = query_response.sort_by
+    if sort_by is not None and sort_by not in VALID_OBS_SORT_BY:
+        raise ArgumentError(
+            f"Invalid `sort by`. Must be one of: `{', '.join(VALID_OBS_SORT_BY.keys())}`"
+        )
 
 
 # TODO: everything below needs to be broken down into different layers
@@ -96,17 +61,21 @@ class Context:
 # - Context
 #   - user, channel, etc.
 #   - affects which settings are passed to inat (e.g. home place for conservation status)
-@define
 class Commands:
     """A Dronefly command processor."""
 
-    # TODO: platform: dronefly.Platform
-    # - e.g. discord, commandline, web
-
-    inat_client: iNatClient = iNatClient()
-    parser: NaturalParser = NaturalParser()
-    format: Format = Format.discord_markdown
-    config: Config = Config()
+    def __init__(
+        self,
+        loop: asyncio.BaseEventLoop,
+        format: Format = Format.discord_markdown,
+    ):
+        self.loop = loop
+        # TODO: platform: dronefly.Platform
+        # - e.g. discord, commandline, web
+        self.format = format
+        self.inat_client = iNatClient(loop=loop)
+        self.parser = NaturalParser()
+        self.dronefly_config = Config()
 
     def _parse(self, query_str):
         return self.parser.parse(query_str)
@@ -187,48 +156,21 @@ class Commands:
         query = self._parse(_args)
         per_rank = query.per or "main"
         if per_rank not in [*RANK_KEYWORDS, "leaf", "child", "main", "any"]:
-            return "Specify `per <rank-or-keyword>`"
+            raise ArgumentError("Specify `per <rank-or-keyword>`")
         sort_by = query.sort_by or None
         if sort_by not in [None, "obs", "name"]:
-            return "Specify `sort by obs` or `sort by name` (default)"
+            raise ArgumentError("Specify `sort by obs` or `sort by name` (default)")
         order = query.order or None
         if order not in [None, "asc", "desc"]:
-            return "Specify `order asc` or `order desc`"
+            raise ArgumentError("Specify `order asc` or `order desc`")
 
-        query_args = get_base_query_args(query)
         with self.inat_client.set_ctx(ctx) as client:
-            # Handle a useful subset of query args in a simplistic way for now
-            # (i.e. no config table lookup yet) to model full query in bot
-            if query.user == "me":
-                if ctx.author.inat_user_id:
-                    query_args["user"] = client.users.from_ids(
-                        ctx.author.inat_user_id
-                    ).one()
-                else:
-                    return "Your iNat user is not known"
-            elif query.user == "any":
-                # i.e. override default "by me" when no arguments are given
-                pass
-            else:
-                user = client.users.autocomplete(q=query.user).one()
-                if user:
-                    query_args["user"] = user
-            if query and query.main and query.main.terms:
-                main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str).one()
-                query_args["taxon"] = taxon
-            if query.place:
-                place = client.places.autocomplete(q=query.place).one()
-                query_args["place"] = place
-            if query.project:
-                project = client.projects.search(q=query.project).one()
-                query_args["project"] = project
-            query_response = QueryResponse(**query_args)
+            query_response = await prepare_query(client, self.dronefly_config, query)
             obs_args = query_response.obs_args()
-            life_list = client.observations.life_list(**obs_args)
+            life_list = await client.observations.life_list(**obs_args)
 
         if not life_list:
-            return f"No life list {query_response.obs_query_description()}"
+            raise LookupError(f"No life list {query_response.obs_query_description()}")
 
         per_page = ctx.per_page
         with_index = self.format == Format.rich
@@ -259,35 +201,27 @@ class Commands:
         query = self._parse(" ".join(args))
         per_rank = query.per or "child"
         if per_rank not in [*RANK_KEYWORDS, "child"]:
-            return "Specify `per <rank>` or `per child` (default)"
+            raise ArgumentError("Specify `per <rank>` or `per child` (default)")
         _per_rank = per_rank
         rank_level = None
         sort_by = query.sort_by or None
         if sort_by not in [None, "obs", "name"]:
-            return "Specify `sort by obs` or `sort by name` (default)"
+            raise ArgumentError("Specify `sort by obs` or `sort by name` (default)")
         order = query.order or None
         if order not in [None, "asc", "desc"]:
-            return "Specify `order asc` or `order desc`"
+            raise ArgumentError("Specify `order asc` or `order desc`")
 
-        query_args = get_base_query_args(query)
         taxon = None
         taxon_list = []
         short_description = ""
         msg = None
         with self.inat_client.set_ctx(ctx) as client:
-            # Handle a useful subset of query args in a simplistic way for now
-            # (i.e. no config table lookup yet) to model full query in bot
-            if query and query.main and query.main.terms:
-                main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str).one()
-                if taxon:
-                    taxon = client.taxa.populate(taxon)
-                query_args["taxon"] = taxon
-            query_response = QueryResponse(**query_args)
+            query_response = await prepare_query(client, self.dronefly_config, query)
             taxon = query_response.taxon
             if not taxon:
-                return f"No taxon {query_response.obs_query_description()}"
+                raise LookupError(f"No taxon {query_response.obs_query_description()}")
 
+            taxon = await client.taxa.populate(taxon)
             _taxon_list = [
                 taxon,
                 *[_taxon for _taxon in taxon.children if _taxon.is_active],
@@ -299,10 +233,10 @@ class Commands:
                 _per_rank = RANK_EQUIVALENTS.get(per_rank) or per_rank
                 rank_level = RANK_LEVELS[_per_rank]
                 if rank_level >= taxon.rank_level:
-                    return self._format_markdown(
+                    raise ArgumentError(
                         "\N{WARNING SIGN}  "
                         f"**The rank `{per_rank}` is not lower than "
-                        "the taxon rank: `{taxon.rank}`.**"
+                        f"the taxon rank: `{taxon.rank}`.**"
                     )
                 short_description = p.plural(_per_rank).capitalize()
                 _children = [
@@ -316,12 +250,13 @@ class Commands:
                     # remainder (direct children - those at the specified rank level)
                     # don't constitute a single page of results, then show children
                     # instead.
-                    _descendants = client.taxa.search(
+                    descendants_paginator = client.taxa.search(
                         taxon_id=_without_rank_ids,
                         rank_level=rank_level,
                         is_active=True,
                         per_page=500,
                     )
+                    descendants_aiter = aiter(descendants_paginator)
                     # The choice of 2500 as our limit is arbitrary:
                     # - will take 5 more API calls to satisfy
                     # - encompasses the largest genera (e.g. Astragalus)
@@ -329,7 +264,8 @@ class Commands:
                     #   excessive API demands
                     # - TODO: switch to using a local DB built from full taxonomy dump
                     #   so we can lift this restriction
-                    if _descendants.count() > 2500:
+                    first_descendant = await anext(descendants_aiter, None)
+                    if descendants_paginator.count() > 2500:
                         short_description = "Children"
                         msg = (
                             f"\N{WARNING SIGN}  **Too many {p.plural(_per_rank)}. "
@@ -338,7 +274,10 @@ class Commands:
                         _per_rank = "child"
                         taxon_list = _taxon_list
                     else:
-                        taxon_list = [*_children, *_descendants.all()]
+                        # Now we can get the remaining descendants:
+                        taxon_list = [*_children, first_descendant]
+                        async for taxon in descendants_aiter:
+                            taxon_list.append(taxon)
                 else:
                     taxon_list = _children
                 # List all ranks at the same level, not just the specified rank
@@ -376,7 +315,7 @@ class Commands:
 
     async def next(self, ctx: Context):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         ctx.page_number += 1
         if ctx.page_number > ctx.page_formatter.last_page():
             ctx.page_number = 0
@@ -387,13 +326,13 @@ class Commands:
 
     async def page(self, ctx: Context, page_number: int = 1):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         last_page = ctx.page_formatter.last_page() + 1
         if page_number > last_page or page_number < 1:
             msg = "Specify page 1"
             if last_page > 1:
                 msg += f" through {last_page}"
-            return msg
+            raise ArgumentError(msg)
         ctx.page_number = page_number - 1
         ctx.selected = 0
         return await self._get_formatted_page(
@@ -402,14 +341,14 @@ class Commands:
 
     async def sel(self, ctx: Context, sel: int = 1):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         _page = await ctx.page_formatter.source.get_page(ctx.page_number)
         page_len = len(_page)
         if sel > page_len or sel < 1:
             msg = "Specify entry 1"
             if page_len > 1:
                 msg += f" through {page_len}"
-            return msg
+            raise ArgumentError(msg)
         ctx.selected = sel - 1
         return await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
@@ -417,7 +356,7 @@ class Commands:
 
     async def prev(self, ctx: Context):
         if not ctx.page_formatter:
-            return "Type a command that has pages first"
+            raise CommandError("Type a command that has pages first")
         ctx.page_number -= 1
         if ctx.page_number < 0:
             ctx.page_number = ctx.page_formatter.last_page()
@@ -433,22 +372,23 @@ class Commands:
             if formatter and getattr(formatter, "source", None):
                 page = await formatter.source.get_page(ctx.page_number)
                 with self.inat_client.set_ctx(ctx) as client:
-                    taxon = client.taxa.populate(page[ctx.selected])
+                    taxon = await client.taxa.populate(page[ctx.selected])
             else:
-                return "Select a taxon first"
+                raise CommandError("Select a taxon first")
         else:
             query = self._parse(" ".join(args))
             # TODO: Handle all query clauses, not just main.terms
             # TODO: Doesn't do any ranking or filtering of results
             if not query.main or not query.main.terms:
-                return "Not a taxon"
+                raise ArgumentError("Not a taxon")
 
             with self.inat_client.set_ctx(ctx) as client:
-                main_query_str = " ".join(query.main.terms)
-                taxon = client.taxa.autocomplete(q=main_query_str).one()
-                if not taxon:
-                    return "Nothing found"
-                taxon = client.taxa.populate(taxon)
+                query_response = await prepare_query(
+                    client, self.dronefly_config, query
+                )
+                if not query_response.taxon:
+                    raise LookupError("Nothing found")
+                taxon = await client.taxa.populate(query_response.taxon)
 
         formatter = TaxonFormatter(
             taxon,
@@ -461,32 +401,31 @@ class Commands:
 
     async def obs(self, ctx: Context, *args):
         query = self._parse(" ".join(args))
-        # TODO: Handle all query clauses, not just main.terms
-        # TODO: Doesn't do any ranking or filtering of results
-        if not query.main or not query.main.terms:
-            return "Not a taxon"
 
-        main_query_str = " ".join(query.main.terms)
         with self.inat_client.set_ctx(ctx) as client:
-            taxon = client.taxa.autocomplete(q=main_query_str).one()
-            if not taxon:
-                return "No taxon found"
-            obs = client.observations.search(
-                user_id=ctx.author.inat_user_id,
-                taxon_id=taxon.id,
-                reverse=True,
-            ).one()
+            query_response = await prepare_query(client, self.dronefly_config, query)
+            _check_obs_query_fields(query_response)
+            if query_response.taxon:
+                query_response.taxon = await client.taxa.populate(query_response.taxon)
+            obs_args = query_response.obs_args()
+            obs_args["reverse"] = True
+            obs_args["limit"] = 1
+            obs = await anext(aiter(client.observations.search(**obs_args)), None)
             if not obs:
-                return f"No observations by you found for: {taxon.full_name}"
+                raise LookupError(
+                    f"No observation found {query_response.obs_query_description()}"
+                )
 
-            taxon_summary = client.observations.taxon_summary(obs.id)
+            taxon_summary = await client.observations.taxon_summary(obs.id)
             if obs.community_taxon_id and obs.community_taxon_id != obs.taxon.id:
-                community_taxon = client.taxa.from_ids(obs.community_taxon_id).one()
-                community_taxon_summary = client.observations.taxon_summary(
+                community_taxon = await anext(
+                    aiter(client.taxa.from_ids(obs.community_taxon_id)), None
+                )
+                community_taxon_summary = await client.observations.taxon_summary(
                     obs.id, community=1
                 )
             else:
-                community_taxon = taxon
+                community_taxon = query_response.taxon
                 community_taxon_summary = taxon_summary
 
         formatter = ObservationFormatter(
@@ -504,19 +443,21 @@ class Commands:
         with self.inat_client.set_ctx(ctx) as client:
             user = None
             try:
-                user = client.users(user_id)
+                user = await anext(aiter(client.users.from_ids(user_id)), None)
             except HTTPError as err:
                 if err.response.status_code == 404:
                     pass
             if not user:
-                return "User not found."
+                raise LookupError("User not found.")
 
             return self._format_markdown(UserFormatter(user).format())
 
     async def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
         if user_abbrev != "me":
-            return "Only `user add me <user-id>` is supported at this time."
-        user_config = self.config.user(ctx.author.id)
+            raise ArgumentError(
+                "Only `user add me <user-id>` is supported at this time."
+            )
+        user_config = self.dronefly_config.user(ctx.author.id)
         configured_user_id = None
         if user_config:
             configured_user_id = user_config.get("inat_user_id")
@@ -524,21 +465,23 @@ class Commands:
         with self.inat_client.set_ctx(ctx) as client:
             user = None
             try:
-                user = client.users(user_id)
+                user = await anext(aiter(client.users.from_ids(user_id)), None)
             except HTTPError as err:
                 if err.response.status_code == 404:
                     pass
             if not user:
-                return "User not found."
+                raise LookupError("User not found.")
 
             response = ""
             redefining = False
             if configured_user_id:
                 if configured_user_id == user.id:
-                    return "User already added."
+                    raise ArgumentError("User already added.")
                 configured_user = None
                 try:
-                    configured_user = client.users(configured_user_id)
+                    configured_user = await anext(
+                        aiter(client.users.from_ids(configured_user_id)), None
+                    )
                 except HTTPError as err:
                     if err.response.status_code == 404:
                         pass
@@ -546,6 +489,7 @@ class Commands:
                     configured_user_str = UserFormatter(configured_user).format()
                 else:
                     configured_user_str = f"User id not found: {configured_user_id}"
+                    raise LookupError(configured_user_str)
                 redefining = True
                 response += (
                     f"- Already defined as another user: {configured_user_str}\n"

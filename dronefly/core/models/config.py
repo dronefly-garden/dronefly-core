@@ -32,3 +32,27 @@ class Config:
             return self.data["users"][str(user_id)]
         except KeyError:
             return None
+
+    def place(self, place_abbrev: str):
+        try:
+            return self.data["places"][str(place_abbrev)]
+        except KeyError:
+            return None
+
+    def places(self):
+        try:
+            return self.data["places"]
+        except KeyError:
+            return {}
+
+    def project(self, project_abbrev: str):
+        try:
+            return self.data["projects"][str(project_abbrev)]
+        except KeyError:
+            return None
+
+    def projects(self):
+        try:
+            return self.data["projects"]
+        except KeyError:
+            return {}
