@@ -1,4 +1,4 @@
-from attrs import define
+from attrs import define, field
 import tomllib
 from typing import Optional, Union
 
@@ -9,50 +9,30 @@ from ..constants import CONFIG_PATH
 class Config:
     """Public class for Config model."""
 
-    data: dict = {}
+    places: dict = field(factory=dict)
+    projects: dict = field(factory=dict)
+    users: dict = field(factory=dict)
 
-    def __init__(self, data_str: Optional[str] = None):
-        try:
-            self.load(data_str)
-        except FileNotFoundError:
-            pass
-        except (tomllib.TOMLDecodeError, OSError) as err:
-            print(err)
+    # async accessors to facilitate more complex behaviours
+    # in subclasses
+    async def user(self, user_id: Union[str, int]):
+        return self.users.get(str(user_id))
 
-    def load(self, data_str: Optional[str] = None):
-        self.data = {}
-        if data_str:
-            self.data = tomllib.loads(data_str)
+    async def place(self, place_abbrev: str):
+        return self.places.get(place_abbrev)
+
+    async def project(self, project_abbrev: str):
+        return self.projects.get(project_abbrev)
+
+
+def load_config(data: Optional[str] = None):
+    config = {}
+    try:
+        if data:
+            config = tomllib.loads(data)
         else:
             with open(CONFIG_PATH, "rb") as config_file:
-                self.data = tomllib.load(config_file)
-
-    def user(self, user_id: Union[str, int]):
-        try:
-            return self.data["users"][str(user_id)]
-        except KeyError:
-            return None
-
-    def place(self, place_abbrev: str):
-        try:
-            return self.data["places"][str(place_abbrev)]
-        except KeyError:
-            return None
-
-    def places(self):
-        try:
-            return self.data["places"]
-        except KeyError:
-            return {}
-
-    def project(self, project_abbrev: str):
-        try:
-            return self.data["projects"][str(project_abbrev)]
-        except KeyError:
-            return None
-
-    def projects(self):
-        try:
-            return self.data["projects"]
-        except KeyError:
-            return {}
+                config = tomllib.load(config_file)
+    except FileNotFoundError:
+        pass
+    return Config(**config)

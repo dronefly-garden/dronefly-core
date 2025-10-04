@@ -26,7 +26,7 @@ from ..formatters.generic import (
     p,
 )
 from ..menus.taxon_list import TaxonListSource
-from ..models import BaseFormatter, Config, Context, ListFormatter
+from ..models import BaseFormatter, load_config, Context, ListFormatter
 
 
 RICH_BQ_NEWLINE_PAT = re.compile(r"^(\> .*?)\n(?=\> )", re.MULTILINE)
@@ -75,7 +75,7 @@ class Commands:
         self.format = format
         self.inat_client = iNatClient(loop=loop)
         self.parser = NaturalParser()
-        self.dronefly_config = Config()
+        self.dronefly_config = load_config()
 
     def _parse(self, query_str):
         return self.parser.parse(query_str)
@@ -165,7 +165,7 @@ class Commands:
             raise ArgumentError("Specify `order asc` or `order desc`")
 
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query(client, self.dronefly_config, query)
+            query_response = await prepare_query(client, query)
             obs_args = query_response.obs_args()
             life_list = await client.observations.life_list(**obs_args)
 
@@ -216,7 +216,7 @@ class Commands:
         short_description = ""
         msg = None
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query(client, self.dronefly_config, query)
+            query_response = await prepare_query(client, query)
             taxon = query_response.taxon
             if not taxon:
                 raise LookupError(f"No taxon {query_response.obs_query_description()}")
@@ -383,9 +383,7 @@ class Commands:
                 raise ArgumentError("Not a taxon")
 
             with self.inat_client.set_ctx(ctx) as client:
-                query_response = await prepare_query(
-                    client, self.dronefly_config, query
-                )
+                query_response = await prepare_query(client, query)
                 if not query_response.taxon:
                     raise LookupError("Nothing found")
                 taxon = await client.taxa.populate(query_response.taxon)
@@ -403,7 +401,7 @@ class Commands:
         query = self._parse(" ".join(args))
 
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query(client, self.dronefly_config, query)
+            query_response = await prepare_query(client, query)
             _check_obs_query_fields(query_response)
             if query_response.taxon:
                 query_response.taxon = await client.taxa.populate(query_response.taxon)
@@ -457,7 +455,7 @@ class Commands:
             raise ArgumentError(
                 "Only `user add me <user-id>` is supported at this time."
             )
-        user_config = self.dronefly_config.user(ctx.author.id)
+        user_config = await self.dronefly_config.user(ctx.author.id)
         configured_user_id = None
         if user_config:
             configured_user_id = user_config.get("inat_user_id")
