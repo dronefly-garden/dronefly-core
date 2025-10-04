@@ -8,7 +8,7 @@ from pyinaturalist.models import Place, Project, Taxon, User
 
 from ..clients.inat import iNatClient
 from ..formatters.generic import format_taxon_name, format_user_name
-from ..models import Config, ControlledTermSelector, match_controlled_term
+from ..models import ControlledTermSelector, match_controlled_term
 from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
 from .base import TaxonQuery, Query
 from .taxon import match_taxon
@@ -103,9 +103,12 @@ async def match_annotation(client, query_term: str, query_term_value: str):
     return controlled_term
 
 
-async def match_project(client, config, project_str):
+async def match_project(client, project_str):
     """Match project abbrev, place id, or first search result for text to search for."""
-    project_id = config.project(project_str)
+    config = client.ctx.config if client.ctx else None
+    if config:
+        project_id = await config.project(project_str)
+
     if not project_id and project_id.isdigit():
         project_id = project_str
     if project_id:
@@ -121,9 +124,12 @@ async def match_project(client, config, project_str):
     return project
 
 
-async def match_place(client, config, place_str):
+async def match_place(client, place_str):
     """Match place abbrev, place id, or first autocomplete result for text to search for."""
-    place_id = config.place(place_str)
+    config = client.ctx.config if client.ctx else None
+    if config:
+        place_id = await config.place(place_str)
+
     if not place_id and place_str.isdigit():
         place_id = place_str
     if place_id:
@@ -140,11 +146,28 @@ async def match_place(client, config, place_str):
 
 
 async def match_user(client, user_str):
-    """Match 'me', user id, or user login."""
+    """Match 'me', 'any', user id, or user login."""
     if user_str == "me":
         user_id = client.ctx.author.inat_user_id
     if user_str == "any":
         return None
+    if not user_id:
+        # FIXME: address issues caused by overlap between
+        # iNat user ids and Dronefly users ids, e.g.
+        # - with the current Dronefly user id numbering, match_user(client, "1")
+        #   will return the default Dronefly user configured for the session and
+        #   not the iNat user with id == 1!
+        # - but match_user(client, "2") will return iNat user with id == 2, etc.
+        # - perhaps in commands we should not consult the table if the user
+        #   specified a number and instead, assume they meant an iNat user id?
+        #   after all, the Dronefly user id is only to provide a unique key
+        #   internally and doesn't have any use outside storing user settings
+        #   in the config
+        config = client.ctx.config if client.ctx else None
+        if config:
+            user = await config.user(user_str)
+            if user:
+                user_id = user.inat_user_id
     if not user_id:
         user_id = user_str
     user = await anext(
@@ -155,17 +178,17 @@ async def match_user(client, user_str):
 
 
 async def prepare_query(
-    client: iNatClient, config: Config, query: Query, scientific_name=False, locale=None
+    client: iNatClient, query: Query, scientific_name=False, locale=None
 ):
     """Get all requested iNat entities."""
     args = get_base_query_args(query)
 
     if has_value(query.project):
-        args["project"] = await match_project(client, config, query.project)
+        args["project"] = await match_project(client, query.project)
     else:
         args["project"] = None
     if has_value(query.place):
-        args["place"] = await match_place(client, config, query.place)
+        args["place"] = await match_place(client, query.place)
     else:
         args["place"] = None
     if has_value(query.main):
