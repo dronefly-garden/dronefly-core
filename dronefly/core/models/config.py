@@ -5,8 +5,24 @@ from typing import Optional, Union
 from ..constants import CONFIG_PATH
 
 
+class BaseConfig:
+    """An interface for configurable lookup of iNat-related settings."""
+
+    async def user(self, name_or_id: Union[str, int]):
+        """Returns all user-configurable settings for the user identified by name_or_id."""
+        raise NotImplementedError
+
+    async def place(self, abbrev: str):
+        """Returns iNat place id# if abbrev is defined."""
+        raise NotImplementedError
+
+    async def project(self, abbrev: str):
+        """Returns iNat project id# if abbrev is defined."""
+        raise NotImplementedError
+
+
 @define
-class Config:
+class Config(BaseConfig):
     """Public class for Config model."""
 
     places: dict = field(factory=dict)
@@ -15,14 +31,14 @@ class Config:
 
     # async accessors to facilitate more complex behaviours
     # in subclasses
-    async def user(self, user_id: Union[str, int]):
-        return self.users.get(str(user_id))
+    async def user(self, name_or_id: Union[str, int]):
+        return self.users.get(str(name_or_id))
 
-    async def place(self, place_abbrev: str):
-        return self.places.get(place_abbrev)
+    async def place(self, abbrev: str):
+        return self.places.get(abbrev)
 
-    async def project(self, project_abbrev: str):
-        return self.projects.get(project_abbrev)
+    async def project(self, abbrev: str):
+        return self.projects.get(abbrev)
 
 
 def load_config(data: Optional[str] = None):
