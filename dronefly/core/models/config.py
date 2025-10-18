@@ -9,15 +9,19 @@ class BaseConfig:
     """An interface for configurable lookup of iNat-related settings."""
 
     async def user(self, name_or_id: Union[str, int]):
-        """Returns all user-configurable settings for the user identified by name_or_id."""
+        """Returns Dronefly user for name_or_id if configured."""
         raise NotImplementedError
 
-    async def place(self, abbrev: str):
-        """Returns iNat place id# if abbrev is defined."""
+    async def user_id(self, name_or_id: Union[str, int]):
+        """Returns iNat user id for name_or_id if configured."""
         raise NotImplementedError
 
-    async def project(self, abbrev: str):
-        """Returns iNat project id# if abbrev is defined."""
+    async def place_id(self, abbrev: str):
+        """Returns iNat place id if abbrev is defined."""
+        raise NotImplementedError
+
+    async def project_id(self, abbrev: str):
+        """Returns iNat project id if abbrev is defined."""
         raise NotImplementedError
 
 
@@ -34,10 +38,17 @@ class Config(BaseConfig):
     async def user(self, name_or_id: Union[str, int]):
         return self.users.get(str(name_or_id))
 
-    async def place(self, abbrev: str):
+    async def user_id(self, name_or_id: Union[str, int]):
+        user_id = None
+        user = await self.user(name_or_id)
+        if user:
+            user_id = user.get("inat_user_id")
+        return user_id
+
+    async def place_id(self, abbrev: str):
         return self.places.get(abbrev)
 
-    async def project(self, abbrev: str):
+    async def project_id(self, abbrev: str):
         return self.projects.get(abbrev)
 
 
