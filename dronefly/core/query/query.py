@@ -5,6 +5,7 @@ from typing import List, Optional, Union
 
 from attrs import define, field
 from pyinaturalist.models import Place, Project, Taxon, User
+from requests.exceptions import HTTPError
 
 from ..clients.inat import iNatClient
 from ..formatters.generic import format_taxon_name, format_user_name
@@ -105,48 +106,66 @@ async def match_annotation(client, query_term: str, query_term_value: str):
 
 async def match_project(client, project_str):
     """Match project abbrev, place id, or first search result for text to search for."""
+    project_id = None
+    project = None
     config = client.ctx.config if client.ctx else None
     if config:
-        project_id = await config.project(project_str)
+        project_id = await config.project_id(project_str)
 
     if not project_id and project_id.isdigit():
         project_id = project_str
-    if project_id:
-        project = await anext(
-            aiter(client.projects.from_ids(int(project_id))),
-            None,
-        )
-    else:
-        project = await anext(
-            aiter(client.projects.search(q=project_str)),
-            None,
-        )
+    try:
+        if project_id:
+            project = await anext(
+                aiter(client.projects.from_ids(int(project_id))),
+                None,
+            )
+        else:
+            project = await anext(
+                aiter(client.projects.search(q=project_str, limit=1)),
+                None,
+            )
+    except HTTPError as err:
+        if err.response.status_code != 404:
+            raise err from None
+    if not project:
+        raise LookupError("Project not found.")
     return project
 
 
 async def match_place(client, place_str):
     """Match place abbrev, place id, or first autocomplete result for text to search for."""
+    place_id = None
+    place = None
     config = client.ctx.config if client.ctx else None
     if config:
-        place_id = await config.place(place_str)
+        place_id = await config.place_id(place_str)
 
     if not place_id and place_str.isdigit():
         place_id = place_str
-    if place_id:
-        place = await anext(
-            aiter(client.places.from_ids(place_id)),
-            None,
-        )
-    else:
-        place = await anext(
-            aiter(client.places.autocomplete(q=place_str)),
-            None,
-        )
+    try:
+        if place_id:
+            place = await anext(
+                aiter(client.places.from_ids(place_id)),
+                None,
+            )
+        else:
+            place = await anext(
+                aiter(client.places.autocomplete(q=place_str, limit=1)),
+                None,
+            )
+    except HTTPError as err:
+        if err.response.status_code != 404:
+            raise err from None
+    if not place:
+        raise LookupError("Place not found.")
     return place
 
 
 async def match_user(client, user_str):
     """Match 'me', 'any', user id, or user login."""
+    user = None
+    user_id = None
     if user_str == "me":
         user_id = client.ctx.author.inat_user_id
     if user_str == "any":
@@ -163,17 +182,21 @@ async def match_user(client, user_str):
         #   after all, the Dronefly user id is only to provide a unique key
         #   internally and doesn't have any use outside storing user settings
         #   in the config
-        config = client.ctx.config if client.ctx else None
-        if config:
-            user = await config.user(user_str)
-            if user:
-                user_id = user.inat_user_id
+        dronefly_config = client.ctx.config if client.ctx else None
+        if dronefly_config:
+            user_id = await dronefly_config.user_id(user_str)
     if not user_id:
         user_id = user_str
-    user = await anext(
-        aiter(client.users.from_ids(user_id)),
-        None,
-    )
+    try:
+        user = await anext(
+            aiter(client.users.from_ids(user_id)),
+            None,
+        )
+    except HTTPError as err:
+        if err.response.status_code != 404:
+            raise err from None
+    if not user:
+        raise LookupError("User not found.")
     return user
 
 
