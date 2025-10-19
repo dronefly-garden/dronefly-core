@@ -35,7 +35,7 @@ from ..constants import (
     TRINOMIAL_ABBR,
     RANK_LEVELS,
 )
-from ..models.taxon_list import TaxonListMetadata
+from ..models import BaseCountFormatter, BaseFormatter, ListFormatter, TaxonListMetadata
 from ..utils import included_ranks
 from .constants import (
     ICONS,
@@ -523,29 +523,6 @@ def format_count(
     else:
         link = f"[{count.observation_count:,} ({count.species_count:,})]({url}) {name}"
     return f"{link} "
-
-
-class BaseFormatter:
-    writable: bool = False
-
-    def format():
-        raise NotImplementedError
-
-
-class ListFormatter(BaseFormatter):
-    def format_page():
-        raise NotImplementedError
-
-    def last_page():
-        raise NotImplementedError
-
-
-class BaseCountFormatter(BaseFormatter):
-    def count():
-        raise NotImplementedError
-
-    def description():
-        raise NotImplementedError
 
 
 class TaxonListFormatter(ListFormatter):
