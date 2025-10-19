@@ -113,7 +113,7 @@ async def match_project(client, project_str):
     if config:
         project_id = await config.project_id(project_str)
 
-    if not project_id and project_id.isdigit():
+    if not project_id and project_str.isdigit():
         project_id = project_str
     try:
         if project_id:
