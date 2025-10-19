@@ -23,8 +23,9 @@ from ..query import (
     get_place_count,
     get_user_count,
     get_user_count_total,
+    match_place,
+    match_user,
     prepare_query,
-    QueryResponse,
 )
 from ..formatters.generic import (
     format_count,
@@ -65,38 +66,6 @@ def _check_obs_query_fields(query_response):
         raise ArgumentError(
             f"Invalid `sort by`. Must be one of: `{', '.join(VALID_OBS_SORT_BY.keys())}`"
         )
-
-
-async def _user(client, user_str):
-    user = None
-    try:
-        if user_str == "me":
-            user_id = client.ctx.author.inat_user_id
-            user = await anext(aiter(client.users.from_ids(user_id)), None)
-        else:
-            user = await anext(aiter(client.users.autocomplete(user_str)), None)
-    except HTTPError as err:
-        if err.response.status_code == 404:
-            pass
-    if not user:
-        raise ArgumentError("User not found.")
-    return user
-
-
-async def _place(client, place_str):
-    place = None
-    try:
-        if place_str == "home":
-            place_id = client.ctx.author.inat_place_id
-            place = await anext(aiter(client.places.from_ids(place_id)), None)
-        else:
-            place = await anext(aiter(client.places.autocomplete(place_str)), None)
-    except HTTPError as err:
-        if err.response.status_code == 404:
-            pass
-    if not place:
-        raise ArgumentError("Place not found.")
-    return place
 
 
 # TODO: everything below needs to be broken down into different layers
@@ -432,58 +401,50 @@ class Commands:
         user = None
         place = None
         counts_formatter = None
-        if len(args) == 0 or args[0] == "sel":
-            formatter = ctx.page_formatter
-            if formatter and getattr(formatter, "source", None):
-                page = await formatter.source.get_page(ctx.page_number)
-                with self.inat_client.set_ctx(ctx) as client:
+        with self.inat_client.set_ctx(ctx) as client:
+            if len(args) == 0 or args[0] == "sel":
+                formatter = ctx.page_formatter
+                if formatter and getattr(formatter, "source", None):
+                    page = await formatter.source.get_page(ctx.page_number)
                     taxon = await client.taxa.populate(page[ctx.selected])
+                else:
+                    raise CommandError("Select a taxon first")
             else:
-                raise CommandError("Select a taxon first")
-        else:
-            query = self._parse(" ".join(args))
-            # TODO: Handle all query clauses, not just main.terms
-            # TODO: Doesn't do any ranking or filtering of results
-            if not query.main or not query.main.terms:
-                raise ArgumentError("Not a taxon")
+                query = self._parse(" ".join(args))
+                if not query.main or not query.main.terms:
+                    raise ArgumentError("Not a taxon")
 
-            with self.inat_client.set_ctx(ctx) as client:
                 query_response = await prepare_query(client, query)
                 if not query_response.taxon:
                     raise LookupError("Nothing found")
                 taxon = await client.taxa.populate(query_response.taxon)
 
-                if query.user:
-                    user = await _user(client, query.user)
-
-                if query.place:
-                    place = await _place(client, query.place)
-
-            formatter = TaxonFormatter(
-                taxon,
-                lang=ctx.get_inat_user_default("inat_lang"),
-                with_url=True,
-            )
-            formatted_taxon_page = await self._get_formatted_page(formatter)
-
-            if user or place:
-                query_response = QueryResponse(taxon=taxon)
-                if user:
-                    count = await get_user_count(client, query_response, user)
-                else:
-                    count = await get_place_count(client, query_response, place)
-                counts_formatter = CountsFormatter()
-                counts_source = CountsSource(
-                    entries=[count],
-                    query_response=query_response,
-                    counts_formatter=counts_formatter,
-                    per_page=ctx.per_page,
+                user = query_response.user
+                place = query_response.place
+                formatter = TaxonFormatter(
+                    taxon,
+                    lang=ctx.get_inat_user_default("inat_lang"),
+                    with_url=True,
                 )
-                counts_formatter.source = counts_source
-                formatted_counts = await self._get_formatted_page(counts_formatter)
-                response = "\n\n".join((formatted_taxon_page, formatted_counts))
-            else:
-                response = formatted_taxon_page
+                formatted_taxon_page = await self._get_formatted_page(formatter)
+
+                if user or place:
+                    if user:
+                        count = await get_user_count(client, query_response, user)
+                    else:
+                        count = await get_place_count(client, query_response, place)
+                    counts_formatter = CountsFormatter()
+                    counts_source = CountsSource(
+                        entries=[count],
+                        query_response=query_response,
+                        counts_formatter=counts_formatter,
+                        per_page=ctx.per_page,
+                    )
+                    counts_formatter.source = counts_source
+                    formatted_counts = await self._get_formatted_page(counts_formatter)
+                    response = "\n\n".join((formatted_taxon_page, formatted_counts))
+                else:
+                    response = formatted_taxon_page
 
         ctx.counts_formatter = counts_formatter
         return self._format_markdown(response)
@@ -495,13 +456,10 @@ class Commands:
         user_or_place_str = " ".join(args)
         with self.inat_client.set_ctx(ctx) as client:
             add_user = isinstance(ctx.counts_formatter.source.entries[0], UserCount)
-            try:
-                if add_user:
-                    user_or_place = await _user(client, user_or_place_str)
-                else:
-                    user_or_place = await _place(client, user_or_place_str)
-            except ArgumentError as err:
-                return str(err)
+            if add_user:
+                user_or_place = await match_user(client, user_or_place_str)
+            else:
+                user_or_place = await match_place(client, user_or_place_str)
             # TODO: update_source with added user or place and (if user) new
             # total and output updated page (advancing to next page if needed)
             formatter = ctx.counts_formatter
@@ -566,7 +524,7 @@ class Commands:
         """Show user"""
         with self.inat_client.set_ctx(ctx) as client:
             try:
-                user = await _user(client, user_str)
+                user = await match_user(client, user_str)
             except ArgumentError as err:
                 return str(err)
             return self._format_markdown(UserFormatter(user).format())
