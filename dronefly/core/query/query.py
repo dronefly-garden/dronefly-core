@@ -157,6 +157,9 @@ async def match_place(client, place_str):
     except HTTPError as err:
         if err.response.status_code != 404:
             raise err from None
+    except IndexError:
+        # https://github.com/pyinat/pyinaturalist/issues/627
+        pass
     if not place:
         raise LookupError("Place not found.")
     return place
