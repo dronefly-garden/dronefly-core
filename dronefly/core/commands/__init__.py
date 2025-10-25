@@ -395,58 +395,79 @@ class Commands:
         )
         return self._format_markdown(formatted_page)
 
+    async def _get_taxon_query(self, client, *args):
+        """Prepare a query with taxon required."""
+        query_response = None
+        query = self._parse(" ".join(args))
+        if not query.main or not query.main.terms:
+            raise ArgumentError("Not a taxon")
+        query_response = await prepare_query(client, query)
+        if not query_response.taxon:
+            raise LookupError("Nothing found")
+        query_response.taxon = await client.taxa.populate(query_response.taxon)
+        return query_response
+
+    async def _get_selected_taxon(self, client):
+        """Get the currently selected taxon."""
+        ctx = client.ctx
+        formatter = ctx.page_formatter
+        if formatter and getattr(formatter, "source", None):
+            page = await formatter.source.get_page(ctx.page_number)
+            taxon = await client.taxa.populate(page[ctx.selected])
+        else:
+            raise CommandError("Select a taxon first")
+        return taxon
+
+    async def _get_count(self, client, query_response):
+        """Get counts formatter for user or place in the query."""
+        user = query_response.user
+        place = query_response.place
+        if user:
+            count = await get_user_count(client, query_response, user)
+        else:
+            count = await get_place_count(client, query_response, place)
+        return count
+
+    def _get_counts_formatter(self, client, query_response, count):
+        counts_formatter = CountsFormatter()
+        ctx = client.ctx
+        counts_source = CountsSource(
+            entries=[count],
+            query_response=query_response,
+            counts_formatter=counts_formatter,
+            per_page=ctx.per_page,
+        )
+        counts_formatter.source = counts_source
+        return counts_formatter
+
     async def taxon(self, ctx: Context, *args):
         """Show taxon"""
         taxon = None
-        user = None
-        place = None
-        counts_formatter = None
+        with_counts = False
+        count = None
         with self.inat_client.set_ctx(ctx) as client:
             if len(args) == 0 or args[0] == "sel":
-                formatter = ctx.page_formatter
-                if formatter and getattr(formatter, "source", None):
-                    page = await formatter.source.get_page(ctx.page_number)
-                    taxon = await client.taxa.populate(page[ctx.selected])
-                else:
-                    raise CommandError("Select a taxon first")
+                taxon = await self._get_selected_taxon(ctx)
             else:
-                query = self._parse(" ".join(args))
-                if not query.main or not query.main.terms:
-                    raise ArgumentError("Not a taxon")
+                query_response = await self._get_taxon_query(client, *args)
+                taxon = query_response.taxon
+                if query_response.countable:
+                    count = await self._get_count(client, query_response)
 
-                query_response = await prepare_query(client, query)
-                if not query_response.taxon:
-                    raise LookupError("Nothing found")
-                taxon = await client.taxa.populate(query_response.taxon)
+        taxon_formatter = TaxonFormatter(
+            taxon,
+            lang=ctx.get_inat_user_default("inat_lang"),
+            with_url=True,
+        )
+        formatted_taxon_page = await self._get_formatted_page(taxon_formatter)
+        if with_counts:
+            counts_formatter = self._get_counts_formatter(client, query_response, count)
+            formatted_counts = await self._get_formatted_page(counts_formatter)
+            ctx.counts_formatter = counts_formatter
+            response = "\n\n".join((formatted_taxon_page, formatted_counts))
+        else:
+            response = formatted_taxon_page
 
-                user = query_response.user
-                place = query_response.place
-                formatter = TaxonFormatter(
-                    taxon,
-                    lang=ctx.get_inat_user_default("inat_lang"),
-                    with_url=True,
-                )
-                formatted_taxon_page = await self._get_formatted_page(formatter)
-
-                if user or place:
-                    if user:
-                        count = await get_user_count(client, query_response, user)
-                    else:
-                        count = await get_place_count(client, query_response, place)
-                    counts_formatter = CountsFormatter()
-                    counts_source = CountsSource(
-                        entries=[count],
-                        query_response=query_response,
-                        counts_formatter=counts_formatter,
-                        per_page=ctx.per_page,
-                    )
-                    counts_formatter.source = counts_source
-                    formatted_counts = await self._get_formatted_page(counts_formatter)
-                    response = "\n\n".join((formatted_taxon_page, formatted_counts))
-                else:
-                    response = formatted_taxon_page
-
-        ctx.counts_formatter = counts_formatter
         return self._format_markdown(response)
 
     async def add(self, ctx: Context, *args):

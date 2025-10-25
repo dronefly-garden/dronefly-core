@@ -312,6 +312,11 @@ class QueryResponse:
                     adjectives.append("*Needs ID*")
         self.adjectives = adjectives
 
+    @property
+    def countable(self):
+        """Has an attribute for which a counts table may be shown."""
+        return bool(self.user or self.place)
+
     def obs_args(self):
         """Arguments for an observations query."""
 
