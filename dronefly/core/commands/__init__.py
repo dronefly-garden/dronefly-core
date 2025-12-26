@@ -26,12 +26,13 @@ from ..query import (
     match_place,
     match_user,
     prepare_query,
+    QueryResponse,
 )
+from ..query.taxon import get_query_taxon_formatter
 from ..formatters.generic import (
     format_count,
     ObservationFormatter,
     TaxonListFormatter,
-    TaxonFormatter,
     CountsFormatter,
     UserFormatter,
     p,
@@ -448,17 +449,18 @@ class Commands:
         with self.inat_client.set_ctx(ctx) as client:
             if len(args) == 0 or args[0] == "sel":
                 taxon = await self._get_selected_taxon(ctx)
+                query_response = QueryResponse(taxon=taxon)
             else:
                 query_response = await self._get_taxon_query(client, *args)
-                taxon = query_response.taxon
                 if query_response.countable:
                     count = await self._get_count(client, query_response)
 
-        taxon_formatter = TaxonFormatter(
-            taxon,
-            lang=ctx.get_inat_user_default("inat_lang"),
-            with_url=True,
-        )
+            taxon_formatter = await get_query_taxon_formatter(
+                client,
+                query_response,
+                lang=ctx.get_inat_user_default("inat_lang"),
+                with_url=True,
+            )
         formatted_taxon_page = await self._get_formatted_page(taxon_formatter)
         if with_counts:
             counts_formatter = self._get_counts_formatter(client, query_response, count)
