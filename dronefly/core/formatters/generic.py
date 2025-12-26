@@ -20,9 +20,9 @@ import inflect
 from pyinaturalist import (
     ConservationStatus,
     EstablishmentMeans,
-    JsonResponse,
     ListedTaxon,
     Observation,
+    Paginator,
     Taxon,
     TaxonSummary,
     User,
@@ -1162,7 +1162,7 @@ class QualifiedTaxonFormatter(TaxonFormatter):
     def __init__(
         self,
         query_response: "QueryResponse",
-        observations: JsonResponse = None,
+        observations: Paginator,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1177,7 +1177,7 @@ class QualifiedTaxonFormatter(TaxonFormatter):
             self,
             taxon: Taxon,
             query_response: "QueryResponse" = None,
-            observations: JsonResponse = None,
+            observations: Paginator = None,
         ):
             super().__init__(taxon)
             self.query_response = query_response
@@ -1185,7 +1185,7 @@ class QualifiedTaxonFormatter(TaxonFormatter):
 
         def count(self):
             if self.observations:
-                count = self.observations.get("total_results")
+                count = self.observations.count()
             else:
                 count = self.taxon.observations_count
             return count
