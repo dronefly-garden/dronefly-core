@@ -441,20 +441,25 @@ class Commands:
         counts_formatter.source = counts_source
         return counts_formatter
 
+    async def _get_query_entities_from_args(self, client, *args):
+        taxon = None
+        count = None
+        if len(args) == 0 or args[0] == "sel":
+            taxon = await self._get_selected_taxon(client.ctx)
+            query_response = QueryResponse(taxon=taxon)
+        else:
+            query_response = await self._get_taxon_query(client, *args)
+            if query_response.countable:
+                count = await self._get_count(client, query_response)
+        return (query_response, count)
+
     async def taxon(self, ctx: Context, *args):
         """Show taxon"""
-        taxon = None
-        with_counts = False
         count = None
         with self.inat_client.set_ctx(ctx) as client:
-            if len(args) == 0 or args[0] == "sel":
-                taxon = await self._get_selected_taxon(ctx)
-                query_response = QueryResponse(taxon=taxon)
-            else:
-                query_response = await self._get_taxon_query(client, *args)
-                if query_response.countable:
-                    count = await self._get_count(client, query_response)
-
+            (query_response, count) = await self._get_query_entities_from_args(
+                client, *args
+            )
             taxon_formatter = await get_query_taxon_formatter(
                 client,
                 query_response,
@@ -462,7 +467,7 @@ class Commands:
                 with_url=True,
             )
         formatted_taxon_page = await self._get_formatted_page(taxon_formatter)
-        if with_counts:
+        if count:
             counts_formatter = self._get_counts_formatter(client, query_response, count)
             formatted_counts = await self._get_formatted_page(counts_formatter)
             ctx.counts_formatter = counts_formatter
