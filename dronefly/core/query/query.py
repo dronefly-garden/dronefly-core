@@ -643,3 +643,14 @@ async def get_place_count(client, query_response, place):
     return PlaceCount.from_json(
         _place_count_args(place, observations_count, species_count)
     )
+
+
+async def get_query_count(client, query_response):
+    """Get count of user or place in the query."""
+    user = query_response.user
+    place = query_response.place
+    if user:
+        count = await get_user_count(client, query_response, user)
+    else:
+        count = await get_place_count(client, query_response, place)
+    return count

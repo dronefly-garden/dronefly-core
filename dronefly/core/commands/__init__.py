@@ -28,7 +28,7 @@ from ..query import (
     prepare_query,
     QueryResponse,
 )
-from ..query.taxon import get_query_taxon_formatter
+from ..query.formatters import get_query_taxon_formatter
 from ..formatters.generic import (
     format_count,
     ObservationFormatter,
@@ -419,16 +419,6 @@ class Commands:
             raise CommandError("Select a taxon first")
         return taxon
 
-    async def _get_count(self, client, query_response):
-        """Get counts formatter for user or place in the query."""
-        user = query_response.user
-        place = query_response.place
-        if user:
-            count = await get_user_count(client, query_response, user)
-        else:
-            count = await get_place_count(client, query_response, place)
-        return count
-
     def _get_counts_formatter(self, client, query_response, count):
         counts_formatter = CountsFormatter()
         ctx = client.ctx
@@ -441,40 +431,26 @@ class Commands:
         counts_formatter.source = counts_source
         return counts_formatter
 
-    async def _get_query_entities_from_args(self, client, *args):
+    async def _get_query_response_from_args(self, client, *args):
         taxon = None
-        count = None
         if len(args) == 0 or args[0] == "sel":
             taxon = await self._get_selected_taxon(client.ctx)
             query_response = QueryResponse(taxon=taxon)
         else:
             query_response = await self._get_taxon_query(client, *args)
-            if query_response.countable:
-                count = await self._get_count(client, query_response)
-        return (query_response, count)
+        return query_response
 
     async def taxon(self, ctx: Context, *args):
         """Show taxon"""
-        count = None
         with self.inat_client.set_ctx(ctx) as client:
-            (query_response, count) = await self._get_query_entities_from_args(
-                client, *args
-            )
+            query_response = await self._get_query_response_from_args(client, *args)
             taxon_formatter = await get_query_taxon_formatter(
                 client,
                 query_response,
                 lang=ctx.get_inat_user_default("inat_lang"),
                 with_url=True,
             )
-        formatted_taxon_page = await self._get_formatted_page(taxon_formatter)
-        if count:
-            counts_formatter = self._get_counts_formatter(client, query_response, count)
-            formatted_counts = await self._get_formatted_page(counts_formatter)
-            ctx.counts_formatter = counts_formatter
-            response = "\n\n".join((formatted_taxon_page, formatted_counts))
-        else:
-            response = formatted_taxon_page
-
+        response = await self._get_formatted_page(taxon_formatter)
         return self._format_markdown(response)
 
     async def add(self, ctx: Context, *args):

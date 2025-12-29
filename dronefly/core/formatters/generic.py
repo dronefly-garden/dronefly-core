@@ -822,6 +822,8 @@ class TaxonFormatter(BaseFormatter):
         with_url: bool = True,
         matched_term: str = None,
         max_len: int = 0,
+        counts_formatter: CountsFormatter = None,
+        counts_page: str = None,
     ):
         """
         Parameters
@@ -845,6 +847,8 @@ class TaxonFormatter(BaseFormatter):
         self.matched_term = matched_term
         self.max_len = max_len
         self.obs_count_formatter = self.ObsCountFormatter(taxon)
+        self.counts_formatter = counts_formatter
+        self.counts_page = counts_page
 
     def format(self, with_title: bool = True, with_ancestors: bool = True):
         """Format the taxon as markdown.
@@ -864,6 +868,8 @@ class TaxonFormatter(BaseFormatter):
             )
         else:
             description += "."
+        if self.counts_formatter and self.counts_page:
+            description += "\n\n" + self.counts_formatter.format_page(self.counts_page)
         return description
 
     def format_title(self):
