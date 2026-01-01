@@ -26,10 +26,13 @@ class TaxonSource(ListPageSource):
 
     def toggle_ancestors(self):
         self.with_ancestors = not self.with_ancestors
-        self.entries[0] = self.format_page()
+        self.update_page()
 
     def format_page(self):
         return self.formatter.format(with_ancestors=self.with_ancestors)
+
+    def update_page(self):
+        self.entries[0] = self.format_page()
 
 
 class TaxonMenu(BaseListMenu):
