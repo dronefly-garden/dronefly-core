@@ -5,17 +5,16 @@ from dronefly.core.menus.counts import CountsSource
 from dronefly.core.query.query import get_query_count
 
 
-async def get_query_counts_formatter(client, query_response, count):
+async def get_query_counts_formatter(query_response, count):
     counts_formatter = None
     counts_page = None
     if count:
-        ctx = client.ctx
         counts_formatter = CountsFormatter()
         counts_source = CountsSource(
             entries=[count],
             query_response=query_response,
             counts_formatter=counts_formatter,
-            per_page=ctx.per_page,
+            per_page=15,  # FIXME: magic number!
         )
         counts_formatter.source = counts_source
         counts_page = await counts_source.get_page(page_number=0)
@@ -40,7 +39,7 @@ async def get_query_taxon_formatter(client, query_response, **formatter_params):
         count = await get_query_count(client, query_response)
         # adds first count from the query to the first page
         (counts_formatter, counts_page) = await get_query_counts_formatter(
-            client, query_response, count
+            query_response, count
         )
         _formatter_params["counts_formatter"] = counts_formatter
         _formatter_params["counts_page"] = counts_page
