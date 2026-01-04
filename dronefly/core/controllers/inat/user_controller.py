@@ -1,3 +1,5 @@
+from typing import Iterable
+
 from pyinaturalist.constants import MultiIntOrStr
 from pyinaturalist.controllers import UserController as pyiNatUserController
 from pyinaturalist.converters import ensure_list
@@ -14,23 +16,18 @@ class UserController(pyiNatUserController):
             get_user_by_id, User, cls=IDPaginator, ids=ensure_list(user_ids), **params
         )
 
-    async def from_dronefly_ids(
-        self, user_ids: MultiIntOrStr, **params
+    async def from_dronefly_users(
+        self, dronefly_users: Iterable, **params
     ) -> Paginator[User]:
-        """Get users by dronefly ID
-
-        Example:
-            Get a user by dronefly ID:
-
-            >>> user = client.users.from_dronefly_id(1).one()
-
-            Get multiple users by dronefly ID:
-
-            >>> users = client.users.from_id([1,2]).all()
-
-        Args:
-            user_ids: One or more user IDs
-        """
+        """Get iNat users for list of dronefly users"""
+        inat_user_ids = [
+            await self.client.ctx.config.user_id(dronefly_user)
+            for dronefly_user in dronefly_users
+        ]
         return self.client.paginate(
-            get_user_by_id, User, cls=IDPaginator, ids=ensure_list(user_ids), **params
+            get_user_by_id,
+            User,
+            cls=IDPaginator,
+            ids=ensure_list(inat_user_ids),
+            **params
         )
