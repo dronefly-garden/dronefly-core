@@ -8,6 +8,10 @@ class BaseMenu:
     ) -> None:
         self._source = source
 
+    @property
+    def source(self):
+        return self._source
+
 
 class BaseListMenu(BaseMenu):
     def __init__(
