@@ -3,7 +3,7 @@ import asyncio
 from contextlib import contextmanager
 from functools import partial
 from inspect import signature
-from typing import Optional
+from typing import Callable, Optional, Type
 
 from pyinaturalist import (
     ClientSession,
@@ -11,8 +11,11 @@ from pyinaturalist import (
     iNatClient as pyiNatClient,
 )
 from pyinaturalist.constants import RequestParams
+from pyinaturalist.models import T
 
 from ..constants import INAT_DEFAULTS, RATELIMIT_FILE, RATELIMIT_LOCK_FILE, CACHE_FILE
+from ..controllers.inat import UserController
+from ..paginator import Paginator
 
 
 DRONEFLY_SESSION = ClientSession(
@@ -43,6 +46,7 @@ class iNatClient(pyiNatClient):
             **kwargs,
         }
         super().__init__(*args, **_kwargs)
+        self.users = UserController(self)
         self.annotations.async_all = asyncify(self, self.annotations.all)
         self.taxa.populate = asyncify(self, self.taxa.populate)
         self.observations.taxon_summary = asyncify(
@@ -68,6 +72,18 @@ class iNatClient(pyiNatClient):
                 _kwargs.setdefault(param, inat_defaults[param])
 
         return _kwargs
+
+    def paginate(
+        self,
+        request_function: Callable,
+        model: Type[T],
+        auth: bool = False,
+        cls: Type[Paginator] = Paginator,
+        **kwargs,
+    ) -> Paginator[T]:
+        """Return our own Paginator instead of pyiNat's."""
+        kwargs = self.add_defaults(request_function, kwargs, auth)
+        return cls(request_function, model, loop=self.loop, **kwargs)
 
     @contextmanager
     def set_ctx(self, ctx):
