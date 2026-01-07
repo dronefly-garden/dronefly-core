@@ -824,6 +824,8 @@ class TaxonFormatter(BaseFormatter):
         max_len: int = 0,
         counts_formatter: CountsFormatter = None,
         counts_page: str = None,
+        image_number: int = None,
+        image_description: str = None,
     ):
         """
         Parameters
@@ -840,6 +842,13 @@ class TaxonFormatter(BaseFormatter):
 
         with_url: bool, optional
             When True, link the name to taxon.url.
+
+        image_number: int, optional
+            Image number to include.
+
+        image_description: str, optional
+            Description of image. When supplied, suppresses inclusion of
+            taxon details in the formatted output.
         """
         self.taxon = taxon
         self.lang = lang
@@ -849,6 +858,8 @@ class TaxonFormatter(BaseFormatter):
         self.obs_count_formatter = self.ObsCountFormatter(taxon)
         self.counts_formatter = counts_formatter
         self.counts_page = counts_page
+        self.image_number = image_number
+        self.image_description = image_description
 
     def format(self, with_title: bool = True, with_ancestors: bool = True):
         """Format the taxon as markdown.
@@ -857,20 +868,22 @@ class TaxonFormatter(BaseFormatter):
         with_ancestors: bool, optional
             When False, omit ancestors
         """
-        description = self.format_taxon_description()
-        if with_title:
-            description = "\n".join([self.format_title(), description])
-        if with_ancestors and self.taxon.ancestors:
-            description += " in: " + format_taxon_names(
-                self.taxon.ancestors,
-                hierarchy=True,
-                max_len=self.max_len,
-            )
-        else:
-            description += "."
+        _description = self.image_description
+        if not _description:
+            _description = self.format_taxon_description()
+            if with_title:
+                _description = "\n".join([self.format_title(), _description])
+            if with_ancestors and self.taxon.ancestors:
+                _description += " in: " + format_taxon_names(
+                    self.taxon.ancestors,
+                    hierarchy=True,
+                    max_len=self.max_len,
+                )
+            else:
+                _description += "."
         if self.counts_formatter and self.counts_page:
-            description += "\n\n" + self.counts_formatter.format_page(self.counts_page)
-        return description
+            _description += "\n\n" + self.counts_formatter.format_page(self.counts_page)
+        return _description
 
     def format_title(self):
         """Format taxon title as Discord-like markdown.

@@ -19,7 +19,7 @@ class TaxonSource(ListPageSource):
         self._taxon_formatter = taxon_formatter
         self._url = f"{WWW_BASE_URL}/taxon/{self.query_response.taxon.id}"
         self.with_ancestors = with_ancestors
-        pages = [self.formatter.format(with_ancestors=with_ancestors)]
+        pages = [self.format_page()]
         super().__init__(pages, per_page=1)
 
     def is_paginating(self):
