@@ -5,7 +5,7 @@ from pyinaturalist import User
 from dronefly.core.clients.inat import iNatClient
 from dronefly.core.formatters.generic import CountsFormatter
 from dronefly.core.menus.counts import CountsSource
-from dronefly.core.query.query import get_user_count
+from dronefly.core.query.query import get_place_count, get_user_count
 
 from .menu import BaseMenu
 from .source import ListPageSource
@@ -62,6 +62,42 @@ class TaxonSource(ListPageSource):
     @property
     def counts_source(self) -> CountsSource:
         return self.counts_formatter.source if self.counts_formatter else None
+
+    async def toggle_place_count(self, inat_client: iNatClient, place: User):
+        query_response = self.query_response
+        counts_formatter = self.counts_formatter
+        place_count = None
+        if self.counts_source:
+            place_count = next(
+                (count for count in self.counts_source.entries if count.id == place.id),
+                None,
+            )
+        if place_count is not None:
+            self.counts_source.entries.remove(place_count)
+        else:
+            place_count = await get_place_count(inat_client, query_response, place)
+            if self.counts_source:
+                # A source already exists. Just append the count:
+                self.counts_source.entries.append(place_count)
+            else:
+                # Create both a new source and formatter for counts
+                # with the user count as its only entry and link them
+                # back to the taxon formatter:
+                counts_formatter = CountsFormatter()
+                counts_source = CountsSource(
+                    entries=[place_count],
+                    query_response=query_response,
+                    counts_formatter=counts_formatter,
+                    per_page=15,  # FIXME: magic number!
+                )
+                counts_formatter.source = counts_source
+                self.counts_formatter = counts_formatter
+        # One way or the other, we now have a counts formatter attached. All that remains
+        # is to populate it with new content and regenerate the formatted taxon page
+        # to include it:
+        counts_page = await self.counts_source.get_page(page_number=0)
+        self.formatter.counts_page = counts_page
+        self.update_page()
 
     async def toggle_user_count(self, inat_client: iNatClient, user: User):
         query_response = self.query_response

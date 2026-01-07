@@ -1,5 +1,8 @@
+from typing import Union
+
 from pyinaturalist import UserCount
 
+from ..models import PlaceCount
 from .source import ListPageSource
 from ..formatters import CountsFormatter
 from ..query import QueryResponse
@@ -8,7 +11,7 @@ from ..query import QueryResponse
 class CountsSource(ListPageSource):
     def __init__(
         self,
-        entries: list[UserCount],
+        entries: Union[list[PlaceCount], list[UserCount]],
         query_response: QueryResponse,
         counts_formatter: CountsFormatter,
         **kwargs

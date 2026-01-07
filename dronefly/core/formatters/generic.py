@@ -799,7 +799,7 @@ class CountsFormatter(ListFormatter):
 
     def format_page(
         self,
-        page: list[Union[UserCount, PlaceCount]] = [],
+        page: Union[list[UserCount], list[PlaceCount]] = [],
     ):
         """Format a page of user counts."""
         header = (
