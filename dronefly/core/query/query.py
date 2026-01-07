@@ -491,7 +491,7 @@ class QueryResponse:
             message += " identified by " + format_user_name(self.id_by)
         if self.except_by:
             message += " except by " + format_user_name(self.except_by)
-        if self.observed and self.observed.on or self.observed.d1 or self.observed.d2:
+        if self.observed and (self.observed.on or self.observed.d1 or self.observed.d2):
             message += " observed "
             if self.observed.on:
                 message += f" on {_format_date(self.observed.on)}"
@@ -502,7 +502,7 @@ class QueryResponse:
                     if self.observed.d1:
                         message += " and "
                     message += f" on or before {_format_date(self.observed.d2)}"
-        if self.added and self.added.on or self.added.d1 or self.added.d2:
+        if self.added and (self.added.on or self.added.d1 or self.added.d2):
             message += " added "
             if self.added.on:
                 message += f" on {_format_date(self.observed.on)}"
