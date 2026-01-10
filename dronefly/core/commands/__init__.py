@@ -30,7 +30,7 @@ from ..query import (
 )
 from ..query.formatters import get_query_taxon_formatter
 from ..formatters.generic import (
-    format_count,
+    format_obs_spp_count,
     ObservationFormatter,
     TaxonListFormatter,
     CountsFormatter,
@@ -479,7 +479,7 @@ class Commands:
                 total_user_count = await get_user_count_total(
                     client, query_response, source.entries
                 )
-                formatted_total = format_count(total_user_count, query_response)
+                formatted_total = format_obs_spp_count(total_user_count, query_response)
                 formatted_counts_page += f"\n{formatted_total}"
             return self._format_markdown(formatted_counts_page)
 
