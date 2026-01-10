@@ -313,9 +313,26 @@ class QueryResponse:
         self.adjectives = adjectives
 
     @property
+    def countable_name(self):
+        """The name of the attribute that is countable."""
+        return next(
+            (
+                name
+                for name in ("user", "unobserved_by", "id_by", "place")
+                if getattr(self, name) is not None
+            ),
+            None,
+        )
+
+    @property
+    def countable_value(self):
+        """The value that is countable."""
+        return getattr(self, self.countable_attr_name)
+
+    @property
     def countable(self):
-        """Has an attribute for which a counts table may be shown."""
-        return bool(self.user or self.place)
+        """Is countable."""
+        return bool(self.countable_name)
 
     def obs_args(self):
         """Arguments for an observations query."""
