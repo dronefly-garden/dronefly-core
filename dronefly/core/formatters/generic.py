@@ -498,7 +498,7 @@ def format_quality_grade(options: dict = {}):
     return adjectives
 
 
-def format_count(
+def format_obs_spp_count(
     count: Union[UserCount, PlaceCount],
     query_response: QueryResponse,
 ):
@@ -809,7 +809,7 @@ class CountsFormatter(ListFormatter):
         )
         formatted_page = [header]
         for count in page:
-            formatted_entry = format_count(count, self.source.query_response)
+            formatted_entry = format_obs_spp_count(count, self.source.query_response)
             formatted_page.append(formatted_entry)
         return "\n".join(formatted_page)
 
