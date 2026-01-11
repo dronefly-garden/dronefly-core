@@ -1,7 +1,7 @@
 """Tests for query module."""
 from datetime import datetime
 
-from dronefly.core.query.query import Query, TaxonQuery
+from dronefly.core.query.query import Query, QueryResponse, TaxonQuery
 
 
 # pylint: disable=missing-class-docstring disable=no-self-use disable=missing-function-docstring
@@ -113,3 +113,13 @@ class TestQuery:
     def test_query_order(self):
         query = Query(main=TaxonQuery(terms=["birds"]), user="me", order="asc")
         assert str(query) == "birds by me order asc"
+
+
+class TestQueryResponse:
+    def test_query_response_sort_by_observed(self):
+        query_response = QueryResponse(sort_by="observed")
+        assert query_response.obs_args().get("order_by") == "observed_on"
+
+    def test_query_response_sort_by_obs(self):
+        query_response = QueryResponse(sort_by="obs")
+        assert "order_by" not in query_response.obs_args()

@@ -369,7 +369,9 @@ class QueryResponse:
                 if self.added.d2:
                     kwargs["created_d2"] = self.added.d2.isoformat()
         if self.sort_by:
-            kwargs["order_by"] = VALID_OBS_SORT_BY.get(str(self.sort_by))
+            order_by = VALID_OBS_SORT_BY.get(str(self.sort_by))
+            if order_by:
+                kwargs["order_by"] = order_by
         if self.order:
             kwargs["order"] = str(self.order)
         return kwargs
