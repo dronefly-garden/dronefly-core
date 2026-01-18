@@ -37,12 +37,13 @@ async def get_query_taxon_formatter(client, query_response, **formatter_params):
     counts_page = None
     if query_response.countable:
         count = await get_query_count(client, query_response)
-        # adds first count from the query to the first page
-        (counts_formatter, counts_page) = await get_query_counts_formatter(
-            query_response, count
-        )
-        _formatter_params["counts_formatter"] = counts_formatter
-        _formatter_params["counts_page"] = counts_page
+        if count:
+            # adds first count from the query to the first page
+            (counts_formatter, counts_page) = await get_query_counts_formatter(
+                query_response, count
+            )
+            _formatter_params["counts_formatter"] = counts_formatter
+            _formatter_params["counts_page"] = counts_page
     title_query_response = copy.copy(query_response)
     if user:
         title_query_response.user = None

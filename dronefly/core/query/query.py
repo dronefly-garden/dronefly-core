@@ -234,6 +234,8 @@ async def prepare_query(
             args[user_field] = await match_user(client, user_attr)
     if has_value(query.controlled_term):
         args["controlled_term"] = await match_annotation(client, *query.controlled_term)
+    if has_value(query.per):
+        args["per"] = query.per
     return QueryResponse(**args)
 
 
@@ -249,6 +251,20 @@ async def get_taxon_preferred_establishment_means(ctx, taxon):
 
     find_means = (means for means in taxon.listed_taxa if means.place.id == place_id)
     return next(find_means, establishment_means)
+
+
+COUNTABLE_ATTR = {
+    "obs": "user",
+    "unobs": "unobserved_by",
+    "ident": "id_by",
+    "place": "place",
+}
+COUNTABLE_PARAM = {
+    "obs": "user_id",
+    "unobs": "unobserved_by_user_id",
+    "ident": "ident_user_id",
+    "place": "place_id",
+}
 
 
 @define
@@ -287,6 +303,7 @@ class QueryResponse:
     sort_by: Optional[str] = None
     order: Optional[str] = None
     adjectives: Optional[List[str]] = field(init=False)
+    per: Optional[str] = None
 
     def __attrs_post_init__(self):
         adjectives = []
@@ -313,26 +330,24 @@ class QueryResponse:
         self.adjectives = adjectives
 
     @property
-    def countable_name(self):
+    def countable_attr(self):
         """The name of the attribute that is countable."""
-        return next(
-            (
-                name
-                for name in ("user", "unobserved_by", "id_by", "place")
-                if getattr(self, name) is not None
-            ),
-            None,
-        )
+        return COUNTABLE_ATTR.get(self.per)
+
+    @property
+    def countable_param(self):
+        """The name of the observation API parameter that is countable."""
+        return COUNTABLE_PARAM.get(self.per)
 
     @property
     def countable_value(self):
-        """The value that is countable."""
-        return getattr(self, self.countable_attr_name)
+        """The countable value."""
+        return getattr(self, self.countable_attr)
 
     @property
     def countable(self):
         """Is countable."""
-        return bool(self.countable_name)
+        return bool(self.countable_attr)
 
     def obs_args(self):
         """Arguments for an observations query."""
@@ -663,11 +678,12 @@ async def get_place_count(client, query_response, place):
 
 
 async def get_query_count(client, query_response):
-    """Get count of user or place in the query."""
-    user = query_response.user
-    place = query_response.place
-    if user:
-        count = await get_user_count(client, query_response, user)
-    else:
-        count = await get_place_count(client, query_response, place)
+    """Get count of user or place in the query if any."""
+    count = None
+    countable_value = query_response.countable_value
+    if countable_value:
+        if query_response.per == "place":
+            count = await get_place_count(client, query_response, countable_value)
+        else:
+            count = await get_user_count(client, query_response, countable_value)
     return count
