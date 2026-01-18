@@ -882,7 +882,7 @@ class TaxonFormatter(BaseFormatter):
             else:
                 _description += "."
         if self.counts_formatter and self.counts_page:
-            _description += "\n\n" + self.counts_formatter.format_page(self.counts_page)
+            _description += "\n" + self.counts_formatter.format_page(self.counts_page)
         return _description
 
     def format_title(self):
