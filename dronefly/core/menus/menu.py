@@ -5,12 +5,9 @@ class BaseMenu:
     def __init__(
         self,
         source: PageSource,
+        **kwargs,
     ) -> None:
-        self._source = source
-
-    @property
-    def source(self):
-        return self._source
+        self.source = source
 
 
 class BaseListMenu(BaseMenu):

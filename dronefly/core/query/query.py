@@ -635,14 +635,16 @@ async def get_obs_spp_counts(obs_args: dict, client: iNatClient):
     return (observations_count, species_count)
 
 
-async def get_user_count(client, query_response, user):
-    """Synthesize a UserCount object for a base query_response + single user"""
+async def get_user_count(client, query_response, user: Optional[User] = None):
+    """Synthesize a UserCount object for a base query_response + optional single user"""
+    obs_args = query_response.obs_args()
+    if user:
+        obs_args["user_id"] = user.id
+    else:
+        # Fake user to contain the counts:
+        user = User(id=-1)
     (observations_count, species_count) = await get_obs_spp_counts(
-        client=client,
-        obs_args={
-            **query_response.obs_args(),
-            "user_id": user.id,
-        },
+        client=client, obs_args=obs_args
     )
     return UserCount.from_json(
         _user_count_args(user, observations_count, species_count)
@@ -663,25 +665,29 @@ async def get_user_count_total(client, query_response, users: Union[UserCount, U
     )
 
 
-async def get_place_count(client, query_response, place):
-    """Synthesize a PlaceCount object for a base query_response + single place"""
+async def get_place_count(client, query_response, place: Optional[Place] = None):
+    """Synthesize a PlaceCount object for a base query_response + optional single place"""
+    obs_args = query_response.obs_args()
+    if place:
+        obs_args["place_id"] = place.id
+    else:
+        # Fake place to contain the counts:
+        place = User(id=-1)
     (observations_count, species_count) = await get_obs_spp_counts(
-        client=client,
-        obs_args={
-            **query_response.obs_args(),
-            "place_id": place.id,
-        },
+        client=client, obs_args=obs_args
     )
     return PlaceCount.from_json(
         _place_count_args(place, observations_count, species_count)
     )
 
 
-async def get_query_count(client, query_response):
+async def get_query_count(client, query_response, summary=False):
     """Get count of user or place in the query if any."""
     count = None
-    countable_value = query_response.countable_value
-    if countable_value:
+    countable_value = None
+    if not summary:
+        countable_value = query_response.countable_value
+    if summary or countable_value:
         if query_response.per == "place":
             count = await get_place_count(client, query_response, countable_value)
         else:

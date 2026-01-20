@@ -2,21 +2,21 @@
 
 
 class BaseFormatter:
-    def format():
+    def format(*args, **kwargs):
         raise NotImplementedError
 
 
 class ListFormatter(BaseFormatter):
-    def format_page():
+    def format_page(*args, **kwargs):
         raise NotImplementedError
 
-    def last_page():
+    def last_page(*args, **kwargs):
         raise NotImplementedError
 
 
 class BaseCountFormatter(BaseFormatter):
-    def count():
+    def count(*args, **kwargs):
         raise NotImplementedError
 
-    def description():
+    def description(*args, **kwargs):
         raise NotImplementedError

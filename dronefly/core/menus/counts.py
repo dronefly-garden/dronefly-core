@@ -3,10 +3,14 @@ from typing import Union
 from pyinaturalist import Place, User, UserCount
 
 from dronefly.core.clients.inat import iNatClient
-from dronefly.core.query.query import get_place_count, get_user_count
+from dronefly.core.query.query import (
+    get_place_count,
+    get_user_count,
+    get_user_count_total,
+)
 
 from ..models import PlaceCount
-from .source import ListPageSource
+from .source import ListPageSource, PageSource
 from ..formatters import CountsFormatter
 from ..query import QueryResponse
 
@@ -15,10 +19,12 @@ class CountsSource(ListPageSource):
     def __init__(
         self,
         entries: Union[list[PlaceCount], list[UserCount]],
+        inat_client: iNatClient,
         query_response: QueryResponse,
         counts_formatter: CountsFormatter,
         **kwargs
     ):
+        self.inat_client = inat_client
         self.query_response = query_response
         self._counts_formatter = counts_formatter
         super().__init__(entries, **kwargs)
@@ -33,8 +39,20 @@ class CountsSource(ListPageSource):
     def format_page(self, page):
         return self.formatter.format_page(page)
 
+    async def get_page(self, page_number):
+        entries = await super().get_page(page_number)
+        if len(entries) > 1:
+            if isinstance(entries[0], UserCount):
+                total = await get_user_count_total(
+                    client=self.inat_client,
+                    query_response=self.query_response,
+                    users=entries,
+                )
+                entries.append(total)
+        return entries
 
-class CountsSourceMixin(ListPageSource):
+
+class CountsSourceMixin(PageSource):
     @property
     def counts_formatter(self) -> CountsFormatter:
         return self.formatter.counts_formatter
@@ -79,6 +97,7 @@ class CountsSourceMixin(ListPageSource):
                 counts_source = CountsSource(
                     entries=[place_count],
                     query_response=query_response,
+                    inat_client=inat_client,
                     counts_formatter=counts_formatter,
                     per_page=15,  # FIXME: magic number!
                 )
@@ -89,7 +108,6 @@ class CountsSourceMixin(ListPageSource):
         # to include it:
         counts_page = await self.counts_source.get_page(page_number=0)
         self.formatter.counts_page = counts_page
-        self.update_page()
 
     async def toggle_user_count(self, inat_client: iNatClient, user: User):
         query_response = self.query_response
@@ -115,6 +133,7 @@ class CountsSourceMixin(ListPageSource):
                 counts_source = CountsSource(
                     entries=[user_count],
                     query_response=query_response,
+                    inat_client=inat_client,
                     counts_formatter=counts_formatter,
                     per_page=15,  # FIXME: magic number!
                 )
@@ -125,4 +144,3 @@ class CountsSourceMixin(ListPageSource):
         # to include it:
         counts_page = await self.counts_source.get_page(page_number=0)
         self.formatter.counts_page = counts_page
-        self.update_page()

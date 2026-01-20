@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from ..query import QueryResponse
     from ..menus.taxon_list import TaxonListSource
+    from ..menus.count import CountSource
     from ..menus.counts import CountsSource
     from ..models import PlaceCount
 
@@ -525,6 +526,21 @@ def format_obs_spp_count(
     return f"{link} "
 
 
+def format_obs_spp_summary(
+    count: Union[UserCount, PlaceCount],
+    query_response: QueryResponse,
+):
+    """Format observation & species counts summary."""
+    obs_args = query_response.obs_args()
+    url = obs_url_from_v1(obs_args)
+    species_url = obs_url_from_v1({**obs_args, "view": "species"})
+    taxon = obs_args.get("taxon", None)
+    summary = f"Total: [{count.observation_count:,}]({url})"
+    if not taxon or RANK_LEVELS[taxon.rank] > RANK_LEVELS["species"]:
+        summary += f" Species: [{count.species_count:,}]({species_url})"
+    return summary
+
+
 class TaxonListFormatter(ListFormatter):
     """
     Attributes
@@ -786,16 +802,45 @@ class TaxonListFormatter(ListFormatter):
         return self.source.get_max_pages() - 1
 
 
+class CountFormatter(ListFormatter):
+    """
+    Attributes
+    ----------
+    source: CountsSource
+        Source of observation & species counts.
+    """
+
+    source: CountSource = None
+
+    def __init__(
+        self,
+        query_response: QueryResponse,
+        counts_formatter: CountsFormatter = None,
+        counts_page: str = None,
+    ):
+        self.query_response = query_response
+        self.counts_formatter = counts_formatter
+        self.counts_page = counts_page
+
+    def format(
+        self,
+    ):
+        """Format a summary of obs/spp counts with individual user/place counts below."""
+        formatted_page = format_obs_spp_summary(self.source.count, self.query_response)
+        if self.counts_formatter and self.counts_page:
+            formatted_page += "\n" + self.counts_formatter.format_page(self.counts_page)
+        return formatted_page
+
+
 class CountsFormatter(ListFormatter):
     """
     Attributes
     ----------
     source: CountsSource
-        Source of observation/identification & species counts for a user or place.
+        Source of observation & species counts for a user or place.
     """
 
     source: CountsSource
-    writable: bool = True
 
     def format_page(
         self,
