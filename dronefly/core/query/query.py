@@ -639,7 +639,7 @@ async def get_user_count(client, query_response, user: Optional[User] = None):
     """Synthesize a UserCount object for a base query_response + optional single user"""
     obs_args = query_response.obs_args()
     if user:
-        obs_args["user_id"] = user.id
+        obs_args[query_response.countable_param] = user.id
     else:
         # Fake user to contain the counts:
         user = User(id=-1)
@@ -657,7 +657,7 @@ async def get_user_count_total(client, query_response, users: Union[UserCount, U
         client=client,
         obs_args={
             **query_response.obs_args(),
-            "user_id": ",".join(str(user.id) for user in users),
+            query_response.countable_param: ",".join(str(user.id) for user in users),
         },
     )
     return UserCount.from_json(
@@ -669,7 +669,7 @@ async def get_place_count(client, query_response, place: Optional[Place] = None)
     """Synthesize a PlaceCount object for a base query_response + optional single place"""
     obs_args = query_response.obs_args()
     if place:
-        obs_args["place_id"] = place.id
+        obs_args[query_response.countable_param] = place.id
     else:
         # Fake place to contain the counts:
         place = User(id=-1)

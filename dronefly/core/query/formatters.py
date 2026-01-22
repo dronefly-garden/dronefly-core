@@ -29,14 +29,12 @@ async def get_query_counts_formatter(client, query_response, count):
 
 async def get_query_count_formatter(client, query_response):
     """Populate count formatter with iNat entities supplying additional details."""
-    print("get_query_count_formatter query_response=", repr(query_response))
     formatter_params = {}
     # Supplement the summary count with optional counts if specified
     # in the query (e.g. `from`, `by`, `by id`, etc.)
     counts_formatter = None
     counts_page = None
     count = await get_query_count(client, query_response)
-    print("count=", repr(count))
     # adds first count from the query to the first page
     (counts_formatter, counts_page) = await get_query_counts_formatter(
         client, query_response, count
@@ -46,15 +44,12 @@ async def get_query_count_formatter(client, query_response):
     title_query_response = copy.copy(query_response)
     setattr(title_query_response, query_response.countable_attr, None)
     title_count = await get_query_count(client, title_query_response, summary=True)
-    print("title_count=", repr(title_count))
     count_formatter = CountFormatter(
         title_query_response,
         **formatter_params,
     )
     count_source = CountSource(title_count, count_formatter)
     count_formatter.source = count_source
-    print("count_formatter=", repr(count_formatter))
-    print("count_source=", repr(count_formatter.source))
     return count_formatter
 
 

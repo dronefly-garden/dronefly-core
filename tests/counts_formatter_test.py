@@ -16,6 +16,7 @@ def mock_user_query_response(mock_user_counts):
     params = {
         "obs_args.return_value": {"taxon_id": 1},
         "obs_query_description.return_value": f"of taxa by {user_count.login}",
+        "per": "obs",
     }
     query_response = Mock(spec=QueryResponse, **params)
     return query_response
@@ -27,6 +28,7 @@ def mock_place_query_response(mock_place_counts):
     params = {
         "obs_args.return_value": {"taxon_id": 1},
         "obs_query_description.return_value": f"of taxa by {place_count.name}",
+        "per": "place",
     }
     query_response = Mock(spec=QueryResponse, **params)
     return query_response
@@ -124,7 +126,6 @@ def test_place_format(mock_place_source):
     formatter = CountsFormatter()
     formatter.source = mock_place_source
     page = mock_place_source.entries[:10]
-    print("page=", page)
     formatted_page = formatter.format_page(page)
     expected_output = TAXON_PLACES_HEADER + (
         "\n[2 (1)](https://www.inaturalist.org/observations?taxon_id=1&place_id=1) "
