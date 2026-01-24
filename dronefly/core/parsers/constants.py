@@ -128,3 +128,7 @@ VALID_OBS_SORT_BY = {
     #    "guess": "species_guess",
     #    "id": "id",
 }
+VALID_TAXON_LIST_SORT_BY = [
+    "obs",
+    "name",
+]

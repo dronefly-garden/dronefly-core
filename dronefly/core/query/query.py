@@ -11,7 +11,11 @@ from requests.exceptions import HTTPError
 from ..clients.inat import iNatClient
 from ..formatters.generic import format_taxon_name, format_user_name
 from ..models import ControlledTermSelector, match_controlled_term, PlaceCount
-from ..parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
+from ..parsers.constants import (
+    VALID_OBS_OPTS,
+    VALID_OBS_SORT_BY,
+    VALID_TAXON_LIST_SORT_BY,
+)
 from .base import TaxonQuery, Query
 from .taxon import match_taxon
 
@@ -204,6 +208,20 @@ async def match_user(client, user_str):
     return user
 
 
+def check_query_observations(query):
+    if has_value(query.sort_by) and query.sort_by not in VALID_OBS_SORT_BY:
+        raise ValueError(
+            f"Invalid `sort by`. Must be one of: `{', '.join(VALID_OBS_SORT_BY.keys())}`"
+        )
+
+
+def check_query_taxon_list(query):
+    if has_value(query.sort_by) and query.sort_by not in VALID_TAXON_LIST_SORT_BY:
+        raise ValueError(
+            f"Invalid `sort by`. Must be one of: `{', '.join(VALID_TAXON_LIST_SORT_BY)}`"
+        )
+
+
 async def prepare_query(
     client: iNatClient, query: Query, scientific_name=False, locale=None
 ):
@@ -237,6 +255,61 @@ async def prepare_query(
     if has_value(query.per):
         args["per"] = query.per
     return QueryResponse(**args)
+
+
+async def prepare_query_for_count(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_observations(query)
+    if not has_value(query.per):
+        _query = copy.copy(query)
+        if has_value(query.user):
+            per = "obs"
+        elif has_value(query.unobserved_by):
+            per = "unobs"
+        elif has_value(query.id_by):
+            per = "ident"
+        elif has_value(query.place):
+            per = "place"
+        else:
+            per = "obs"
+        _query.per = per
+    else:
+        _query = query
+    query_response = await prepare_query(client, _query, scientific_name, locale)
+    return query_response
+
+
+async def prepare_query_for_single_obs(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_observations(query)
+    query_response = await prepare_query(client, query, scientific_name, locale)
+    return query_response
+
+
+async def prepare_query_for_search_obs(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_observations(query)
+    query_response = await prepare_query(client, query, scientific_name, locale)
+    return query_response
+
+
+async def prepare_query_for_taxon(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_taxon_list(query)
+    if not has_value(query.per):
+        _query = copy.copy(query)
+        if has_value(query.user):
+            per = "obs"
+        elif has_value(query.place):
+            per = "place"
+        else:
+            per = "obs"
+        _query.per = per
+    return await prepare_query(client, _query, scientific_name, locale)
 
 
 async def get_taxon_preferred_establishment_means(ctx, taxon):
