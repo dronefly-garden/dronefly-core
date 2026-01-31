@@ -1305,11 +1305,4 @@ class UserFormatter(BaseFormatter):
         with_link: bool, optional
             Link to user's profile.
         """
-        name = self.user.name
-        if name:
-            name += f" ({self.user.login})"
-        else:
-            name = self.user.login
-        if with_link:
-            name = f"[{name}]({self.user.url})"
-        return name
+        return format_user_link(self.user) if with_link else format_user_name(self.user)
