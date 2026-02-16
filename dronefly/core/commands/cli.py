@@ -1,5 +1,8 @@
-from requests import HTTPError
+import re
+
 from pyinaturalist import UserCount
+from requests import HTTPError
+from rich.markdown import Markdown
 
 from ..constants import (
     CONFIG_PATH,
@@ -32,7 +35,13 @@ from ..menus.taxon_list import TaxonListSource
 from ..models import Context
 
 from .base import Commands
-from .constants import Format
+from .constants import (
+    Format,
+    RICH_BQ_END_PAT,
+    RICH_BQ_NEWLINE_PAT,
+    RICH_NO_BQ_NEWLINE_PAT,
+)
+
 from .exceptions import ArgumentError, CommandError
 
 
@@ -45,6 +54,49 @@ def _check_obs_query_fields(query_response):
 
 
 class CLICommands(Commands):
+    def _format_markdown(self, markdown_text: str):
+        """Format Rich vs. Discord markdown."""
+        if self.format == Format.rich:
+            # Richify the markdown:
+            # - In Discord markdown, all newlines are rendered as line breaks
+            # - In Rich:
+            #   - Before every newline, emit " \" to force a line break, except
+            #     for these exceptions to handle blockquotes:
+            #     - Don't do this for a line preceding a blockquote
+            #     - Also don't do this on the last line of a blockquote
+            #     - Ensure the last line of each blockquote has two newlines to
+            #       end it
+
+            # Replace all but last newline of blockquote with line break sequence:
+            rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r"\1 \\\n", markdown_text)
+            # Add extra newline at end of blockquote so following text won't be
+            # tacked on:
+            rich_markdown = re.sub(RICH_BQ_END_PAT, r"\1\n\n", rich_markdown)
+            # Finally, on any line that isn't part of a blockquote, isn't empty,
+            # and isn't at the end of the string, emit a line break:
+            rich_markdown = re.sub(RICH_NO_BQ_NEWLINE_PAT, r"\1 \\\n", rich_markdown)
+            response = Markdown(rich_markdown)
+        else:
+            # Return the literal markdown for Discord to render
+            response = markdown_text
+        return response
+
+    def _simple_format_markdown(self, markdown_text: str):
+        """Simplified formatter for Rich vs. Discord markdown.
+
+        Discord vs. Rich linebreak rendering is harder than we thought, e.g.
+        `_format_markdown()` doesn't give correct results with point-form
+        or numbered lists. If special handling of newlines isn't needed, then
+        use this helper instead.
+        """
+        if self.format == Format.rich:
+            # Richify the markdown
+            response = Markdown(markdown_text)
+        else:
+            # Return the literal markdown for Discord to render
+            response = markdown_text
+        return response
+
     async def life(self, ctx: Context, *args):
         """List lifelist of taxa"""
         _args = " ".join(args) or "by me"
