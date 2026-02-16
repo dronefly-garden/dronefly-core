@@ -6,7 +6,8 @@ import asyncio
 import re
 
 import pytest
-from dronefly.core.commands import ArgumentError, Commands
+from dronefly.core.commands.exceptions import ArgumentError
+from dronefly.core.commands.cli import CLICommands
 from dronefly.core.models.context import Context  # noqa: F401
 
 
@@ -27,7 +28,7 @@ def event_loop():
 
 @pytest.fixture(scope="module")
 def cmd(event_loop):
-    return Commands(loop=event_loop)
+    return CLICommands(loop=event_loop)
 
 
 # TODO: Mock communication with iNatClient
