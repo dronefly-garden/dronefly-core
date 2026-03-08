@@ -41,6 +41,7 @@ from .constants import (
     RICH_BQ_NEWLINE_PAT,
     RICH_NO_BQ_NEWLINE_PAT,
 )
+from .user import UserCommand
 
 from .exceptions import ArgumentError, CommandError
 
@@ -54,6 +55,10 @@ def _check_obs_query_fields(query_response):
 
 
 class CLICommands(Commands):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_command(UserCommand(commands=self))
+
     def _format_markdown(self, markdown_text: str):
         """Format Rich vs. Discord markdown."""
         if self.format == Format.rich:
@@ -450,15 +455,6 @@ class CLICommands(Commands):
         response = await self._get_formatted_page(formatter)
 
         return self._format_markdown(response)
-
-    async def user(self, ctx: Context, user_str: str):
-        """Show user"""
-        with self.inat_client.set_ctx(ctx) as client:
-            try:
-                user = await match_user(client, user_str)
-            except ArgumentError as err:
-                return str(err)
-            return self._format_markdown(UserFormatter(user).format())
 
     async def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
         """Add user to user table"""

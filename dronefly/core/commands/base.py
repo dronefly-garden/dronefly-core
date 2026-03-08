@@ -1,6 +1,6 @@
 import asyncio
 from inspect import signature
-from typing import Union
+from typing import Dict, Union
 
 from ..parsers import NaturalParser
 from ..clients.inat import iNatClient
@@ -8,21 +8,39 @@ from ..models import BaseFormatter, load_config, ListFormatter
 from .constants import Format
 
 
-class Command:
-    def execute():
-        pass
-
-
 class CommandResponse:
-    def format_message():
-        pass
+    def __init__(self, response: str):
+        # FIXME: should take as input a base response type that is a data
+        # representation of the response, not the formatted string response
+        # itself
+        self.response = response
 
-    def start_menu():
-        pass
+    def format_message(self):
+        # FIXME: should format the data from the response, not just return
+        # the response as-is. a default implementation could include common
+        # features of Discord embeds like a title, thumbnail, etc.
+        return self.response
+
+    def start_menu(self):
+        raise NotImplementedError
+
+
+class Command:
+    def __init__(self, name: str):
+        self.name = name
+
+    async def execute(self, *args, **kwargs) -> CommandResponse:
+        raise NotImplementedError
+
+
+class Group(Command):
+    pass
 
 
 class Commands:
     """A Dronefly command processor."""
+
+    _children: Dict[str, Union[Command, Group]] = {}
 
     def __init__(
         self,
@@ -74,3 +92,24 @@ class Commands:
                 [item for item in (header, markdown_text, footer) if item is not None]
             )
         return markdown_text
+
+    @classmethod
+    def add_command(cls, command: Command):
+        cls._children[command.name] = command
+
+
+"""
+    @classmethod
+    def command(
+        cls,
+        func,
+    ) -> Any:
+        name = func.__name__
+        cmd = Command(name=name, callback=func)
+        cls.add_command(name, cmd)
+        async def decorator(*args, **kwargs):
+            return await cmd.execute(*args, **kwargs)
+
+        return decorator
+
+"""
