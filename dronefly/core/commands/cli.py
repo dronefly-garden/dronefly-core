@@ -1,4 +1,6 @@
+from functools import partial
 import re
+from typing import Union
 
 from pyinaturalist import UserCount
 from requests import HTTPError
@@ -54,23 +56,37 @@ def _check_obs_query_fields(query_response):
         )
 
 
-class CLICommands(Commands):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.add_command(UserCommand(commands=self))
+def format_as_markdown(
+    format: Format, markdown_text: str, format_line_breaks: bool = True
+) -> Union[Markdown, str]:
+    """Format Rich vs. Discord markdown.
 
-    def _format_markdown(self, markdown_text: str):
-        """Format Rich vs. Discord markdown."""
-        if self.format == Format.rich:
+    format_line_breaks
+        Specify `format_line_breaks=False` when formatting point-form or
+        numbered lists.
+
+        TODO: Ideally, we'd replace this post-formatter with a set of
+        formatter methods that produce the correct format from the outset.
+        Then we wouldn't need this hacky fix disabling handling line breaks
+        for commands that output list content that would be mangled
+        otherwise.
+    """
+
+    if format == Format.rich:
+        if format_line_breaks:
             # Richify the markdown:
             # - In Discord markdown, all newlines are rendered as line breaks
-            # - In Rich:
+            # - In Rich
             #   - Before every newline, emit " \" to force a line break, except
             #     for these exceptions to handle blockquotes:
             #     - Don't do this for a line preceding a blockquote
             #     - Also don't do this on the last line of a blockquote
             #     - Ensure the last line of each blockquote has two newlines to
             #       end it
+            #   - We don't have an implementation for newline transforms for Rich
+            #     if the markdown_text includes point-form or numbered lists at
+            #     this time, so format_line_breaks should be disabled for text
+            #     with either.
 
             # Replace all but last newline of blockquote with line break sequence:
             rich_markdown = re.sub(RICH_BQ_NEWLINE_PAT, r"\1 \\\n", markdown_text)
@@ -80,27 +96,21 @@ class CLICommands(Commands):
             # Finally, on any line that isn't part of a blockquote, isn't empty,
             # and isn't at the end of the string, emit a line break:
             rich_markdown = re.sub(RICH_NO_BQ_NEWLINE_PAT, r"\1 \\\n", rich_markdown)
-            response = Markdown(rich_markdown)
         else:
-            # Return the literal markdown for Discord to render
-            response = markdown_text
-        return response
+            rich_markdown = markdown_text
+        response = Markdown(rich_markdown)
+    else:
+        # Return the literal markdown for Discord to render
+        response = markdown_text
+    return response
 
-    def _simple_format_markdown(self, markdown_text: str):
-        """Simplified formatter for Rich vs. Discord markdown.
 
-        Discord vs. Rich linebreak rendering is harder than we thought, e.g.
-        `_format_markdown()` doesn't give correct results with point-form
-        or numbered lists. If special handling of newlines isn't needed, then
-        use this helper instead.
-        """
-        if self.format == Format.rich:
-            # Richify the markdown
-            response = Markdown(markdown_text)
-        else:
-            # Return the literal markdown for Discord to render
-            response = markdown_text
-        return response
+class CLICommands(Commands):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_command(
+            UserCommand(), post_format_message=partial(format_as_markdown, self.format)
+        )
 
     async def life(self, ctx: Context, *args):
         """List lifelist of taxa"""
@@ -148,7 +158,7 @@ class CLICommands(Commands):
         formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected, header=title
         )
-        return self._format_markdown(formatted_page)
+        return format_as_markdown(self.format, formatted_page)
 
     async def taxon_list(self, ctx: Context, *args):
         """List child taxa"""
@@ -266,7 +276,7 @@ class CLICommands(Commands):
         formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected, header=title
         )
-        return self._format_markdown(formatted_page)
+        return format_as_markdown(self.format, formatted_page)
 
     async def next(self, ctx: Context):
         """Go to next page"""
@@ -279,7 +289,7 @@ class CLICommands(Commands):
         formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
-        return self._format_markdown(formatted_page)
+        return format_as_markdown(self.format, formatted_page)
 
     async def page(self, ctx: Context, page_number: int = 1):
         """Go to specified page"""
@@ -296,7 +306,7 @@ class CLICommands(Commands):
         formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
-        return self._format_markdown(formatted_page)
+        return format_as_markdown(self.format, formatted_page)
 
     async def sel(self, ctx: Context, sel: int = 1):
         """Select entry on current page"""
@@ -313,7 +323,7 @@ class CLICommands(Commands):
         formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
-        return self._format_markdown(formatted_page)
+        return format_as_markdown(self.format, formatted_page)
 
     async def prev(self, ctx: Context):
         """Go to previous page"""
@@ -326,7 +336,7 @@ class CLICommands(Commands):
         formatted_page = await self._get_formatted_page(
             ctx.page_formatter, ctx.page_number, ctx.selected
         )
-        return self._format_markdown(formatted_page)
+        return format_as_markdown(self.format, formatted_page)
 
     async def _get_taxon_query(self, client, *args):
         """Prepare a query with taxon required."""
@@ -383,7 +393,7 @@ class CLICommands(Commands):
                 with_url=True,
             )
         response = await self._get_formatted_page(taxon_formatter)
-        return self._format_markdown(response)
+        return format_as_markdown(self.format, response)
 
     async def add(self, ctx: Context, *args):
         """Add user or place to page"""
@@ -413,7 +423,7 @@ class CLICommands(Commands):
                 )
                 formatted_total = format_obs_spp_count(total_user_count, query_response)
                 formatted_counts_page += f"\n{formatted_total}"
-            return self._format_markdown(formatted_counts_page)
+            return format_as_markdown(format, formatted_counts_page)
 
     async def obs(self, ctx: Context, *args):
         """Show observation"""
@@ -454,7 +464,7 @@ class CLICommands(Commands):
         )
         response = await self._get_formatted_page(formatter)
 
-        return self._format_markdown(response)
+        return format_as_markdown(self.format, response)
 
     async def user_add(self, ctx: Context, user_abbrev: str, user_id: str):
         """Add user to user table"""
@@ -509,4 +519,4 @@ class CLICommands(Commands):
             )
             response += "3. Restart dronefly-cli."
 
-            return self._simple_format_markdown(response)
+            return format_as_markdown(self.format, response, format_line_breaks=False)

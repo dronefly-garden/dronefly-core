@@ -1,35 +1,36 @@
 import asyncio
+from copy import copy
+
 from inspect import signature
-from typing import Dict, Union
+from typing import Callable, Dict, Optional, TYPE_CHECKING, Union
 
 from ..parsers import NaturalParser
 from ..clients.inat import iNatClient
 from ..models import BaseFormatter, load_config, ListFormatter
 from .constants import Format
 
+if TYPE_CHECKING:
+    from ..menus.menu import BaseMenu
+
 
 class CommandResponse:
-    def __init__(self, response: str):
-        # FIXME: should take as input a base response type that is a data
-        # representation of the response, not the formatted string response
-        # itself
-        self.response = response
+    menu: Optional["BaseMenu"] = None
 
     def format_message(self):
-        # FIXME: should format the data from the response, not just return
-        # the response as-is. a default implementation could include common
-        # features of Discord embeds like a title, thumbnail, etc.
-        return self.response
-
-    def start_menu(self):
         raise NotImplementedError
+
+    async def start_menu(self):
+        if self.menu:
+            await self.menu.start()
+        else:
+            raise NotImplementedError
 
 
 class Command:
     def __init__(self, name: str):
         self.name = name
 
-    async def execute(self, *args, **kwargs) -> CommandResponse:
+    async def __call__(self, *args, **kwargs) -> CommandResponse:
         raise NotImplementedError
 
 
@@ -93,22 +94,23 @@ class Commands:
             )
         return markdown_text
 
-    @classmethod
-    def add_command(cls, command: Command):
-        cls._children[command.name] = command
+    def add_command(self, command: Command, post_format_message: Callable = None):
+        _command = copy(command)
+        _command.commands = self
+        _command.post_format_message = post_format_message
+        self._children[command.name] = _command
 
 
 """
-    @classmethod
     def command(
-        cls,
+        self,
         func,
     ) -> Any:
         name = func.__name__
-        cmd = Command(name=name, callback=func)
-        cls.add_command(name, cmd)
+        cmd = Command(name=name)
+        self.add_command(name, cmd)
         async def decorator(*args, **kwargs):
-            return await cmd.execute(*args, **kwargs)
+            return await cmd(*args, **kwargs)
 
         return decorator
 
