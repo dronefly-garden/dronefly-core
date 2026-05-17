@@ -24,16 +24,16 @@ PLANTAE_ID = 47126
 TRACHEOPHYTA_ID = 211194
 RANK_KEYWORDS = tuple(RANK_LEVELS.keys()) + tuple(RANK_EQUIVALENTS.keys())
 RANK_LEVEL_NAMES = {}
-# For levels with multiple ranks, name the level after the most broadly used
-# rank at that level:
-RANK_LEVEL_TO_NAME = {
+# TODO: import from pyinaturalist.constants instead of defining here:
+# - see https://github.com/pyinat/pyinaturalist/commit/82cee9d642538a8afb3add8809cca161345bdc68
+RANK_LEVEL_REPRESENTATIVE_RANKS = {
     5: "subspecies",
     10: "species",
     20: "genus",
 }
 RANKS_FOR_LEVEL = {}
 for (rank, level) in RANK_LEVELS.items():
-    RANK_LEVEL_NAMES[level] = RANK_LEVEL_TO_NAME.get(level) or rank
+    RANK_LEVEL_NAMES[level] = RANK_LEVEL_REPRESENTATIVE_RANKS.get(level) or rank
     if level not in RANKS_FOR_LEVEL:
         RANKS_FOR_LEVEL[level] = [rank]
     else:
