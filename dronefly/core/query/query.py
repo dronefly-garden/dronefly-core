@@ -300,7 +300,9 @@ async def prepare_query_for_taxon(
     client: iNatClient, query: Query, scientific_name=False, locale=None
 ):
     check_query_taxon_list(query)
-    if not has_value(query.per):
+    if has_value(query.per):
+        _query = query
+    else:
         _query = copy.copy(query)
         if has_value(query.user):
             per = "obs"
