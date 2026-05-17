@@ -14,7 +14,10 @@ from pyinaturalist import (
 from .source import ListPageSource
 from .menu import BaseMenu
 from ..models.taxon_list import TaxonListMetadata
-from ..constants import RANKS_FOR_LEVEL, RANK_LEVEL_NAMES
+from ..constants import (
+    RANKS_FOR_LEVEL,
+    RANK_LEVEL_NAMES,
+)
 from ..formatters import TaxonListFormatter
 from ..query import QueryResponse
 from ..utils import included_ranks, lifelists_url_from_query_response
@@ -126,6 +129,40 @@ def taxa_per_rank(
             yield taxon
 
 
+def _get_normalized_ranks(per_rank: Union[list[str], str]):
+    if isinstance(per_rank, str):
+        per_ranks = [per_rank]
+    else:
+        per_ranks = per_rank
+    rank_names = []
+    normalized_ranks = []
+    for rank in per_ranks:
+        normalized_rank = RANK_EQUIVALENTS[rank] if rank in RANK_EQUIVALENTS else rank
+        rank_level = RANK_LEVELS[normalized_rank]
+        if normalized_rank not in normalized_ranks:
+            # e.g. per_rank = 'species' | 'genus' | 'subspecies'
+            representative_rank = RANK_LEVEL_NAMES[rank_level]
+            if normalized_rank == representative_rank:
+                # Add all ranks at the same level to the filter, described as
+                # the representative rank at that level,
+                # - e.g. "genus" =>
+                #   per_rank = ["genus", "genushybrid"]
+                #   described collectively as "genera"
+                normalized_ranks += RANKS_FOR_LEVEL[rank_level]
+                rank_name = p.plural_noun(representative_rank)
+            else:
+                # But for non-representative ranks, only include the
+                # rank,
+                # - e.g. "genushybrid" =>
+                #   per_rank = ["genushybrid"]
+                #   described collectively as "genushybrids"
+                normalized_ranks.append(normalized_rank)
+                rank_name = p.plural_noun(normalized_rank)
+            rank_names.append(rank_name)
+    ranks_description = "/".join(rank_names)
+    return (ranks_description, normalized_ranks)
+
+
 def filter_taxon_list(
     taxon_list: list[Taxon],
     per_rank: Union[list[str], str],
@@ -160,7 +197,7 @@ def filter_taxon_list(
           was not indicated, otherwise reduce the root taxon to 0 and lower all
           taxa beneath it by the same amount.
     """
-    ranks = None
+    ranks_description = None
     rank_totals = {}
     if per_rank in ("main", "any"):
         ranks_to_count = included_ranks(per_rank)
@@ -173,12 +210,12 @@ def filter_taxon_list(
                 ranks_to_count.append(taxon.rank)
             else:
                 ranks_to_count = ranks_to_count[: ranks_to_count.index(taxon.rank) + 1]
-        ranks = "main ranks" if per_rank == "main" else "ranks"
+        ranks_description = "main ranks" if per_rank == "main" else "ranks"
         generate_taxa = taxa_per_rank(
             taxon_list, ranks_to_count, root_taxon_id, sort_by, order
         )
     elif per_rank in ("leaf", "child"):
-        ranks = "leaf taxa" if per_rank == "leaf" else "child taxa"
+        ranks_description = "leaf taxa" if per_rank == "leaf" else "child taxa"
         if per_rank == "child" and not root_taxon_id:
             # `per child` is only meaningful when the taxon list is for a
             # single root taxon. Otherwise, default to the first taxon (usually
@@ -190,26 +227,9 @@ def filter_taxon_list(
             taxon_list, per_rank, _root_taxon_id, sort_by, order
         )
     else:
-        _per_rank = per_rank
-        _ranks = []
-        if isinstance(per_rank, str):
-            _per_rank = [per_rank]
-        per_rank = []
-        for _rank in _per_rank:
-            rank = RANK_EQUIVALENTS[_rank] if _rank in RANK_EQUIVALENTS else _rank
-            rank_name = p.plural_noun(RANK_LEVEL_NAMES[RANK_LEVELS[_rank]])
-            # Add all ranks at the same level to the filter, described as
-            # the most commonly used rank at that level,
-            # - e.g. "genus" =>
-            #   per_rank = ["genus", "genushybrid"]
-            #   described as "genera"
-            if rank not in per_rank:
-                per_rank += RANKS_FOR_LEVEL[RANK_LEVELS[_rank]]
-                _ranks.append(rank_name)
-        # List of arbitrary ranks (e.g. "subfamily/species"):
-        ranks = "/".join(_ranks)
+        (ranks_description, ranks_to_count) = _get_normalized_ranks(per_rank)
         generate_taxa = taxa_per_rank(
-            taxon_list, per_rank, root_taxon_id, sort_by, order
+            taxon_list, ranks_to_count, root_taxon_id, sort_by, order
         )
     # Count ranks, # of obs/spp, and adjust indent levels:
     counted_taxa = []
@@ -251,7 +271,7 @@ def filter_taxon_list(
         )
         counted_taxa.sort(key=sort_key)
     meta = TaxonListMetadata(
-        ranks,
+        ranks_description,
         rank_totals,
         max_taxon_count_digits,
         max_direct_count_digits,
