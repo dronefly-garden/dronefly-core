@@ -229,7 +229,7 @@ async def get_taxon(client: iNatClient, taxon_id: int, **kwargs):
     return await anext(
         aiter(client.taxa.from_ids(taxon_id)),
         None,
-    ).one()
+    )
 
 
 async def get_taxon_ancestor(client: iNatClient, taxon: Taxon, rank):
