@@ -1,174 +1,23 @@
 """Naturalist information system query module."""
-from attrs import define
-from dataclasses import dataclass, field
+import copy
 import datetime as dt
 import re
 from typing import List, Optional, Union
 
-from dronefly.core.formatters.generic import format_taxon_name, format_user_name
-from dronefly.core.models.controlled_terms import ControlledTermSelector
-from dronefly.core.parsers.constants import VALID_OBS_OPTS, VALID_OBS_SORT_BY
-from pyinaturalist.models import Place, Project, Taxon, User
+from attrs import define, field
+from pyinaturalist.models import Place, Project, Taxon, User, UserCount
+from requests.exceptions import HTTPError
 
-
-@define
-class TaxonQuery:
-    """A taxon query composed of terms and/or phrases or a code or taxon_id, filtered by ranks."""
-
-    taxon_id: Optional[int] = None
-    terms: Optional[List[str]] = None
-    phrases: Optional[List[str]] = None
-    ranks: Optional[List[str]] = None
-    code: Optional[str] = None
-    _query: Optional[str] = None
-
-    def _add_term(self, item):
-        if item:
-            if isinstance(item, list):
-                formatted_item = " ".join(item)
-            else:
-                formatted_item = str(item)
-            self._query += " " + formatted_item if self._query else formatted_item
-
-    def __str__(self):
-        self._query = ""
-        self._add_term(self.taxon_id)
-        self._add_term(self.terms)
-        # TODO: support mixture of terms and phrases better
-        # - currently all phrases will be rendered unquoted as terms,
-        #   so we lose information that was present in the input
-        # self._add_term(self.phrases)
-        self._add_term(self.ranks)
-        self._add_term(self.code)
-        return self._query
-
-
-@define
-class Query:
-    """Naturalist information system query.
-
-    A naturalist information system query is generally composed of one or more
-    "who", "what", "when", & "where" clauses. This class provides both a single
-    representation of those parts that can be applied to looking things up on
-    different information systems and also a common grammar and syntax for users
-    to learn to make requests across all systems.
-
-    - the "who" is the person or persons related to the data
-    - the "what" is primarily taxa or records related to one or more taxa
-    - the "when" is the date/times or date/time periods relating to the data
-    - the "where" is the place associated with the data
-    - some additional options controlling retrieval and presentation of the
-      data may also be a part of the query
-
-    While this query class was initially written to cater to the kinds of
-    requests directly supported through the iNaturalist API, it is not
-    intended to be limited to making requests from that site. Many sites
-    support subsets of what iNat API can do, and so the applicable parts
-    of the query & grammar can be used to fetch material from those sites.
-
-    Options governing "who":
-
-    - "by", "not by", "id by" identify people related to the data
-    - "by" is the author of the data (e.g. observer)
-    - other "who" options indicate different roles of the people relating
-      to the requested data
-
-    Options governing "what":
-
-    - "of" matches taxon names or id numbers
-    - the taxon query can further be qualified by:
-        - double-quoted phrases to express exact phrase match for some or
-          all of the name
-    - "rank" returns only taxa matching the specified rank or ranks
-        - can be combined with "in" to return child taxa of taxon,
-          with or without "of" to match specific names
-    - "in" specifies the ancestor taxon of child taxa matching the
-      "of" and/or "in" options
-    - "with" are controlled terms that select only data with particular
-      attributes
-    - A "per" option influences which entities or groupings of entities
-      are requested, where that is not otherwise imposed by the kind of
-      query performed.
-
-    Options governing "where":
-
-    - "from" identifies a place associated with the data
-
-    Options governing "when":
-
-    - "when" features:
-        - "on", "since", and "until" are always inclusive of the date given
-        - the assumed date is the date associated with the record itself, and
-          not the date it was added to the system
-        - the "added" qualifier can be combined with these three option keywords
-          to request the date the record was added instead
-
-    Options that don't neatly fit into the above:
-
-    - "project" is a fairly iNaturalist-specific concept
-    - A generic "opt" option is provided to pass through miscellaneous
-      options to the information system APIs not neatly falling into these
-      categories, like "order" and "order by".
-        - Because these are often highly dependent on the specific information
-          systems involved, these are not treated as an integral part of our
-          who, what, when, and where concepts.
-    """
-
-    main: Optional[TaxonQuery] = None
-    ancestor: Optional[TaxonQuery] = None
-    user: Optional[str] = None
-    place: Optional[str] = None
-    controlled_term: Optional[str] = None
-    unobserved_by: Optional[str] = None
-    except_by: Optional[str] = None
-    id_by: Optional[str] = None
-    per: Optional[str] = None
-    sort_by: Optional[str] = None
-    order: Optional[str] = None
-    project: Optional[str] = None
-    options: Optional[List] = None
-    obs_d1: Optional[List] = None
-    obs_d2: Optional[List] = None
-    obs_on: Optional[List] = None
-    added_d1: Optional[List] = None
-    added_d2: Optional[List] = None
-    added_on: Optional[List] = None
-    _query: Optional[str] = None
-
-    def _add_clause(self, fmt, item):
-        if item:
-            if isinstance(item, list):
-                formatted_item = fmt.format(" ".join(item))
-            else:
-                formatted_item = fmt.format(item)
-            self._query += " " + formatted_item if self._query else formatted_item
-
-    def __str__(self):
-        self._query = ""
-        if self.main:
-            self._add_clause("{}", str(self.main))
-        if self.ancestor:
-            self._add_clause("in {}", str(self.ancestor))
-        self._add_clause("from {}", self.place)
-        self._add_clause("in prj {}", self.project)
-        self._add_clause("by {}", self.user)
-        self._add_clause("id by {}", self.id_by)
-        self._add_clause("not by {}", self.unobserved_by)
-        self._add_clause("except by {}", self.except_by)
-        self._add_clause("with {}", self.controlled_term)
-        self._add_clause("per {}", self.per)
-        self._add_clause("opt {}", self.options)
-        self._add_clause("since {}", self.obs_d1)
-        self._add_clause("until {}", self.obs_d2)
-        self._add_clause("on {}", self.obs_on)
-        self._add_clause("added since {}", self.added_d1)
-        self._add_clause("added until {}", self.added_d2)
-        self._add_clause("added on {}", self.added_on)
-        if self.sort_by:
-            self._add_clause("sort by {}", self.sort_by)
-        if self.order:
-            self._add_clause("order {}", self.order)
-        return self._query
+from ..clients.inat import iNatClient
+from ..formatters.generic import format_taxon_name, format_user_name
+from ..models import ControlledTermSelector, match_controlled_term, PlaceCount
+from ..parsers.constants import (
+    VALID_OBS_OPTS,
+    VALID_OBS_SORT_BY,
+    VALID_TAXON_LIST_SORT_BY,
+)
+from .base import TaxonQuery, Query
+from .taxon import match_taxon
 
 
 EMPTY_QUERY = Query()
@@ -183,7 +32,7 @@ class _Params(dict):
             self[key] = value
 
 
-@dataclass
+@define
 class DateSelector:
     """A date selector object."""
 
@@ -252,7 +101,248 @@ def get_base_query_args(query):
     return args
 
 
-@dataclass
+async def match_annotation(client, query_term: str, query_term_value: str):
+    controlled_terms = await client.annotations.async_all()
+    controlled_term = match_controlled_term(
+        controlled_terms, query_term, query_term_value
+    )
+    return controlled_term
+
+
+async def match_project(client, project_str):
+    """Match project abbrev, place id, or first search result for text to search for."""
+    project_id = None
+    project = None
+    config = client.ctx.config if client.ctx else None
+    if config:
+        project_id = await config.project_id(project_str)
+
+    if not project_id and project_str.isdigit():
+        project_id = project_str
+    try:
+        if project_id:
+            project = await anext(
+                aiter(client.projects.from_ids(int(project_id))),
+                None,
+            )
+        else:
+            project = await anext(
+                aiter(client.projects.search(q=project_str, limit=1)),
+                None,
+            )
+    except HTTPError as err:
+        if err.response.status_code != 404:
+            raise err from None
+    if not project:
+        raise LookupError("Project not found.")
+    return project
+
+
+async def match_place(client, place_str):
+    """Match place abbrev, place id, or first autocomplete result for text to search for."""
+    place_id = None
+    place = None
+    config = client.ctx.config if client.ctx else None
+    if config:
+        place_id = await config.place_id(place_str)
+
+    if not place_id and place_str.isdigit():
+        place_id = place_str
+    try:
+        if place_id:
+            place = await anext(
+                aiter(client.places.from_ids(place_id)),
+                None,
+            )
+        else:
+            place = await anext(
+                aiter(client.places.autocomplete(q=place_str, limit=1)),
+                None,
+            )
+    except HTTPError as err:
+        if err.response.status_code != 404:
+            raise err from None
+    except IndexError:
+        # https://github.com/pyinat/pyinaturalist/issues/627
+        pass
+    if not place:
+        raise LookupError("Place not found.")
+    return place
+
+
+async def match_user(client, user_str):
+    """Match 'me', 'any', user id, or user login."""
+    user = None
+    user_id = None
+    if user_str == "me":
+        user_id = client.ctx.author.inat_user_id
+    if user_str == "any":
+        return None
+    if not user_id:
+        # FIXME: address issues caused by overlap between
+        # iNat user ids and Dronefly users ids, e.g.
+        # - with the current Dronefly user id numbering, match_user(client, "1")
+        #   will return the default Dronefly user configured for the session and
+        #   not the iNat user with id == 1!
+        # - but match_user(client, "2") will return iNat user with id == 2, etc.
+        # - perhaps in commands we should not consult the table if the user
+        #   specified a number and instead, assume they meant an iNat user id?
+        #   after all, the Dronefly user id is only to provide a unique key
+        #   internally and doesn't have any use outside storing user settings
+        #   in the config
+        dronefly_config = client.ctx.config if client.ctx else None
+        if dronefly_config:
+            user_id = await dronefly_config.user_id(user_str)
+    if not user_id:
+        user_id = user_str
+    try:
+        user = await anext(
+            aiter(client.users.from_ids(user_id)),
+            None,
+        )
+    except HTTPError as err:
+        if err.response.status_code != 404:
+            raise err from None
+    if not user:
+        raise LookupError("User not found.")
+    return user
+
+
+def check_query_observations(query):
+    if has_value(query.sort_by) and query.sort_by not in VALID_OBS_SORT_BY:
+        raise ValueError(
+            f"Invalid `sort by`. Must be one of: `{', '.join(VALID_OBS_SORT_BY.keys())}`"
+        )
+
+
+def check_query_taxon_list(query):
+    if has_value(query.sort_by) and query.sort_by not in VALID_TAXON_LIST_SORT_BY:
+        raise ValueError(
+            f"Invalid `sort by`. Must be one of: `{', '.join(VALID_TAXON_LIST_SORT_BY)}`"
+        )
+
+
+async def prepare_query(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    """Get all requested iNat entities."""
+    args = get_base_query_args(query)
+
+    if has_value(query.project):
+        args["project"] = await match_project(client, query.project)
+    else:
+        args["project"] = None
+    if has_value(query.place):
+        args["place"] = await match_place(client, query.place)
+    else:
+        args["place"] = None
+    if has_value(query.main):
+        _args = {
+            "scientific_name": scientific_name,
+            "locale": locale,
+        }
+        if args["place"]:
+            _args["preferred_place_id"] = args["place"].id
+        args["taxon"] = await match_taxon(client, query, **_args)
+    else:
+        args["taxon"] = None
+    for user_field in ("user", "unobserved_by", "except_by", "id_by"):
+        user_attr = getattr(query, user_field)
+        if has_value(user_attr):
+            args[user_field] = await match_user(client, user_attr)
+    if has_value(query.controlled_term):
+        args["controlled_term"] = await match_annotation(client, *query.controlled_term)
+    if has_value(query.per):
+        args["per"] = query.per
+    return QueryResponse(**args)
+
+
+async def prepare_query_for_count(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_observations(query)
+    if not has_value(query.per):
+        _query = copy.copy(query)
+        if has_value(query.user):
+            per = "obs"
+        elif has_value(query.unobserved_by):
+            per = "unobs"
+        elif has_value(query.id_by):
+            per = "ident"
+        elif has_value(query.place):
+            per = "place"
+        else:
+            per = "obs"
+        _query.per = per
+    else:
+        _query = query
+    query_response = await prepare_query(client, _query, scientific_name, locale)
+    return query_response
+
+
+async def prepare_query_for_single_obs(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_observations(query)
+    query_response = await prepare_query(client, query, scientific_name, locale)
+    return query_response
+
+
+async def prepare_query_for_search_obs(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_observations(query)
+    query_response = await prepare_query(client, query, scientific_name, locale)
+    return query_response
+
+
+async def prepare_query_for_taxon(
+    client: iNatClient, query: Query, scientific_name=False, locale=None
+):
+    check_query_taxon_list(query)
+    if has_value(query.per):
+        _query = query
+    else:
+        _query = copy.copy(query)
+        if has_value(query.user):
+            per = "obs"
+        elif has_value(query.place):
+            per = "place"
+        else:
+            per = "obs"
+        _query.per = per
+    return await prepare_query(client, _query, scientific_name, locale)
+
+
+async def get_taxon_preferred_establishment_means(ctx, taxon):
+    """Get the preferred establishment means for the taxon."""
+    try:
+        establishment_means = taxon.establishment_means
+        place_id = establishment_means.place.id
+        if getattr(taxon, "listed_taxa", None) is None:
+            taxon = await ctx.client.taxa.populate(taxon, refresh=True)
+    except (AttributeError, LookupError):
+        return None
+
+    find_means = (means for means in taxon.listed_taxa if means.place.id == place_id)
+    return next(find_means, establishment_means)
+
+
+COUNTABLE_ATTR = {
+    "obs": "user",
+    "unobs": "unobserved_by",
+    "ident": "id_by",
+    "place": "place",
+}
+COUNTABLE_PARAM = {
+    "obs": "user_id",
+    "unobs": "unobserved_by_user_id",
+    "ident": "ident_user_id",
+    "place": "place_id",
+}
+
+
+@define
 class QueryResponse:
     """A generic query response object.
 
@@ -288,8 +378,9 @@ class QueryResponse:
     sort_by: Optional[str] = None
     order: Optional[str] = None
     adjectives: Optional[List[str]] = field(init=False)
+    per: Optional[str] = None
 
-    def __post_init__(self):
+    def __attrs_post_init__(self):
         adjectives = []
         if self.options:
             quality_grade = (self.options.get("quality_grade") or "").split(",")
@@ -312,6 +403,26 @@ class QueryResponse:
                 if needsid:
                     adjectives.append("*Needs ID*")
         self.adjectives = adjectives
+
+    @property
+    def countable_attr(self):
+        """The name of the attribute that is countable."""
+        return COUNTABLE_ATTR.get(self.per)
+
+    @property
+    def countable_param(self):
+        """The name of the observation API parameter that is countable."""
+        return COUNTABLE_PARAM.get(self.per)
+
+    @property
+    def countable_value(self):
+        """The countable value."""
+        return getattr(self, self.countable_attr)
+
+    @property
+    def countable(self):
+        """Is countable."""
+        return bool(self.countable_attr)
 
     def obs_args(self):
         """Arguments for an observations query."""
@@ -489,7 +600,7 @@ class QueryResponse:
             message += " identified by " + format_user_name(self.id_by)
         if self.except_by:
             message += " except by " + format_user_name(self.except_by)
-        if self.observed and self.observed.on or self.observed.d1 or self.observed.d2:
+        if self.observed and (self.observed.on or self.observed.d1 or self.observed.d2):
             message += " observed "
             if self.observed.on:
                 message += f" on {_format_date(self.observed.on)}"
@@ -500,7 +611,7 @@ class QueryResponse:
                     if self.observed.d1:
                         message += " and "
                     message += f" on or before {_format_date(self.observed.d2)}"
-        if self.added and self.added.on or self.added.d1 or self.added.d2:
+        if self.added and (self.added.on or self.added.d1 or self.added.d2):
             message += " added "
             if self.added.on:
                 message += f" on {_format_date(self.observed.on)}"
@@ -546,3 +657,116 @@ class QueryResponse:
             else:
                 message += f" ordered by `{_order_by}`"
         return re.sub(r"^ ", "", message)
+
+
+def get_obs_spp_count_args(obs_args):
+    obs_count_args = copy.copy(obs_args)
+    count_unverifiable_observations = (
+        obs_args.get("project_id")
+        or obs_args.get("user_id")
+        or obs_args.get("ident_user_id")
+    )
+    if count_unverifiable_observations:
+        obs_count_args["verifiable"] = "any"
+    species_count_args = copy.copy(obs_count_args)
+    if obs_args.get("unobserved_by_user_id"):
+        obs_count_args["lrank"] = "species"
+    return (obs_count_args, species_count_args)
+
+
+TOTAL_USER = User.from_json(
+    {
+        "id": -1,
+        "login": "*total*",
+        "name": "",
+    }
+)
+
+
+def _user_count_args(user, observations_count, species_count):
+    user_count_args = {
+        "user_id": user.id,
+        "user": user.to_dict(),
+    }
+    user_count_args["user"]["observation_count"] = observations_count
+    user_count_args["user"]["species_count"] = species_count
+    return user_count_args
+
+
+def _place_count_args(place, observations_count, species_count):
+    place_count_args = {
+        "place_id": place.id,
+        "place": place.to_dict(),
+    }
+    place_count_args["place"]["observation_count"] = observations_count
+    place_count_args["place"]["species_count"] = species_count
+    return place_count_args
+
+
+async def get_obs_spp_counts(obs_args: dict, client: iNatClient):
+    (obs_count_args, species_count_args) = get_obs_spp_count_args(obs_args)
+    observations_count = client.observations.search(**obs_count_args).count()
+    species_count = 0
+    if observations_count:
+        species_count = await client.observations.species_count(**species_count_args)
+    return (observations_count, species_count)
+
+
+async def get_user_count(client, query_response, user: Optional[User] = None):
+    """Synthesize a UserCount object for a base query_response + optional single user"""
+    obs_args = query_response.obs_args()
+    if user:
+        obs_args[query_response.countable_param] = user.id
+    else:
+        # Fake user to contain the counts:
+        user = User(id=-1)
+    (observations_count, species_count) = await get_obs_spp_counts(
+        client=client, obs_args=obs_args
+    )
+    return UserCount.from_json(
+        _user_count_args(user, observations_count, species_count)
+    )
+
+
+async def get_user_count_total(client, query_response, users: Union[UserCount, User]):
+    """Synthesize a UserCount object for a base query_response + list of user counts or users"""
+    (observations_count, species_count) = await get_obs_spp_counts(
+        client=client,
+        obs_args={
+            **query_response.obs_args(),
+            query_response.countable_param: ",".join(str(user.id) for user in users),
+        },
+    )
+    return UserCount.from_json(
+        _user_count_args(TOTAL_USER, observations_count, species_count)
+    )
+
+
+async def get_place_count(client, query_response, place: Optional[Place] = None):
+    """Synthesize a PlaceCount object for a base query_response + optional single place"""
+    obs_args = query_response.obs_args()
+    if place:
+        obs_args[query_response.countable_param] = place.id
+    else:
+        # Fake place to contain the counts:
+        place = User(id=-1)
+    (observations_count, species_count) = await get_obs_spp_counts(
+        client=client, obs_args=obs_args
+    )
+    return PlaceCount.from_json(
+        _place_count_args(place, observations_count, species_count)
+    )
+
+
+async def get_query_count(client, query_response, summary=False):
+    """Get count of user or place in the query if any."""
+    count = None
+    countable_value = None
+    if not summary:
+        countable_value = query_response.countable_value
+    if summary or countable_value:
+        if query_response.per == "place":
+            count = await get_place_count(client, query_response, countable_value)
+        else:
+            count = await get_user_count(client, query_response, countable_value)
+    return count

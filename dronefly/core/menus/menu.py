@@ -5,8 +5,9 @@ class BaseMenu:
     def __init__(
         self,
         source: PageSource,
+        **kwargs,
     ) -> None:
-        self._source = source
+        self.source = source
 
 
 class BaseListMenu(BaseMenu):
@@ -16,7 +17,7 @@ class BaseListMenu(BaseMenu):
         current_page: int = 0,
         selected: int = 0,
     ) -> None:
-        self._source = source
+        self.source = source
         self.current_page = current_page
         self.selected = selected
         super().__init__(source)

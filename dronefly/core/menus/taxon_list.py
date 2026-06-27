@@ -1,5 +1,5 @@
 import functools
-from typing import Union
+from typing import Any, Union
 
 import inflect
 from pyinaturalist import (
@@ -12,7 +12,7 @@ from pyinaturalist import (
 )
 
 from .source import ListPageSource
-from .menu import BaseMenu
+from .menu import BaseListMenu
 from ..models.taxon_list import TaxonListMetadata
 from ..constants import (
     RANKS_FOR_LEVEL,
@@ -385,5 +385,9 @@ class TaxonListSource(ListPageSource):
         )
 
 
-class TaxonListMenu(BaseMenu):
-    pass
+class TaxonListMenu(BaseListMenu):
+    def __init__(
+        self,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(**kwargs)

@@ -10,20 +10,24 @@ import re
 from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
-    from dronefly.core.query.query import QueryResponse
-    from dronefly.core.menus.taxon_list import TaxonListSource
+    from ..query import QueryResponse
+    from ..menus.taxon_list import TaxonListSource
+    from ..menus.count import CountSource
+    from ..menus.counts import CountsSource
+    from ..models import PlaceCount
 
 import html2markdown
 import inflect
 from pyinaturalist import (
     ConservationStatus,
     EstablishmentMeans,
-    JsonResponse,
     ListedTaxon,
     Observation,
+    Paginator,
     Taxon,
     TaxonSummary,
     User,
+    UserCount,
 )
 from pyinaturalist.constants import ROOT_TAXON_ID
 
@@ -32,7 +36,7 @@ from ..constants import (
     TRINOMIAL_ABBR,
     RANK_LEVELS,
 )
-from ..models.taxon_list import TaxonListMetadata
+from ..models import BaseCountFormatter, BaseFormatter, ListFormatter, TaxonListMetadata
 from ..utils import included_ranks
 from .constants import (
     ICONS,
@@ -75,6 +79,15 @@ p = inflect.engine()
 p.defnoun("phylum", "phyla")
 p.defnoun("subphylum", "subphyla")
 p.defnoun("subgenus", "subgenera")
+
+TAXON_PLACES_HEADER = "__obs# (spp#) from place:__"
+TAXON_PLACES_HEADER_PAT = re.compile(re.escape(TAXON_PLACES_HEADER) + "\n")
+TAXON_COUNTS_HEADER = "__obs# (spp#) by user:__"
+TAXON_COUNTS_HEADER_PAT = re.compile(re.escape(TAXON_COUNTS_HEADER) + "\n")
+TAXON_IDBY_HEADER = "__obs# (spp#) identified by user:__"
+TAXON_IDBY_HEADER_PAT = re.compile(re.escape(TAXON_IDBY_HEADER) + "\n")
+TAXON_NOTBY_HEADER = "__obs# (spp#) unobserved by user:__"
+TAXON_NOTBY_HEADER_PAT = re.compile(re.escape(TAXON_NOTBY_HEADER) + "\n")
 
 
 def protect_leading_blanks(text: str = ""):
@@ -486,30 +499,49 @@ def format_quality_grade(options: dict = {}):
     return adjectives
 
 
-class BaseFormatter:
-    def format():
-        raise NotImplementedError
+def format_obs_spp_count(
+    count: Union[UserCount, PlaceCount],
+    query_response: QueryResponse,
+):
+    """Format observation & species counts for a user or place."""
+    obs_args = query_response.obs_args()
+    if isinstance(count, UserCount):
+        # FIXME: the obs arg added here depends on the base query,
+        # e.g. could be user_id, ident_user_id, etc.
+        # - when the source is instantiated, the kind of query
+        #   needs to be recorded as an attribute of the source
+        # - the obs & spp args need to be produced from the base
+        #   query & user id, not *just* the base query alone
+        name = count.login
+        obs_args["user_id"] = count.id
+    else:
+        name = count.display_name
+        obs_args["place_id"] = count.id
+    url = obs_url_from_v1(obs_args)
+    taxon = obs_args.get("taxon", None)
+    if taxon and RANK_LEVELS[taxon.rank] <= RANK_LEVELS["species"]:
+        link = f"[{count.observation_count:,}]({url}) {name}"
+    else:
+        link = f"[{count.observation_count:,} ({count.species_count:,})]({url}) {name}"
+    return f"{link} "
 
 
-class ListFormatter(BaseFormatter):
-    def format_page():
-        raise NotImplementedError
-
-    def last_page():
-        raise NotImplementedError
-
-
-class BaseCountFormatter(BaseFormatter):
-    def count():
-        raise NotImplementedError
-
-    def description():
-        raise NotImplementedError
+def format_obs_spp_summary(
+    count: Union[UserCount, PlaceCount],
+    query_response: QueryResponse,
+):
+    """Format observation & species counts summary."""
+    obs_args = query_response.obs_args()
+    url = obs_url_from_v1(obs_args)
+    species_url = obs_url_from_v1({**obs_args, "view": "species"})
+    taxon = obs_args.get("taxon", None)
+    summary = f"Total: [{count.observation_count:,}]({url})"
+    if not taxon or RANK_LEVELS[taxon.rank] > RANK_LEVELS["species"]:
+        summary += f" Species: [{count.species_count:,}]({species_url})"
+    return summary
 
 
 class TaxonListFormatter(ListFormatter):
-    _pages: dict[dict] = {}
-
     """
     Attributes
     ----------
@@ -770,6 +802,73 @@ class TaxonListFormatter(ListFormatter):
         return self.source.get_max_pages() - 1
 
 
+class CountFormatter(ListFormatter):
+    """
+    Attributes
+    ----------
+    source: CountsSource
+        Source of observation & species counts.
+    """
+
+    source: CountSource = None
+
+    def __init__(
+        self,
+        query_response: QueryResponse,
+        counts_formatter: CountsFormatter = None,
+        counts_page: str = None,
+    ):
+        self.query_response = query_response
+        self.counts_formatter = counts_formatter
+        self.counts_page = counts_page
+
+    def format(
+        self,
+    ):
+        """Format a summary of obs/spp counts with individual user/place counts below."""
+        formatted_page = format_obs_spp_summary(self.source.count, self.query_response)
+        if self.counts_formatter and self.counts_page:
+            formatted_page += "\n" + self.counts_formatter.format_page(self.counts_page)
+        return formatted_page
+
+
+class CountsFormatter(ListFormatter):
+    """
+    Attributes
+    ----------
+    source: CountsSource
+        Source of observation & species counts for a user or place.
+    """
+
+    source: CountsSource
+
+    def format_page(
+        self,
+        page: Union[list[UserCount], list[PlaceCount]] = [],
+    ):
+        """Format a page of user counts."""
+        query_response = self.source.query_response
+        per = query_response.per
+        if per == "place":
+            header = TAXON_PLACES_HEADER
+        elif per == "obs":
+            header = TAXON_COUNTS_HEADER
+        elif per == "ident":
+            header = TAXON_IDBY_HEADER
+        elif per == "unobs":
+            header = TAXON_NOTBY_HEADER
+        elif query_response.countable_attr == "place":
+            header = TAXON_PLACES_HEADER
+        else:
+            header = TAXON_COUNTS_HEADER
+
+        formatted_page = [header]
+        for count in page:
+            formatted_entry = format_obs_spp_count(count, query_response)
+            formatted_page.append(formatted_entry)
+        return "\n".join(formatted_page)
+
+
 class TaxonFormatter(BaseFormatter):
     def __init__(
         self,
@@ -778,6 +877,10 @@ class TaxonFormatter(BaseFormatter):
         with_url: bool = True,
         matched_term: str = None,
         max_len: int = 0,
+        counts_formatter: CountsFormatter = None,
+        counts_page: str = None,
+        image_number: int = None,
+        image_description: str = None,
     ):
         """
         Parameters
@@ -794,6 +897,13 @@ class TaxonFormatter(BaseFormatter):
 
         with_url: bool, optional
             When True, link the name to taxon.url.
+
+        image_number: int, optional
+            Image number to include.
+
+        image_description: str, optional
+            Description of image. When supplied, suppresses inclusion of
+            taxon details in the formatted output.
         """
         self.taxon = taxon
         self.lang = lang
@@ -801,6 +911,10 @@ class TaxonFormatter(BaseFormatter):
         self.matched_term = matched_term
         self.max_len = max_len
         self.obs_count_formatter = self.ObsCountFormatter(taxon)
+        self.counts_formatter = counts_formatter
+        self.counts_page = counts_page
+        self.image_number = image_number
+        self.image_description = image_description
 
     def format(self, with_title: bool = True, with_ancestors: bool = True):
         """Format the taxon as markdown.
@@ -809,18 +923,22 @@ class TaxonFormatter(BaseFormatter):
         with_ancestors: bool, optional
             When False, omit ancestors
         """
-        description = self.format_taxon_description()
-        if with_title:
-            description = "\n".join([self.format_title(), description])
-        if with_ancestors and self.taxon.ancestors:
-            description += " in: " + format_taxon_names(
-                self.taxon.ancestors,
-                hierarchy=True,
-                max_len=self.max_len,
-            )
-        else:
-            description += "."
-        return description
+        _description = self.image_description
+        if not _description:
+            _description = self.format_taxon_description()
+            if with_title:
+                _description = "\n".join([self.format_title(), _description])
+            if with_ancestors and self.taxon.ancestors:
+                _description += " in: " + format_taxon_names(
+                    self.taxon.ancestors,
+                    hierarchy=True,
+                    max_len=self.max_len,
+                )
+            else:
+                _description += "."
+        if self.counts_formatter and self.counts_page:
+            _description += "\n" + self.counts_formatter.format_page(self.counts_page)
+        return _description
 
     def format_title(self):
         """Format taxon title as Discord-like markdown.
@@ -1118,7 +1236,7 @@ class QualifiedTaxonFormatter(TaxonFormatter):
     def __init__(
         self,
         query_response: "QueryResponse",
-        observations: JsonResponse = None,
+        observations: Paginator,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -1133,7 +1251,7 @@ class QualifiedTaxonFormatter(TaxonFormatter):
             self,
             taxon: Taxon,
             query_response: "QueryResponse" = None,
-            observations: JsonResponse = None,
+            observations: Paginator = None,
         ):
             super().__init__(taxon)
             self.query_response = query_response
@@ -1141,7 +1259,7 @@ class QualifiedTaxonFormatter(TaxonFormatter):
 
         def count(self):
             if self.observations:
-                count = self.observations.get("total_results")
+                count = self.observations.count()
             else:
                 count = self.taxon.observations_count
             return count
@@ -1187,11 +1305,4 @@ class UserFormatter(BaseFormatter):
         with_link: bool, optional
             Link to user's profile.
         """
-        name = self.user.name
-        if name:
-            name += f" ({self.user.login})"
-        else:
-            name = self.user.login
-        if with_link:
-            name = f"[{name}]({self.user.url})"
-        return name
+        return format_user_link(self.user) if with_link else format_user_name(self.user)
