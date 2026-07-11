@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from ..query import QueryResponse
     from ..menus.taxon_list import TaxonListSource
+    from ..menus.observation_list import ObservationListSource
     from ..menus.count import CountSource
     from ..menus.counts import CountsSource
     from ..models import PlaceCount
@@ -539,6 +540,75 @@ def format_obs_spp_summary(
     if not taxon or RANK_LEVELS[taxon.rank] > RANK_LEVELS["species"]:
         summary += f" Species: [{count.species_count:,}]({species_url})"
     return summary
+
+
+class ObservationListFormatter(ListFormatter):
+    """
+    Attributes
+    ----------
+    source: ObservationListSource
+        Source of observations. The source must be set before any format methods
+        can be called.
+    """
+
+    source: ObservationListSource
+
+    def __init__(
+        self,
+        with_url: bool = True,
+        **kwargs,
+    ):
+        """
+        Parameters
+        ----------
+        with_url: bool, optional
+            When True, link the title to the observations matching the query.
+        """
+        super().__init__(**kwargs)
+        self.with_url = with_url
+
+    def format(
+        self,
+        page: Union[Taxon, list[Taxon]] = None,
+        page_number: Optional[int] = None,
+        selected: Optional[int] = None,
+        with_title: bool = True,
+    ):
+        """Format the taxon list as markdown."""
+        description = self.format_page(page, page_number, selected)
+        if with_title:
+            description = "\n\n".join([self.format_title(), description])
+        return description
+
+    def format_title(self):
+        """Format observation list title as Discord-like markdown.
+
+        Returns
+        -------
+        str
+            - Describe a list of observations derived from an observations query
+              in terms of the observations query parameters passed.
+        """
+        title = f"Observations {self.source.query_response.obs_query_description()}"
+        if self.with_url:
+            url = obs_url_from_v1(self.source.query_response.obs_args())
+            title = format_link(title, url)
+        return title
+
+    def format_page(
+        self,
+        page: Union[Taxon, list[Taxon]] = None,
+        page_number: int = 0,
+        selected: int = 0,
+    ):
+        """Format the observation list page."""
+
+        return ""
+
+    def last_page(self):
+        if not (self.with_taxa and self.source.per_page > 0 and self.source.entries):
+            return 0
+        return self.source.get_max_pages() - 1
 
 
 class TaxonListFormatter(ListFormatter):
