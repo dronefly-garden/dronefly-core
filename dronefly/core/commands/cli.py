@@ -409,9 +409,8 @@ class CLICommands(Commands):
         with self.inat_client.set_ctx(ctx) as client:
             query_response = await prepare_query(client, query)
             obs_args = query_response.obs_args()
-            iterator = aiter(client.observations.search(**obs_args))
-            # return at most 200
-            observations = [await anext(iterator, None) for i in range(200)]
+            obs_paginator = client.observations.search(**obs_args, limit=200)
+            observations = await obs_paginator.async_all()
         if not observations:
             raise LookupError(
                 f"No observations {query_response.obs_query_description()}"
