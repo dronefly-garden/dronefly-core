@@ -557,6 +557,7 @@ class ObservationListFormatter(ListFormatter):
         self,
         with_index: bool = False,
         with_url: bool = True,
+        short_description: str = "Search: Observations",
         **kwargs,
     ):
         """
@@ -566,10 +567,13 @@ class ObservationListFormatter(ListFormatter):
             When True, output index per observation in page.
         with_url: bool, optional
             When True, link the title to the observations matching the query.
+        short_description: str, optional [default: `Search: Observations`]
+            Short description of observation list that appears in the title.
         """
         super().__init__(**kwargs)
         self.with_index = with_index
         self.with_url = with_url
+        self.short_description = short_description
 
     def format(
         self,
@@ -593,7 +597,7 @@ class ObservationListFormatter(ListFormatter):
             - Describe a list of observations derived from an observations query
               in terms of the observations query parameters passed.
         """
-        title = f"Observations {self.source.query_response.obs_query_description()}"
+        title = f"{self.short_description} {self.source.query_response.obs_query_description()}"
         if self.with_url:
             url = obs_url_from_v1(self.source.query_response.obs_args())
             title = format_link(title, url)
@@ -613,9 +617,13 @@ class ObservationListFormatter(ListFormatter):
                 taxon_name = format_taxon_name(obs.taxon, with_common=False)
                 obs_url = f"{WWW_BASE_URL}/observations/{obs.id}"
                 formatted_name = format_link(taxon_name, obs_url)
+                if obs.observed_on:
+                    date = format_datetime(obs.observed_on, compact=True)
+                else:
+                    date = "no date"
                 formatted_obs.append(
                     {
-                        "meta": "\N{WHITE HEAVY CHECK MARK}",  # TODO: actual obs metadata
+                        "date": date,
                         "name": formatted_name,
                     }
                 )
@@ -654,7 +662,7 @@ class ObservationListFormatter(ListFormatter):
                         _n = ""
                         _e = ""
                     entries.append(
-                        f"{_i}`{entry['meta']}`" f"{_s}{_n}{entry['name']}{_e}"
+                        f"{_i}`{entry['date']}`" f"{_s}{_n}{entry['name']}{_e}"
                     )
                 sections.append("\n".join(entries))
             if content["footer"]:
