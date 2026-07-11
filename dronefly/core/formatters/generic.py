@@ -558,7 +558,6 @@ class ObservationListFormatter(ListFormatter):
         with_index: bool = False,
         with_url: bool = True,
         short_description: str = "Search: Observations",
-        **kwargs,
     ):
         """
         Parameters
@@ -570,7 +569,6 @@ class ObservationListFormatter(ListFormatter):
         short_description: str, optional [default: `Search: Observations`]
             Short description of observation list that appears in the title.
         """
-        super().__init__(**kwargs)
         self.with_index = with_index
         self.with_url = with_url
         self.short_description = short_description
@@ -674,7 +672,7 @@ class ObservationListFormatter(ListFormatter):
         return assemble_page(page_content, selected)
 
     def last_page(self):
-        if not (self.with_taxa and self.source.per_page > 0 and self.source.entries):
+        if not (self.source.per_page > 0 and self.source.entries):
             return 0
         return self.source.get_max_pages() - 1
 

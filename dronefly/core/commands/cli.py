@@ -22,6 +22,7 @@ from ..query.formatters import get_query_taxon_formatter
 from ..formatters.generic import (
     format_obs_spp_count,
     ObservationFormatter,
+    ObservationListFormatter,
     TaxonListFormatter,
     CountsFormatter,
     UserFormatter,
@@ -29,6 +30,7 @@ from ..formatters.generic import (
 )
 from ..menus.counts import CountsSource
 from ..menus.taxon_list import TaxonListSource
+from ..menus.observation_list import ObservationListSource
 from ..models import Context
 
 from .base import Commands
@@ -398,6 +400,42 @@ class CLICommands(Commands):
         response = await self._get_formatted_page(formatter)
 
         return self._format_markdown(response)
+
+    async def obs_search(self, ctx: Context, *args):
+        """Search for observations"""
+        _args = " ".join(args) or "by me"
+        query = self._parse(_args)
+
+        with self.inat_client.set_ctx(ctx) as client:
+            query_response = await prepare_query(client, query)
+            obs_args = query_response.obs_args()
+            iterator = aiter(client.observations.search(**obs_args))
+            # return at most 200
+            observations = [await anext(iterator, None) for i in range(200)]
+        if not observations:
+            raise LookupError(
+                f"No observations {query_response.obs_query_description()}"
+            )
+
+        per_page = ctx.per_page
+        with_index = self.format == Format.rich
+        formatter = ObservationListFormatter(
+            with_index=with_index,
+        )
+        source = ObservationListSource(
+            entries=observations,
+            query_response=query_response,
+            formatter=formatter,
+            per_page=per_page,
+        )
+        formatter.source = source
+        ctx.page_formatter = formatter
+        ctx.page_number = 0
+        ctx.selected = 0
+        formatted_page = await self._get_formatted_page(
+            ctx.page_formatter, ctx.page_number, ctx.selected
+        )
+        return self._format_markdown(formatted_page)
 
     async def user(self, ctx: Context, user_str: str):
         """Show user"""
