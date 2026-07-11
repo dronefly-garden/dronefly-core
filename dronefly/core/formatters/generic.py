@@ -555,16 +555,20 @@ class ObservationListFormatter(ListFormatter):
 
     def __init__(
         self,
+        with_index: bool = False,
         with_url: bool = True,
         **kwargs,
     ):
         """
         Parameters
         ----------
+        with_index: bool, optional
+            When True, output index per observation in page.
         with_url: bool, optional
             When True, link the title to the observations matching the query.
         """
         super().__init__(**kwargs)
+        self.with_index = with_index
         self.with_url = with_url
 
     def format(
@@ -603,7 +607,63 @@ class ObservationListFormatter(ListFormatter):
     ):
         """Format the observation list page."""
 
-        return ""
+        def format_page_of_obs(page: list[Observation]):
+            formatted_obs = []
+            for obs in page:
+                taxon_name = format_taxon_name(obs.taxon, with_common=False)
+                obs_url = f"{WWW_BASE_URL}/observations/{obs.id}"
+                formatted_name = format_link(taxon_name, obs_url)
+                formatted_obs.append(
+                    {
+                        "meta": "\N{WHITE HEAVY CHECK MARK}",  # TODO: actual obs metadata
+                        "name": formatted_name,
+                    }
+                )
+            return formatted_obs
+
+        def make_page_content(page: list[Taxon], with_summary: bool = False):
+            """Format all parts of the page content."""
+            structured_page = {
+                "header": None,
+                "entries_header": None,
+                "entries": [],
+                "footer": None,
+            }
+            if page:
+                formatted_obs = format_page_of_obs(page)
+                structured_page["entries"] = formatted_obs
+            return structured_page
+
+        def assemble_page(content: dict, selected: int = 0):
+            """Assemble page content into a formatted page."""
+            sections = []
+            if content["header"]:
+                sections.append(content["header"])
+            if content["entries_header"]:
+                sections.append(content["entries_header"])
+            if content["entries"]:
+                entries = []
+                for (index, entry) in enumerate(content["entries"]):
+                    _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
+                    if selected == index:
+                        _s = ">"
+                        _n = "**__"
+                        _e = "__**"
+                    else:
+                        _s = "\N{EN SPACE}"
+                        _n = ""
+                        _e = ""
+                    entries.append(
+                        f"{_i}`{entry['meta']}`" f"{_s}{_n}{entry['name']}{_e}"
+                    )
+                sections.append("\n".join(entries))
+            if content["footer"]:
+                sections.append(content["footer"])
+            return "\n\n".join(sections)
+
+        _page = [page] if isinstance(page, Observation) else page
+        page_content = make_page_content(_page)
+        return assemble_page(page_content, selected)
 
     def last_page(self):
         if not (self.with_taxa and self.source.per_page > 0 and self.source.entries):

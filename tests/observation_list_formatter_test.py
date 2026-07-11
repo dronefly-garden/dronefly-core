@@ -17,10 +17,13 @@ def mock_observations(mock_user):
         taxon_id = int(id / 10) + 1
         taxon = {
             "id": taxon_id,
+            "is_active": True,
             "name": f"Genus1 species{id:02}",
+            "rank": "species",
+            "rank_level": 10,
         }
         params = {
-            "id": id,
+            "id": id + 1,
             "taxon": taxon,
             "user": mock_user,
         }
@@ -68,5 +71,16 @@ def test_format(mock_source):
     formatter.source = mock_source
     page = mock_source.entries[:10]
     formatted_page = formatter.format(page, 1, 0)
-    expected_output = """[Observations of taxa by test_user](https://www.inaturalist.org/observations?user=1)\n\n"""  # noqa: E501
+    expected_output = """[Observations of taxa by test_user](https://www.inaturalist.org/observations?user=1)
+
+`✅`>**__[*Genus1 species00*](https://www.inaturalist.org/observations/1)__**
+`✅` [*Genus1 species01*](https://www.inaturalist.org/observations/2)
+`✅` [*Genus1 species02*](https://www.inaturalist.org/observations/3)
+`✅` [*Genus1 species03*](https://www.inaturalist.org/observations/4)
+`✅` [*Genus1 species04*](https://www.inaturalist.org/observations/5)
+`✅` [*Genus1 species05*](https://www.inaturalist.org/observations/6)
+`✅` [*Genus1 species06*](https://www.inaturalist.org/observations/7)
+`✅` [*Genus1 species07*](https://www.inaturalist.org/observations/8)
+`✅` [*Genus1 species08*](https://www.inaturalist.org/observations/9)
+`✅` [*Genus1 species09*](https://www.inaturalist.org/observations/10)"""  # noqa: E501
     assert formatted_page == expected_output
