@@ -14,7 +14,7 @@ from pyinaturalist.constants import RequestParams
 from pyinaturalist.models import T
 
 from ..constants import INAT_DEFAULTS, RATELIMIT_FILE, RATELIMIT_LOCK_FILE, CACHE_FILE
-from ..controllers.inat import UserController
+from ..controllers.inat import ObservationController, UserController
 from ..paginator import Paginator
 
 
@@ -47,6 +47,7 @@ class iNatClient(pyiNatClient):
         }
         super().__init__(*args, **_kwargs)
         self.users = UserController(self)
+        self.observations = ObservationController(self)
         self.annotations.async_all = asyncify(self, self.annotations.all)
         self.taxa.populate = asyncify(self, self.taxa.populate)
         self.observations.taxon_summary = asyncify(
