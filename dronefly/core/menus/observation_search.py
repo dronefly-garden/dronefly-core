@@ -1,18 +1,18 @@
 from typing import Any, Union
 
-from pyinaturalist import Observation
+from pyinaturalist import Observation, Paginator
 
-from .source import ListPageSource
-from .menu import BaseListMenu
-from ..formatters import ObservationListFormatter
+from .source import AsyncIteratorPageSource
+from .menu import BaseSearchMenu
+from ..formatters import ObservationSearchFormatter
 from ..query import QueryResponse
 
 
-class ObservationListSource(ListPageSource):
+class ObservationSearchSource(AsyncIteratorPageSource):
     """
     Attributes
     ----------
-    entries: list[Observation]
+    iterator: Paginator[Observation]
         A list of observations matching the query parameters.
     """
 
@@ -20,9 +20,9 @@ class ObservationListSource(ListPageSource):
 
     def __init__(
         self,
-        entries: list[Observation],
+        iterator: Paginator[Observation],
         query_response: QueryResponse,
-        formatter: ObservationListFormatter,
+        formatter: ObservationSearchFormatter,
         per_page: int = 20,
         sort_by: str = None,
         order: str = None,
@@ -31,14 +31,14 @@ class ObservationListSource(ListPageSource):
         """
         Parameters
         ----------
-        entries: list[Observations]
+        iterator: Paginator[Observation]
             Raw list of observations.
 
         query_response: QueryResponse
             The query response contains all iNat objects in the query
             except for the source itself (e.g. user, place, etc.)
 
-        formatter: ObservationListFormatter
+        formatter: ObservationSearchFormatter
             Helper class that formats pages from the source.
 
         per_page: int, optional
@@ -51,20 +51,23 @@ class ObservationListSource(ListPageSource):
             If specified, use `asc` (ascending) or `desc` (descending) as the order for the
             `sort_by` key.
         """
-        self._observation_list_formatter = formatter
+        self._observation_search_formatter = formatter
         self.query_response = query_response
         self.sort_by = sort_by
         self.order = order
-        self._entries = entries
-        super().__init__(entries, per_page=per_page, **kwargs)
+        self._iterator = iterator
+        super().__init__(iterator, per_page=per_page, **kwargs)
         self.formatter.source = self
 
     def is_paginating(self):
         return True
 
     @property
-    def formatter(self) -> ObservationListFormatter:
-        return self._observation_list_formatter
+    def formatter(self) -> ObservationSearchFormatter:
+        return self._observation_search_formatter
+
+    def get_max_pages(self):
+        return int(self._iterator.count() / self.per_page) + 1
 
     def format_page(
         self,
@@ -132,7 +135,7 @@ class ObservationListSource(ListPageSource):
         )
 
 
-class ObservationListMenu(BaseListMenu):
+class ObservationSearchMenu(BaseSearchMenu):
     def __init__(
         self,
         **kwargs: Any,

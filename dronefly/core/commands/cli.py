@@ -17,12 +17,13 @@ from ..query import (
     match_user,
     prepare_query,
     QueryResponse,
+    prepare_query_for_search_obs,
 )
 from ..query.formatters import get_query_taxon_formatter
 from ..formatters.generic import (
     format_obs_spp_count,
     ObservationFormatter,
-    ObservationListFormatter,
+    ObservationSearchFormatter,
     TaxonListFormatter,
     CountsFormatter,
     UserFormatter,
@@ -30,7 +31,7 @@ from ..formatters.generic import (
 )
 from ..menus.counts import CountsSource
 from ..menus.taxon_list import TaxonListSource
-from ..menus.observation_list import ObservationListSource
+from ..menus.observation_search import ObservationSearchSource
 from ..models import Context
 
 from .base import Commands
@@ -407,10 +408,9 @@ class CLICommands(Commands):
         query = self._parse(_args)
 
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query(client, query)
+            query_response = await prepare_query_for_search_obs(client, query)
             obs_args = query_response.obs_args()
-            obs_paginator = client.observations.search(**obs_args, limit=200)
-            observations = await obs_paginator.async_all()
+            observations = client.observations.search(**obs_args)
         if not observations:
             raise LookupError(
                 f"No observations {query_response.obs_query_description()}"
@@ -418,11 +418,11 @@ class CLICommands(Commands):
 
         per_page = ctx.per_page
         with_index = self.format == Format.rich
-        formatter = ObservationListFormatter(
+        formatter = ObservationSearchFormatter(
             with_index=with_index,
         )
-        source = ObservationListSource(
-            entries=observations,
+        source = ObservationSearchSource(
+            iterator=observations,
             query_response=query_response,
             formatter=formatter,
             per_page=per_page,

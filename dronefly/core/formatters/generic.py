@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from ..query import QueryResponse
     from ..menus.taxon_list import TaxonListSource
-    from ..menus.observation_list import ObservationListSource
+    from ..menus.observation_search import ObservationSearchSource
     from ..menus.count import CountSource
     from ..menus.counts import CountsSource
     from ..models import PlaceCount
@@ -542,16 +542,16 @@ def format_obs_spp_summary(
     return summary
 
 
-class ObservationListFormatter(ListFormatter):
+class ObservationSearchFormatter(ListFormatter):
     """
     Attributes
     ----------
-    source: ObservationListSource
+    source: ObservationSearchSource
         Source of observations. The source must be set before any format methods
         can be called.
     """
 
-    source: ObservationListSource
+    source: ObservationSearchSource
 
     def __init__(
         self,
@@ -567,7 +567,7 @@ class ObservationListFormatter(ListFormatter):
         with_url: bool, optional
             When True, link the title to the observations matching the query.
         short_description: str, optional [default: `Search: Observations`]
-            Short description of observation list that appears in the title.
+            Short description of observation search that appears in the title.
         """
         self.with_index = with_index
         self.with_url = with_url
@@ -575,25 +575,24 @@ class ObservationListFormatter(ListFormatter):
 
     def format(
         self,
-        page: Union[Taxon, list[Taxon]] = None,
+        page: Union[Observation, list[Observation]] = None,
         page_number: Optional[int] = None,
         selected: Optional[int] = None,
         with_title: bool = True,
     ):
-        """Format the taxon list as markdown."""
+        """Format the observation page as markdown."""
         description = self.format_page(page, page_number, selected)
         if with_title:
             description = "\n\n".join([self.format_title(), description])
         return description
 
     def format_title(self):
-        """Format observation list title as Discord-like markdown.
+        """Format observation page title as Discord-like markdown.
 
         Returns
         -------
         str
-            - Describe a list of observations derived from an observations query
-              in terms of the observations query parameters passed.
+            - Describe an observations search page in terms of its query parameters.
         """
         title = f"{self.short_description} {self.source.query_response.obs_query_description()}"
         if self.with_url:
@@ -672,7 +671,7 @@ class ObservationListFormatter(ListFormatter):
         return assemble_page(page_content, selected)
 
     def last_page(self):
-        if not (self.source.per_page > 0 and self.source.entries):
+        if not (self.source.per_page > 0 and self.source._cache):
             return 0
         return self.source.get_max_pages() - 1
 

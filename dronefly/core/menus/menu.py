@@ -1,4 +1,4 @@
-from .source import ListPageSource, PageSource
+from .source import ListPageSource, PageSource, AsyncIteratorPageSource
 
 
 class BaseMenu:
@@ -14,6 +14,19 @@ class BaseListMenu(BaseMenu):
     def __init__(
         self,
         source: ListPageSource,
+        current_page: int = 0,
+        selected: int = 0,
+    ) -> None:
+        self.source = source
+        self.current_page = current_page
+        self.selected = selected
+        super().__init__(source)
+
+
+class BaseSearchMenu(BaseMenu):
+    def __init__(
+        self,
+        source: AsyncIteratorPageSource,
         current_page: int = 0,
         selected: int = 0,
     ) -> None:

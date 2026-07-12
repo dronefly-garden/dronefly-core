@@ -483,8 +483,10 @@ class QueryResponse:
             order_by = VALID_OBS_SORT_BY.get(str(self.sort_by))
             if order_by:
                 kwargs["order_by"] = order_by
-        if self.order:
-            kwargs["order"] = str(self.order)
+        # FIXME: Properly address the mismatch between observations
+        # controller arguments and API arguments, i.e. should be a simple
+        # lookup, not a fixup afterwards like the following:
+        kwargs["reverse"] = str(self.order) != "asc"
         return kwargs
 
     def obs_query_description(self, with_adjectives: bool = True):

@@ -1,6 +1,6 @@
 import pytest
 from unittest.mock import Mock
-from dronefly.core.formatters.generic import ObservationListFormatter
+from dronefly.core.formatters.generic import ObservationSearchFormatter
 from dronefly.core.query import QueryResponse
 from pyinaturalist import Observation, User
 
@@ -63,14 +63,14 @@ def mock_menu():
 
 
 def test_initialization():
-    formatter = ObservationListFormatter(
+    formatter = ObservationSearchFormatter(
         with_url=True,
     )
     assert formatter.with_url is True
 
 
 def test_format(mock_source):
-    formatter = ObservationListFormatter()
+    formatter = ObservationSearchFormatter()
     formatter.source = mock_source
     page = mock_source.entries[:10]
     formatted_page = formatter.format(page, 1, 0)
