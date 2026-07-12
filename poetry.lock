@@ -1005,13 +1005,15 @@ windows-terminal = ["colorama (>=0.4.6)"]
 
 [[package]]
 name = "pyinaturalist"
-version = "0.20.2"
+version = "0.21.1"
 description = "iNaturalist API client for python"
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-files = []
-develop = false
+files = [
+    {file = "pyinaturalist-0.21.1-py3-none-any.whl", hash = "sha256:ea98977b2614ded9eef0afe4db3eb564f9e913824d4fd29e910cc0f21008abc5"},
+    {file = "pyinaturalist-0.21.1.tar.gz", hash = "sha256:1fdf879a3113a9ebbea7a1c0f1973dc6b79cba94bb32a50e810907b3b92480c7"},
+]
 
 [package.dependencies]
 attrs = ">=21.2"
@@ -1020,17 +1022,11 @@ platformdirs = ">=2.6"
 python-dateutil = ">=2.0"
 requests = ">=2.25"
 requests-cache = ">=1.2"
-requests-ratelimiter = ">=0.5.1"
+requests-ratelimiter = ">=0.6,<0.9"
 rich = ">=10.9"
 
 [package.extras]
 all = ["filelock (>2.0)", "ujson (>5.0)"]
-
-[package.source]
-type = "git"
-url = "https://github.com/pyinat/pyinaturalist"
-reference = "9e3429a8dd6cb9b4ea4ade5a5a74f4f559c29fcd"
-resolved_reference = "9e3429a8dd6cb9b4ea4ade5a5a74f4f559c29fcd"
 
 [[package]]
 name = "pylint"
@@ -1634,4 +1630,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.11,<3.13"
-content-hash = "41c47720d4334864c942a0d8a6fae0fe2dfb9517efa94438f4291be6b5d42454"
+content-hash = "fa36a46f808f1b185199e884a34793ce61a667cb29653c4515b60e2aeb39ba4a"
