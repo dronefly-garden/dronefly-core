@@ -82,58 +82,6 @@ class ObservationSearchSource(AsyncIteratorPageSource):
         page_number: int = 0,
         selected: int = 0,
     ):
-        def format_page_of_observations(page: list[Observation]):
-            formatted_observations = []
-            for observation in page:
-                if observation.taxon:
-                    taxon_name = observation.taxon.full_name
-                else:
-                    taxon_name = "Unknown"
-                formatted_observation = {"taxon_name": taxon_name}
-                formatted_observations.append(formatted_observation)
-            return formatted_observations
-
-        def make_page_content(page: list[Observation]):
-            """Format all parts of the page content."""
-            structured_page = {
-                "header": None,
-                "entries_header": None,
-                "entries": [],
-                "footer": None,
-            }
-            if page and self.with_taxa:
-                formatted_observations = format_page_of_observations(page)
-                structured_page["entries"] = formatted_observations
-            return structured_page
-
-        def assemble_page(content: dict, selected: int = 0):
-            """Assemble page content into a formatted page."""
-            sections = []
-            if content["header"]:
-                sections.append(content["header"])
-            if content["entries_header"]:
-                sections.append(content["entries_header"])
-            if content["entries"]:
-                entries = []
-                for (index, entry) in enumerate(content["entries"]):
-                    _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
-                    if selected == index:
-                        _s = ">"
-                        _n = "**__"
-                        _e = "__**"
-                    else:
-                        _s = "\N{EN SPACE}"
-                        _n = ""
-                        _e = ""
-                    entries.append(
-                        f"{_i}`{entry['count']}{entry['direct']}`"
-                        f"{_s}{entry['indent']}{_n}{entry['name']}{_e}"
-                    )
-                sections.append("\n".join(entries))
-            if content["footer"]:
-                sections.append(content["footer"])
-            return "\n\n".join(sections)
-
         return self.formatter.format(
             self,
             page=page,
