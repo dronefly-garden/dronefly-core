@@ -626,7 +626,7 @@ class ObservationSearchFormatter(ListFormatter):
                 )
             return formatted_obs
 
-        def make_page_content(page: list[Taxon], with_summary: bool = False):
+        def make_page_content(page: list[Observation], with_summary: bool = False):
             """Format all parts of the page content."""
             structured_page = {
                 "header": None,
