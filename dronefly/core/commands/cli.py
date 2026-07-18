@@ -431,8 +431,9 @@ class CLICommands(Commands):
         ctx.page_formatter = formatter
         ctx.page_number = 0
         ctx.selected = 0
+        title = formatter.format_title()
         formatted_page = await self._get_formatted_page(
-            ctx.page_formatter, ctx.page_number, ctx.selected
+            ctx.page_formatter, ctx.page_number, ctx.selected, header=title
         )
         return self._format_markdown(formatted_page)
 

@@ -38,7 +38,9 @@ async def test_obs_search_with_one_full_page(cmd, ctx):
     response = await cmd.obs_search(
         ctx, "poecile by benarmstrong added until 2019-03-01"
     )
-    expected = """`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
+    expected = """[Search: Observations of Genus *Poecile* (Chickadees and Allies) by Ben Armstrong (benarmstrong) added  on or before Mar 1, 2019 Mar:03 AM](https://www.inaturalist.org/observations?verifiable=any&taxon_id=144351&user_id=545640&created_d2=2019-03-01T00%3A00%3A00)
+
+`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
 `Jan-2019`\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/19864873)
 `Jul-2018`\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/14325258)"""  # noqa: E501
     assert response == expected
@@ -50,7 +52,9 @@ async def test_obs_search_with_two_pages(cmd, ctx):
     response = await cmd.obs_search(
         ctx, "poecile by benarmstrong added until 2019-03-01"
     )
-    expected = """`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
+    expected = """[Search: Observations of Genus *Poecile* (Chickadees and Allies) by Ben Armstrong (benarmstrong) added  on or before Mar 1, 2019 Mar:03 AM](https://www.inaturalist.org/observations?verifiable=any&taxon_id=144351&user_id=545640&created_d2=2019-03-01T00%3A00%3A00)
+
+`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
 `Jan-2019`\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/19864873)
 
 Page 1/2"""  # noqa: E501
@@ -67,7 +71,9 @@ async def test_obs_search_with_one_of_three_pages(cmd, ctx):
     response = await cmd.obs_search(
         ctx, "poecile by benarmstrong added until 2019-03-01"
     )
-    expected = """`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
+    expected = """[Search: Observations of Genus *Poecile* (Chickadees and Allies) by Ben Armstrong (benarmstrong) added  on or before Mar 1, 2019 Mar:03 AM](https://www.inaturalist.org/observations?verifiable=any&taxon_id=144351&user_id=545640&created_d2=2019-03-01T00%3A00%3A00)
+
+`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
 
 Page 1/3"""  # noqa: E501
     assert response == expected
