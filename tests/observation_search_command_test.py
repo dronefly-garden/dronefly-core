@@ -12,7 +12,7 @@ from dronefly.core.models.context import Context  # noqa: F401
 @pytest.fixture
 def ctx():
     ctx = Context()
-    ctx.per_page = 10
+    ctx.per_page = 2
     return ctx
 
 
@@ -34,8 +34,13 @@ def cmd(event_loop):
 # TODO: Mock communication with iNatClient
 @pytest.mark.asyncio(scope="session")
 async def test_obs_search_with_result(cmd, ctx):
-    response = await cmd.obs_search(ctx, "poecile by johngcramer added on 2017-01-01")
-    expected = "`Jan-2017`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/4881581)__**"  # noqa: E501
+    response = await cmd.obs_search(
+        ctx, "poecile by benarmstrong added until 2019-02-01"
+    )
+    expected = """`Jan-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/19864873)__**
+`Jul-2018`\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/14325258)
+
+Page 1/2"""  # noqa: E501
     assert response == expected
 
 
