@@ -1,6 +1,6 @@
 [project]
 name = "dronefly-core"
-version = "0.5.0"
+version = "0.5.1"
 description = "Core dronefly components"
 authors = [{ name = "Ben Armstrong", email = "synrg@debian.org" }]
 requires-python = ">=3.11,<3.13"
