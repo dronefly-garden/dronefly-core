@@ -2,11 +2,10 @@ import copy
 import pytest
 from unittest.mock import Mock, patch
 from dronefly.core.clients.inat import iNatClient
-from dronefly.core.menus.counts import CountsSource
 from dronefly.core.formatters import CountsFormatter
+from dronefly.core.menus.counts import CountsSource
+from dronefly.core.models import UserCount
 from dronefly.core.query import QueryResponse
-
-from pyinaturalist import UserCount
 
 
 @pytest.fixture

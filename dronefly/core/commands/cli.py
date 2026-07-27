@@ -1,5 +1,4 @@
 from requests import HTTPError
-from pyinaturalist import UserCount
 
 from ..constants import (
     CONFIG_PATH,
@@ -32,7 +31,7 @@ from ..formatters.generic import (
 from ..menus.counts import CountsSource
 from ..menus.taxon_list import TaxonListSource
 from ..menus.observation_search import ObservationSearchSource
-from ..models import Context
+from ..models import Context, UserCount
 
 from .base import Commands
 from .constants import Format

@@ -1,6 +1,6 @@
 from typing import Union
 
-from pyinaturalist import Place, User, UserCount
+from pyinaturalist import Place, User
 
 from dronefly.core.clients.inat import iNatClient
 from dronefly.core.query.query import (
@@ -9,7 +9,7 @@ from dronefly.core.query.query import (
     get_user_count_total,
 )
 
-from ..models import PlaceCount
+from ..models import PlaceCount, UserCount
 from .source import ListPageSource, PageSource
 from ..formatters import CountsFormatter
 from ..query import QueryResponse
@@ -22,7 +22,7 @@ class CountsSource(ListPageSource):
         inat_client: iNatClient,
         query_response: QueryResponse,
         counts_formatter: CountsFormatter,
-        **kwargs
+        **kwargs,
     ):
         self.inat_client = inat_client
         self.query_response = query_response

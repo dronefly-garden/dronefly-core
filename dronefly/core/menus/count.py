@@ -1,13 +1,12 @@
 from typing import Any, Union
 
-from pyinaturalist import UserCount
-
 from dronefly.core.models.place_count import PlaceCount
 
 from .counts import CountsSourceMixin
 from .menu import BaseMenu
 from ..clients.inat import iNatClient
 from ..formatters.generic import CountFormatter
+from ..models import UserCount
 from ..query.query import QueryResponse
 from ..utils import obs_url_from_v1
 

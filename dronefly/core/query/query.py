@@ -1,16 +1,22 @@
 """Naturalist information system query module."""
+
 import copy
 import datetime as dt
 import re
 from typing import List, Optional, Union
 
 from attrs import define, field
-from pyinaturalist.models import Place, Project, Taxon, User, UserCount
+from pyinaturalist.models import Place, Project, Taxon, User
 from requests.exceptions import HTTPError
 
 from ..clients.inat import iNatClient
 from ..formatters.generic import format_taxon_name, format_user_name
-from ..models import ControlledTermSelector, match_controlled_term, PlaceCount
+from ..models import (
+    ControlledTermSelector,
+    match_controlled_term,
+    PlaceCount,
+    UserCount,
+)
 from ..parsers.constants import (
     VALID_OBS_OPTS,
     VALID_OBS_SORT_BY,
@@ -18,7 +24,6 @@ from ..parsers.constants import (
 )
 from .base import TaxonQuery, Query
 from .taxon import match_taxon
-
 
 EMPTY_QUERY = Query()
 
@@ -623,7 +628,7 @@ class QueryResponse:
                         message += " and "
                     message += f" on or before {_format_time(self.added.d2)}"
         if self.controlled_term:
-            (term, term_value) = self.controlled_term
+            term, term_value = self.controlled_term
             desc = f" with {term.label}"
             desc += f" {term_value.label}"
             message += desc
@@ -704,7 +709,7 @@ def _place_count_args(place, observations_count, species_count):
 
 
 async def get_obs_spp_counts(obs_args: dict, client: iNatClient):
-    (obs_count_args, species_count_args) = get_obs_spp_count_args(obs_args)
+    obs_count_args, species_count_args = get_obs_spp_count_args(obs_args)
     observations_count = client.observations.search(**obs_count_args).count()
     species_count = 0
     if observations_count:
@@ -720,17 +725,17 @@ async def get_user_count(client, query_response, user: Optional[User] = None):
     else:
         # Fake user to contain the counts:
         user = User(id=-1)
-    (observations_count, species_count) = await get_obs_spp_counts(
+    observations_count, species_count = await get_obs_spp_counts(
         client=client, obs_args=obs_args
     )
-    return UserCount.from_json(
-        _user_count_args(user, observations_count, species_count)
-    )
+    user_count_args = _user_count_args(user, observations_count, species_count)
+    user_count_args["countable_param"] = query_response.countable_param
+    return UserCount.from_json(user_count_args)
 
 
 async def get_user_count_total(client, query_response, users: Union[UserCount, User]):
     """Synthesize a UserCount object for a base query_response + list of user counts or users"""
-    (observations_count, species_count) = await get_obs_spp_counts(
+    observations_count, species_count = await get_obs_spp_counts(
         client=client,
         obs_args={
             **query_response.obs_args(),
@@ -750,7 +755,7 @@ async def get_place_count(client, query_response, place: Optional[Place] = None)
     else:
         # Fake place to contain the counts:
         place = User(id=-1)
-    (observations_count, species_count) = await get_obs_spp_counts(
+    observations_count, species_count = await get_obs_spp_counts(
         client=client, obs_args=obs_args
     )
     return PlaceCount.from_json(

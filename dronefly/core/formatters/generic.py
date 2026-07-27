@@ -3,6 +3,7 @@
 Anything more complicated than plain text can be rendered in Markdown,
 which is then fairly easy to render to other formats as needed.
 """
+
 from __future__ import annotations
 import copy
 from datetime import datetime as dt
@@ -28,7 +29,6 @@ from pyinaturalist import (
     Taxon,
     TaxonSummary,
     User,
-    UserCount,
 )
 from pyinaturalist.constants import ROOT_TAXON_ID
 
@@ -37,7 +37,13 @@ from ..constants import (
     TRINOMIAL_ABBR,
     RANK_LEVELS,
 )
-from ..models import BaseCountFormatter, BaseFormatter, ListFormatter, TaxonListMetadata
+from ..models import (
+    BaseCountFormatter,
+    BaseFormatter,
+    ListFormatter,
+    TaxonListMetadata,
+    UserCount,
+)
 from ..utils import included_ranks
 from .constants import (
     ICONS,
@@ -507,14 +513,8 @@ def format_obs_spp_count(
     """Format observation & species counts for a user or place."""
     obs_args = query_response.obs_args()
     if isinstance(count, UserCount):
-        # FIXME: the obs arg added here depends on the base query,
-        # e.g. could be user_id, ident_user_id, etc.
-        # - when the source is instantiated, the kind of query
-        #   needs to be recorded as an attribute of the source
-        # - the obs & spp args need to be produced from the base
-        #   query & user id, not *just* the base query alone
         name = count.login
-        obs_args["user_id"] = count.id
+        obs_args[count.countable_param] = count.id
     else:
         name = count.display_name
         obs_args["place_id"] = count.id
@@ -648,7 +648,7 @@ class ObservationSearchFormatter(ListFormatter):
                 sections.append(content["entries_header"])
             if content["entries"]:
                 entries = []
-                for (index, entry) in enumerate(content["entries"]):
+                for index, entry in enumerate(content["entries"]):
                     _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
                     if selected == index:
                         _s = ">"
@@ -895,7 +895,7 @@ class TaxonListFormatter(ListFormatter):
                 sections.append(content["entries_header"])
             if content["entries"]:
                 entries = []
-                for (index, entry) in enumerate(content["entries"]):
+                for index, entry in enumerate(content["entries"]):
                     _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
                     if selected == index:
                         _s = ">"
@@ -1317,7 +1317,7 @@ class ObservationFormatter(BaseFormatter):
         idents_count = ""
         if self.obs.identifications_count:
             if self.obs.community_taxon_id:
-                (idents_count, idents_agree) = self.obs.cumulative_ids
+                idents_count, idents_agree = self.obs.cumulative_ids
                 idents_count = f"{ICONS['community']} ({idents_agree}/{idents_count})"
             else:
                 obs_idents_count = (

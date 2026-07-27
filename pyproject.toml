@@ -1,6 +1,6 @@
 [project]
 name = "dronefly-core"
-version = "0.5.1"
+version = "0.5.2"
 description = "Core dronefly components"
 authors = [{ name = "Ben Armstrong", email = "synrg@debian.org" }]
 requires-python = ">=3.11,<3.13"
@@ -22,6 +22,9 @@ dependencies = [
 
 [tool.bandit]
 exclude_dirs = ["tests"]
+
+[tool.black]
+target-version = ['py311']
 
 [dependency-groups]
 dev = [

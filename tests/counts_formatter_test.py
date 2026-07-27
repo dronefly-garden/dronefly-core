@@ -5,9 +5,8 @@ from dronefly.core.formatters.generic import (
     TAXON_COUNTS_HEADER,
     TAXON_PLACES_HEADER,
 )
-from dronefly.core.models import PlaceCount
+from dronefly.core.models import PlaceCount, UserCount
 from dronefly.core.query import QueryResponse
-from pyinaturalist import UserCount
 
 
 @pytest.fixture

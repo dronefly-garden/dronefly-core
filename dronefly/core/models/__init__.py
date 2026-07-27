@@ -3,5 +3,6 @@ from .config import *  # noqa: F401,F403
 from .controlled_terms import *  # noqa: F401,F403
 from .taxon_list import *  # noqa: F401,F403
 from .user import *  # noqa: F401,F403
+from .user_count import *  # noqa: F401,F403
 from .place_count import *  # noqa: F401,F403
 from .context import *  # noqa: F401,F403
