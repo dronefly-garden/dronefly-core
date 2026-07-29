@@ -325,6 +325,11 @@ class AsyncIteratorPageSource(PageSource):
         if page_number < 0:
             raise IndexError("Negative page number.")
 
+        if self.per_page == 0:
+            while not self._exhausted:
+                await self._iterate(100)
+            return self._cache
+
         base = page_number * self.per_page
         max_base = base + self.per_page
         if not self._exhausted and len(self._cache) <= max_base:
