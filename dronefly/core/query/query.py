@@ -656,11 +656,11 @@ class QueryResponse:
             _order = "ascending" if order == "asc" else "descending"
             message += f" in {_order} order"
         if order_by:
-            _order_by = str(VALID_OBS_SORT_BY.get(order_by)).replace("_", " ")
+            _order_by = self.sort_by
             if order:
-                message += f" by `#{_order_by}`"
+                message += f" by {_order_by} date"
             else:
-                message += f" ordered by `{_order_by}`"
+                message += f" ordered by {_order_by} date"
         return re.sub(r"^ ", "", message)
 
 
