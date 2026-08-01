@@ -2,6 +2,10 @@ from attrs import define
 from typing import List, Optional
 
 
+class QueryValueError(ValueError):
+    pass
+
+
 @define
 class TaxonQuery:
     """A taxon query composed of terms and/or phrases or a code or taxon_id, filtered by ranks."""

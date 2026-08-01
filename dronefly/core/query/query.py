@@ -22,7 +22,7 @@ from ..parsers.constants import (
     VALID_OBS_SORT_BY,
     VALID_TAXON_LIST_SORT_BY,
 )
-from .base import TaxonQuery, Query
+from .base import TaxonQuery, Query, QueryValueError
 from .taxon import match_taxon
 
 EMPTY_QUERY = Query()
@@ -215,14 +215,14 @@ async def match_user(client, user_str):
 
 def check_query_observations(query):
     if has_value(query.sort_by) and query.sort_by not in VALID_OBS_SORT_BY:
-        raise ValueError(
+        raise QueryValueError(
             f"Invalid `sort by`. Must be one of: `{', '.join(VALID_OBS_SORT_BY.keys())}`"
         )
 
 
 def check_query_taxon_list(query):
     if has_value(query.sort_by) and query.sort_by not in VALID_TAXON_LIST_SORT_BY:
-        raise ValueError(
+        raise QueryValueError(
             f"Invalid `sort by`. Must be one of: `{', '.join(VALID_TAXON_LIST_SORT_BY)}`"
         )
 

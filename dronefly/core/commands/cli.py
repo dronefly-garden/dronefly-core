@@ -15,8 +15,9 @@ from ..query import (
     match_place,
     match_user,
     prepare_query,
-    QueryResponse,
     prepare_query_for_search_obs,
+    QueryResponse,
+    QueryValueError,
 )
 from ..query.formatters import get_query_taxon_formatter
 from ..formatters.generic import (
@@ -62,7 +63,10 @@ class CLICommands(Commands):
             raise ArgumentError("Specify `order asc` or `order desc`")
 
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query(client, query)
+            try:
+                query_response = await prepare_query(client, query)
+            except QueryValueError as err:
+                raise (ArgumentError(err))
             obs_args = query_response.obs_args()
             life_list = await client.observations.life_list(**obs_args)
 
@@ -115,7 +119,10 @@ class CLICommands(Commands):
         short_description = ""
         msg = None
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query(client, query)
+            try:
+                query_response = await prepare_query(client, query)
+            except QueryValueError as err:
+                raise (ArgumentError(err))
             taxon = query_response.taxon
             if not taxon:
                 raise LookupError(f"No taxon {query_response.obs_query_description()}")
@@ -279,7 +286,10 @@ class CLICommands(Commands):
         query = self._parse(" ".join(args))
         if not query.main or not query.main.terms:
             raise ArgumentError("Not a taxon")
-        query_response = await prepare_query(client, query)
+        try:
+            query_response = await prepare_query(client, query)
+        except QueryValueError as err:
+            raise (ArgumentError(err))
         if not query_response.taxon:
             raise LookupError("Nothing found")
         query_response.taxon = await client.taxa.populate(query_response.taxon)
@@ -365,7 +375,10 @@ class CLICommands(Commands):
         query = self._parse(" ".join(args))
 
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query(client, query)
+            try:
+                query_response = await prepare_query(client, query)
+            except QueryValueError as err:
+                raise (ArgumentError(err))
             _check_obs_query_fields(query_response)
             if query_response.taxon:
                 query_response.taxon = await client.taxa.populate(query_response.taxon)
@@ -407,7 +420,10 @@ class CLICommands(Commands):
         query = self._parse(_args)
 
         with self.inat_client.set_ctx(ctx) as client:
-            query_response = await prepare_query_for_search_obs(client, query)
+            try:
+                query_response = await prepare_query_for_search_obs(client, query)
+            except QueryValueError as err:
+                raise (ArgumentError(err))
             obs_args = query_response.obs_args()
             observations = client.observations.search(**obs_args)
         if not observations:
