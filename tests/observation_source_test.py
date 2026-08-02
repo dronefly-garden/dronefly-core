@@ -36,7 +36,11 @@ async def async_obs_gen(data):
 
 @pytest.fixture
 def mock_query_response(mock_user):
-    query_response = Mock(spec=QueryResponse, user=mock_user)
+    params = {
+        "obs_args.return_value": {"user": 1},
+        "obs_query_description.return_value": "of taxa by test_user",
+    }
+    query_response = Mock(spec=QueryResponse, user=mock_user, **params)
     return query_response
 
 
