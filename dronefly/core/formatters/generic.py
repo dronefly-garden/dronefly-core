@@ -648,6 +648,7 @@ class ObservationSearchFormatter(ListFormatter):
                 sections.append(content["entries_header"])
             if content["entries"]:
                 entries = []
+                date_len = max(len(entry["date"]) for entry in content["entries"])
                 for index, entry in enumerate(content["entries"]):
                     _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
                     if selected == index:
@@ -659,7 +660,8 @@ class ObservationSearchFormatter(ListFormatter):
                         _n = ""
                         _e = ""
                     entries.append(
-                        f"{_i}`{entry['date']}`" f"{_s}{_n}{entry['name']}{_e}"
+                        f"{_i}`{entry['date'].rjust(date_len)}`"
+                        f"{_s}{_n}{entry['name']}{_e}"
                     )
                 sections.append("\n".join(entries))
             if content["footer"]:

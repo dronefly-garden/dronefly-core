@@ -1,4 +1,5 @@
 """Module for URL parsing"""
+
 import re
 
 # Match any iNaturalist partner URL
@@ -41,16 +42,15 @@ STATIC_URL_PAT = (
 )
 
 # Match observation URL or command.
-PAT_OBS_LINK = re.compile(
-    r"\b(?P<url>" + WWW_URL_PAT + r"/observations/(?P<obs_id>\d+))\b", re.I
-)
+_PAT_OBS_LINK = r"\b(?P<url>" + WWW_URL_PAT + r"/observations/(?P<obs_id>\d+))\b"
+PAT_OBS_LINK = re.compile(_PAT_OBS_LINK, re.I)
 
 QUERY_PAT = r"\??(?:&?[^\n=& ]*=[^\n=& ]*)*"
 _OBS_QUERY_PAT = r"(?P<url>" + WWW_URL_PAT + r"/observations" + QUERY_PAT + ")"
 PAT_OBS_QUERY = re.compile(_OBS_QUERY_PAT)
 # - the ">" character is markdown for block-quote, but only at the start of a
 #   line, so in the middle of a line we use it to indicate a selected entry
-_SELECTED_OBS_LINK_PAT = r"^(?!> ).*?>.*?\[.*?\]\(" + _OBS_QUERY_PAT + r"\)"
+_SELECTED_OBS_LINK_PAT = r"^(?!> ).*?>.*?\[.*?\]\(" + _PAT_OBS_LINK + r"\)"
 PAT_SELECTED_OBS_LINK = re.compile(_SELECTED_OBS_LINK_PAT, re.MULTILINE)
 MARKDOWN_LINK = re.compile(r"\[.*?\]\((?P<url>.*?)\)")
 
