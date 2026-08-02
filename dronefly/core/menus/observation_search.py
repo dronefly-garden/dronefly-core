@@ -1,6 +1,9 @@
 from typing import Any, Union
 
-from pyinaturalist import Observation, Paginator
+from pyinaturalist import Observation
+from pyinaturalist.paginator import Paginator
+
+from dronefly.core.utils import obs_url_from_v1
 
 from .source import AsyncIteratorPageSource
 from .menu import BaseSearchMenu
@@ -53,6 +56,7 @@ class ObservationSearchSource(AsyncIteratorPageSource):
         """
         self._observation_search_formatter = formatter
         self.query_response = query_response
+        self._url = obs_url_from_v1(query_response.obs_args())
         self.sort_by = sort_by
         self.order = order
         self._iterator = iterator
