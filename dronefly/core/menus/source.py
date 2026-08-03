@@ -273,6 +273,10 @@ def _aiter(obj, *, _isasync=inspect.iscoroutinefunction):
     return async_iter
 
 
+def iscountable(iterator):
+    return hasattr(iterator, "count")
+
+
 class AsyncIteratorPageSource(PageSource):
     """A data source for data backed by an asynchronous iterator.
 
@@ -289,9 +293,22 @@ class AsyncIteratorPageSource(PageSource):
 
     def __init__(self, iterator, *, per_page):
         self.iterator = _aiter(iterator)
+        self._count = None
+        if iscountable(iterator):
+            self.total = iterator.count()
+        else:
+            self.total = None
         self.per_page = per_page
         self._exhausted = False
         self._cache = []
+
+    @property
+    def count(self):
+        return self._count if self._count is not None else self.total
+
+    @count.setter
+    def count(self, value):
+        self._count = value
 
     async def _iterate(self, n):
         it = self.iterator
@@ -312,6 +329,25 @@ class AsyncIteratorPageSource(PageSource):
     def is_paginating(self):
         """:class:`bool`: Whether pagination is required."""
         return len(self._cache) > self.per_page
+
+    def get_max_pages(self):
+        """Maximum number of pages.
+
+        Returns
+        --------
+        Optional[:class:`int`]
+            The maximum number of pages required to properly
+            paginate the elements.
+        """
+        pages = None
+        if self.count is not None:
+            if self.per_page:
+                pages, left_over = divmod(self.count, self.per_page)
+                if left_over:
+                    pages += 1
+            else:
+                pages = 1
+        return pages
 
     async def _get_single_page(self, page_number):
         if page_number < 0:
@@ -337,6 +373,14 @@ class AsyncIteratorPageSource(PageSource):
 
         entries = self._cache[base:max_base]
         if not entries and max_base > len(self._cache):
+            if iscountable(self._iterator) and self._count is None:
+                # An attempt was made to read past the last page of a limited
+                # countable iterator. The count of entries is reduced to the
+                # number that were read before exhaustion and then
+                # StopAsyncIteration is signaled for the caller to handle,
+                # - e.g. notify the user that some results were omitted
+                self.count = len(self._cache)
+                raise StopAsyncIteration
             raise IndexError("Went too far")
         return entries
 
@@ -351,6 +395,17 @@ class AsyncIteratorPageSource(PageSource):
         ---------
         Union[Any, List[Any]]
             The data returned.
+
+        Raises
+        ------
+        StopAsyncIteration
+            Fetching the page reached the end of a limited, countable iterator
+            for the first time. The source.count is adjusted to the cache
+            length before raising.
+
+        IndexError
+            StopAsyncIteration was not raised and the requested page_number is
+            outside of the range of available pages.
         """
         if self.per_page == 1:
             return await self._get_single_page(page_number)

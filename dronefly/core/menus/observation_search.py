@@ -70,16 +70,6 @@ class ObservationSearchSource(AsyncIteratorPageSource):
     def formatter(self) -> ObservationSearchFormatter:
         return self._observation_search_formatter
 
-    def get_max_pages(self):
-        count = self._iterator.count()
-        if self.per_page:
-            pages, left_over = divmod(count, self.per_page)
-            if left_over:
-                pages += 1
-        else:
-            pages = 1
-        return pages
-
     def format_page(
         self,
         page: Union[Observation, list[Observation]],
