@@ -2,6 +2,8 @@
 
 import copy
 import datetime as dt
+
+# import logging
 import re
 from typing import List, Optional, Union
 
@@ -26,6 +28,8 @@ from .base import TaxonQuery, Query, QueryValueError
 from .taxon import match_taxon
 
 EMPTY_QUERY = Query()
+
+# logger = logging.getLogger(__name__)
 
 
 class _Params(dict):
@@ -412,12 +416,12 @@ class QueryResponse:
     @property
     def countable_attr(self):
         """The name of the attribute that is countable."""
-        return COUNTABLE_ATTR.get(self.per)
+        return COUNTABLE_ATTR.get(self.per, "user")
 
     @property
     def countable_param(self):
         """The name of the observation API parameter that is countable."""
-        return COUNTABLE_PARAM.get(self.per)
+        return COUNTABLE_PARAM.get(self.per, "user_id")
 
     @property
     def countable_value(self):
@@ -664,7 +668,7 @@ class QueryResponse:
         return re.sub(r"^ ", "", message)
 
 
-def get_obs_spp_count_args(obs_args):
+def get_obs_spp_count_args(obs_args={}):
     obs_count_args = copy.copy(obs_args)
     count_unverifiable_observations = (
         obs_args.get("project_id")
