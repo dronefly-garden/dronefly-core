@@ -557,6 +557,8 @@ class ObservationSearchFormatter(ListFormatter):
         self,
         with_index: bool = False,
         with_url: bool = True,
+        with_links: bool = True,
+        with_summaries: bool = False,
         short_description: str = "Search: Observations",
     ):
         """
@@ -566,11 +568,21 @@ class ObservationSearchFormatter(ListFormatter):
             When True, output index per observation in page.
         with_url: bool, optional
             When True, link the title to the observations matching the query.
+        with_links: bool, optional
+            When True, link each observation taxon name to the observation of
+            the taxon.
+        with_summaries: bool, optional
+            When False, only a brief title line per observation is returned,
+            containing the date of the observation and its taxon.
+            When True, a second line containing a compact summary of observation
+            details is also returned.
         short_description: str, optional [default: `Search: Observations`]
             Short description of observation search that appears in the title.
         """
         self.with_index = with_index
         self.with_url = with_url
+        self.with_links = with_links
+        self.with_summaries = with_summaries
         self.short_description = short_description
 
     def format(
@@ -611,9 +623,16 @@ class ObservationSearchFormatter(ListFormatter):
         def format_page_of_obs(page: list[Observation]):
             formatted_obs = []
             for obs in page:
-                taxon_name = format_taxon_name(obs.taxon, with_common=False)
-                obs_url = f"{WWW_BASE_URL}/observations/{obs.id}"
-                formatted_name = format_link(taxon_name, obs_url)
+                with_user = not self.source.query_response.user
+                params = {
+                    "compact": True,
+                    "with_link": self.with_links,
+                    "with_description": False,
+                    "with_user": with_user,
+                }
+                format_params = {"join_title": self.with_summaries}
+                obs_formatter = ObservationFormatter(obs, **params)
+                description = obs_formatter.format(**format_params)
                 if obs.observed_on:
                     date = format_datetime(obs.observed_on, compact=True)
                 else:
@@ -621,7 +640,7 @@ class ObservationSearchFormatter(ListFormatter):
                 formatted_obs.append(
                     {
                         "date": date,
-                        "name": formatted_name,
+                        "description": description,
                     }
                 )
             return formatted_obs
@@ -641,6 +660,8 @@ class ObservationSearchFormatter(ListFormatter):
 
         def assemble_page(content: dict, selected: int = 0):
             """Assemble page content into a formatted page."""
+            indent_width = 5 if self.with_index else 1
+            indent = "\n" + ("\N{EN SPACE}" * indent_width)
             sections = []
             if content["header"]:
                 sections.append(content["header"])
@@ -648,7 +669,8 @@ class ObservationSearchFormatter(ListFormatter):
                 sections.append(content["entries_header"])
             if content["entries"]:
                 entries = []
-                date_len = max(len(entry["date"]) for entry in content["entries"])
+                if not self.with_summaries:
+                    date_len = max(len(entry["date"]) for entry in content["entries"])
                 for index, entry in enumerate(content["entries"]):
                     _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
                     if selected == index:
@@ -659,10 +681,17 @@ class ObservationSearchFormatter(ListFormatter):
                         _s = "\N{EN SPACE}"
                         _n = ""
                         _e = ""
-                    entries.append(
-                        f"{_i}`{entry['date'].rjust(date_len)}`"
-                        f"{_s}{_n}{entry['name']}{_e}"
-                    )
+                    if self.with_summaries:
+                        description, summary = entry["description"].split("\n")
+                        entries.append(
+                            f"{_i}{_s}{_n}{description}{_e}{indent}{summary}"
+                        )
+                    else:
+                        description = entry["description"]
+                        entries.append(
+                            f"{_i}`{entry['date'].rjust(date_len)}`"
+                            f"{_s}{_n}{description}{_e}"
+                        )
                 sections.append("\n".join(entries))
             if content["footer"]:
                 sections.append(content["footer"])
@@ -1197,17 +1226,20 @@ class ObservationFormatter(BaseFormatter):
         self.community_taxon_summary = community_taxon_summary
 
     def format(self, join_title: bool = True):
-        title = self.format_title(with_link=join_title)
+        title_summary = self.format_title_summary(with_link=self.with_link)
+        if join_title:
+            result = ("" if self.compact else "\n").join(title_summary)
+        return result
+
+    def format_title_summary(self, with_link: bool = True):
+        title = self.format_title(with_link=with_link)
         summary = self.format_summary(self.taxon, self.taxon_summary)
         title, summary = self.format_community_id(
             title, summary, self.community_taxon_summary
         )
         if not self.compact:
             title += self.format_media_counts()
-        result = (title, summary)
-        if join_title:
-            result = ("" if self.compact else "\n").join(result)
-        return result
+        return (title, summary)
 
     def format_taxon_link(self, taxon: Taxon):
         taxon_str = self.get_taxon_name(taxon)
@@ -1291,7 +1323,7 @@ class ObservationFormatter(BaseFormatter):
             line = " ".join((item for item in (login, obs_on, obs_at) if item))
             if len(line) > 32:
                 line = line[0:31] + "…"
-            summary += "`{0: <32}`".format(line)
+            summary += "`{0: <32}`\N{EN SPACE}".format(line)
             summary += ICONS[obs.quality_grade]
             if obs.faves:
                 summary += self.format_count("fave", len(obs.faves))

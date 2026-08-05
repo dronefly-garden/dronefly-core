@@ -435,6 +435,8 @@ class CLICommands(Commands):
         with_index = self.format == Format.rich
         formatter = ObservationSearchFormatter(
             with_index=with_index,
+            with_links=True,
+            with_summaries=True,
         )
         source = ObservationSearchSource(
             iterator=observations,
