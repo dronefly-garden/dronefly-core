@@ -1226,9 +1226,12 @@ class ObservationFormatter(BaseFormatter):
         self.community_taxon_summary = community_taxon_summary
 
     def format(self, join_title: bool = True):
-        title_summary = self.format_title_summary(with_link=self.with_link)
+        result = self.format_title_summary(with_link=join_title)
         if join_title:
-            result = ("" if self.compact else "\n").join(title_summary)
+            result = ("" if self.compact else "\n").join(result)
+        # returns the tuple of (title, summary) unless join_title
+        # is used, in which case a whole string is returned
+        # - FIXME: the inconsistent return type is confusing
         return result
 
     def format_title_summary(self, with_link: bool = True):
