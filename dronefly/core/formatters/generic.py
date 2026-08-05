@@ -660,7 +660,7 @@ class ObservationSearchFormatter(ListFormatter):
 
         def assemble_page(content: dict, selected: int = 0):
             """Assemble page content into a formatted page."""
-            indent_width = 5 if self.with_index else 1
+            indent_width = 7 if self.with_index else 1
             indent = "\n" + ("\N{EN SPACE}" * indent_width)
             sections = []
             if content["header"]:
@@ -674,13 +674,25 @@ class ObservationSearchFormatter(ListFormatter):
                 for index, entry in enumerate(content["entries"]):
                     _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
                     if selected == index:
-                        _s = ">"
+                        _s = "\N{BLACK RIGHT-POINTING SMALL TRIANGLE}"
                         _n = "**__"
                         _e = "__**"
                     else:
-                        _s = "\N{EN SPACE}"
+                        _s = "\N{ZERO WIDTH SPACE}\N{EN SPACE}"
                         _n = ""
                         _e = ""
+                    # FIXME: Come up with a better solution for this ugly hack!
+                    # - Surround the selected pointer with blanks.
+                    # - Prevents rich markdown from misreading word boundaries, breaking
+                    #   the _n and _e markup (ends up showing '**' literally)
+                    # - Has the undesirable side effect of contributing two extra spaces
+                    #   to the output that we didn't want.
+                    # - This is a rich-markdown-specific hack. Discord doesn't have this
+                    #   issue. Strictly speaking, self.with_index is the wrong option
+                    #   to enable it, but currently only the CLI uses that option, and
+                    #   this keeps the hack self-contained.
+                    if self.with_index:
+                        _s = f" {_s} "
                     if self.with_summaries:
                         description, summary = entry["description"].split("\n")
                         entries.append(
@@ -929,13 +941,16 @@ class TaxonListFormatter(ListFormatter):
                 for index, entry in enumerate(content["entries"]):
                     _i = f"**`{str(index + 1).zfill(2)}) `**" if self.with_index else ""
                     if selected == index:
-                        _s = ">"
+                        _s = "\N{BLACK RIGHT-POINTING SMALL TRIANGLE}"
                         _n = "**__"
                         _e = "__**"
                     else:
                         _s = "\N{EN SPACE}"
                         _n = ""
                         _e = ""
+                    # FIXME: Eliminate ugly hack (see comment in ObservationSearchFormatter)
+                    if self.with_index:
+                        _s = f" {_s} "
                     entries.append(
                         f"{_i}`{entry['count']}{entry['direct']}`"
                         f"{_s}{entry['indent']}{_n}{entry['name']}{_e}"
