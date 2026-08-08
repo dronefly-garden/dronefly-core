@@ -47,6 +47,7 @@ from ..models import (
 from ..utils import included_ranks
 from .constants import (
     ICONS,
+    UNKNOWN_ICON,
     WWW_BASE_URL,
 )
 from dronefly.core.utils import lifelists_url_from_query_response, obs_url_from_v1
@@ -1281,7 +1282,9 @@ class ObservationFormatter(BaseFormatter):
             )
         title += taxon_str
         if not self.compact:
-            title += f" by {self.obs.user.login} " + ICONS[self.obs.quality_grade]
+            title += f" by {self.obs.user.login} " + ICONS.get(
+                self.obs.quality_grade, UNKNOWN_ICON
+            )
             if self.obs.faves:
                 title += self.format_count("fave", len(self.obs.faves))
             if self.obs.comments:
@@ -1342,7 +1345,7 @@ class ObservationFormatter(BaseFormatter):
             if len(line) > 32:
                 line = line[0:31] + "…"
             summary += "`{0: <32}`\N{EN SPACE}".format(line)
-            summary += ICONS[obs.quality_grade]
+            summary += ICONS.get(obs.quality_grade, UNKNOWN_ICON)
             if obs.faves:
                 summary += self.format_count("fave", len(obs.faves))
             if obs.comments:
