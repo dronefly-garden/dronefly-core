@@ -42,18 +42,20 @@ STATIC_URL_PAT = (
 )
 
 # Match observation URL or command.
-_PAT_OBS_LINK = r"\b(?P<url>" + WWW_URL_PAT + r"/observations/(?P<obs_id>\d+))\b"
-PAT_OBS_LINK = re.compile(_PAT_OBS_LINK, re.I)
+_OBS_LINK_PAT = r"\b(?P<url>" + WWW_URL_PAT + r"/observations/(?P<obs_id>\d+))\b"
+PAT_OBS_LINK = re.compile(_OBS_LINK_PAT, re.I)
 
 QUERY_PAT = r"\??(?:&?[^\n=& ]*=[^\n=& ]*)*"
 _OBS_QUERY_PAT = r"(?P<url>" + WWW_URL_PAT + r"/observations" + QUERY_PAT + ")"
 PAT_OBS_QUERY = re.compile(_OBS_QUERY_PAT)
-# - the ">" character is markdown for block-quote, but only when followed by a
-#   blank, so in the middle of a line we use it to indicate a selected entry
 _SELECTED_OBS_LINK_PAT = (
-    "\N{BLACK RIGHT-POINTING SMALL TRIANGLE}" + r".*?\[.*?\]\(" + _PAT_OBS_LINK + r"\)"
+    "\N{BLACK RIGHT-POINTING SMALL TRIANGLE}" + r".*?\[.*?\]\(" + _OBS_QUERY_PAT + r"\)"
 )
 PAT_SELECTED_OBS_LINK = re.compile(_SELECTED_OBS_LINK_PAT, re.MULTILINE)
+_SELECTED_OBS_QUERY_LINK_PAT = (
+    "\N{BLACK RIGHT-POINTING SMALL TRIANGLE}" + r".*?\[.*?\]\(" + _OBS_LINK_PAT + r"\)"
+)
+PAT_SELECTED_OBS_QUERY_LINK = re.compile(_SELECTED_OBS_QUERY_LINK_PAT, re.MULTILINE)
 MARKDOWN_LINK = re.compile(r"\[.*?\]\((?P<url>.*?)\)")
 
 # Match place link from any partner site.
