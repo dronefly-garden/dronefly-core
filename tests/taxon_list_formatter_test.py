@@ -112,7 +112,7 @@ def test_format(mock_source):
     formatted_page = formatter.format(page, 1, 0)
     expected_output = """[Life list of taxa by test_user](https://www.inaturalist.org/lifelists/test_user)
 
-`43`>**__[Stateofmatter Life](https://www.inaturalist.org/observations?user=1&taxon_id=48460)__**
+`43`\N{BLACK RIGHT-POINTING SMALL TRIANGLE}**__[Stateofmatter Life](https://www.inaturalist.org/observations?user=1&taxon_id=48460)__**
 `43` └ [Kingdom Taxon 1](https://www.inaturalist.org/observations?user=1&taxon_id=1)
 `43`     └ [Phylum Taxon 2](https://www.inaturalist.org/observations?user=1&taxon_id=2)
 `43`         └ [Class Taxon 3](https://www.inaturalist.org/observations?user=1&taxon_id=3)
