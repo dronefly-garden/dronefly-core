@@ -1,4 +1,5 @@
 """Tests for Observation search command."""
+
 # pylint: disable=missing-class-docstring, no-self-use, missing-function-docstring
 # pylint: disable=redefined-outer-name
 
@@ -40,9 +41,12 @@ async def test_obs_search_with_one_full_page(cmd, ctx):
     )
     expected = """[Search: Observations of Genus *Poecile* (Chickadees and Allies) by Ben Armstrong (benarmstrong) added  on or before Mar 1, 2019 Mar:03 AM](https://www.inaturalist.org/observations?verifiable=any&taxon_id=144351&user_id=545640&created_d2=2019-03-01T00%3A00%3A00)
 
-`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
-`Jan-2019`\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/19864873)
-`Jul-2018`\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/14325258)"""  # noqa: E501
+\N{BLACK RIGHT-POINTING SMALL TRIANGLE}**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
+\N{EN SPACE}`Feb-2019 Halifax Regional Munic…`\N{EN SPACE}✅ 📷 👥 (2/2)
+\N{ZERO WIDTH SPACE}\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/19864873)
+\N{EN SPACE}`Jan-2019 Halifax Regional Munic…`\N{EN SPACE}✅ 📷2 👥 (2/2)
+\N{ZERO WIDTH SPACE}\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/14325258)
+\N{EN SPACE}`Jul-2018 Halifax, Nova Scotia, …`\N{EN SPACE}✅ 📷 👥 (4/4)"""  # noqa: E501
     assert response == expected
 
 
@@ -54,13 +58,16 @@ async def test_obs_search_with_two_pages(cmd, ctx):
     )
     expected = """[Search: Observations of Genus *Poecile* (Chickadees and Allies) by Ben Armstrong (benarmstrong) added  on or before Mar 1, 2019 Mar:03 AM](https://www.inaturalist.org/observations?verifiable=any&taxon_id=144351&user_id=545640&created_d2=2019-03-01T00%3A00%3A00)
 
-`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
-`Jan-2019`\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/19864873)
+\N{BLACK RIGHT-POINTING SMALL TRIANGLE}**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
+\N{EN SPACE}`Feb-2019 Halifax Regional Munic…`\N{EN SPACE}✅ 📷 👥 (2/2)
+\N{ZERO WIDTH SPACE}\N{EN SPACE}[*Poecile atricapillus*](https://www.inaturalist.org/observations/19864873)
+\N{EN SPACE}`Jan-2019 Halifax Regional Munic…`\N{EN SPACE}✅ 📷2 👥 (2/2)
 
 Page 1/2"""  # noqa: E501
     assert response == expected
     response = await cmd.next(ctx)
-    expected = """`Jul-2018`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/14325258)__**
+    expected = """\N{BLACK RIGHT-POINTING SMALL TRIANGLE}**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/14325258)__**
+\N{EN SPACE}`Jul-2018 Halifax, Nova Scotia, …`\N{EN SPACE}✅ 📷 👥 (4/4)
 
 Page 2/2"""  # noqa: E501
     assert response == expected
@@ -73,9 +80,12 @@ async def test_obs_search_with_one_of_three_pages(cmd, ctx):
     )
     expected = """[Search: Observations of Genus *Poecile* (Chickadees and Allies) by Ben Armstrong (benarmstrong) added  on or before Mar 1, 2019 Mar:03 AM](https://www.inaturalist.org/observations?verifiable=any&taxon_id=144351&user_id=545640&created_d2=2019-03-01T00%3A00%3A00)
 
-`Feb-2019`>**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
+\N{BLACK RIGHT-POINTING SMALL TRIANGLE}**__[*Poecile atricapillus*](https://www.inaturalist.org/observations/20258222)__**
+\N{EN SPACE}`Feb-2019 Halifax Regional Munic…` ✅ 📷 👥 (2/2)
 
 Page 1/3"""  # noqa: E501
+    print(response)
+    print(expected)
     assert response == expected
 
 
