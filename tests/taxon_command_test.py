@@ -1,4 +1,5 @@
 """Tests for Taxon command."""
+
 # pylint: disable=missing-class-docstring, no-self-use, missing-function-docstring
 # pylint: disable=redefined-outer-name
 
@@ -60,14 +61,15 @@ async def test_taxon_with_group_macro(cmd, ctx):
 
 @pytest.mark.asyncio(scope="session")
 async def test_taxon_list_with_result(cmd, ctx):
-    response = re.sub(r"`[0-9,]*?`>", "`999999`>", await cmd.taxon_list(ctx, "homo"))
-    assert (
-        response
-        == """Children of Genus *Homo* (Ancestral and Modern Humans)
+    response = re.sub(
+        r"`[0-9,]*?`(\N{BLACK RIGHT-POINTING SMALL TRIANGLE})",
+        r"`999999`\1",
+        await cmd.taxon_list(ctx, "homo"),
+    )
+    assert response == """Children of Genus *Homo* (Ancestral and Modern Humans)
 
-`999999`>**__[*Homo sapiens*](https://www.inaturalist.org/observations?verifiable=true&taxon_id=43584)__**
+`999999`\N{BLACK RIGHT-POINTING SMALL TRIANGLE}**__[*Homo sapiens*](https://www.inaturalist.org/observations?verifiable=true&taxon_id=43584)__**
 
 `1` species
 
 Total: 1 child taxa"""  # noqa: E501
-    )
