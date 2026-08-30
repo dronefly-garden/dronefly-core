@@ -185,6 +185,8 @@ async def match_user(client, user_str):
     user_id = None
     if user_str == "me":
         user_id = client.ctx.author.inat_user_id
+        if not user_id:
+            raise LookupError("Your iNat account is not known.")
     if user_str == "any":
         return None
     if not user_id:
