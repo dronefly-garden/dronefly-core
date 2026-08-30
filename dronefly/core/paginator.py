@@ -1,4 +1,4 @@
-from pyinaturalist.paginator import (
+from pyinaturalist import (
     Paginator as pyiNatPaginator,
     IDPaginator as pyiNatIDPaginator,
 )

@@ -1,7 +1,6 @@
 from typing import Any, Union
 
-from pyinaturalist import Observation
-from pyinaturalist.paginator import Paginator
+from pyinaturalist import Observation, Paginator
 
 from dronefly.core.utils import obs_url_from_v1
 
