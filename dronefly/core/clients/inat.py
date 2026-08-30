@@ -1,4 +1,5 @@
 """Module to access iNaturalist API."""
+
 import asyncio
 from contextlib import contextmanager
 from functools import partial
@@ -17,13 +18,19 @@ from ..constants import INAT_DEFAULTS, RATELIMIT_FILE, RATELIMIT_LOCK_FILE, CACH
 from ..controllers.inat import ObservationController, UserController
 from ..paginator import Paginator
 
-
-DRONEFLY_SESSION = ClientSession(
-    bucket_class=FileLockSQLiteBucket,
-    cache_file=CACHE_FILE,
-    ratelimit_path=RATELIMIT_FILE,
-    lock_path=RATELIMIT_LOCK_FILE,
-)
+if "use_lock_file" in signature(ClientSession.__init__).parameters:
+    # i.e. pyinaturalist 0.21.1
+    DRONEFLY_SESSION = ClientSession(
+        cache_file=CACHE_FILE, ratelimit_path=RATELIMIT_FILE, use_lock_file=True
+    )
+else:
+    # i.e. pyinaturalist < 1.0.0
+    DRONEFLY_SESSION = ClientSession(
+        bucket_class=FileLockSQLiteBucket,
+        cache_file=CACHE_FILE,
+        ratelimit_path=RATELIMIT_FILE,
+        lock_path=RATELIMIT_LOCK_FILE,
+    )
 
 
 def asyncify(client: pyiNatClient, method):
