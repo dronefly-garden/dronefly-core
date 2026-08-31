@@ -19,12 +19,12 @@ from ..controllers.inat import ObservationController, UserController
 from ..paginator import Paginator
 
 if "use_lock_file" in signature(ClientSession.__init__).parameters:
-    # i.e. pyinaturalist 0.21.1
+    # i.e. pyinaturalist 1.0.0
     DRONEFLY_SESSION = ClientSession(
         cache_file=CACHE_FILE, ratelimit_path=RATELIMIT_FILE, use_lock_file=True
     )
 else:
-    # i.e. pyinaturalist < 1.0.0
+    # i.e. pyinaturalist 0.21.1
     DRONEFLY_SESSION = ClientSession(
         bucket_class=FileLockSQLiteBucket,
         cache_file=CACHE_FILE,
