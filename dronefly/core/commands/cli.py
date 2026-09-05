@@ -426,7 +426,7 @@ class CLICommands(Commands):
                 raise (ArgumentError(err))
             obs_args = query_response.obs_args()
             observations = client.observations.search(**obs_args)
-        if not observations:
+        if not observations.count():
             raise LookupError(
                 f"No observations {query_response.obs_query_description()}"
             )
