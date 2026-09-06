@@ -373,11 +373,12 @@ def format_taxon_names(
 
 def format_taxon_name(
     taxon: Taxon,
-    with_term=False,
-    hierarchy=False,
-    with_rank=True,
-    with_common=True,
-    lang=None,
+    with_term: bool = False,
+    hierarchy: bool = False,
+    with_rank: bool = True,
+    with_common: bool = True,
+    with_italics: bool = True,
+    lang: str = None,
 ):
     """Format taxon name.
 
@@ -395,6 +396,9 @@ def format_taxon_name(
         If specified and hierarchy=False, includes the rank for ranks higher than species.
     with_common: bool, optional
         If specified, include common name in parentheses after scientific name.
+    with_italics: bool, optional
+        If specified (default), render the name in italics according to
+        conventions for the rank.
     lang: str, optional
         If specified, prefer the first name with its locale == lang instead of
         the preferred_common_name.
@@ -447,20 +451,21 @@ def format_taxon_name(
     # - do italicize the name for Genus and every rank at species or below
     # - any abbreviated english keywords within italicized intraspecific ranks
     #   are not italicized (spp. var. f.)
-    if rank == "genus" or rank_level <= RANK_LEVELS["species"]:
-        name = f"*{name}*"
-    if rank_level > RANK_LEVELS["species"]:
-        if hierarchy:
-            bold = ("\n> **", "**") if rank in TAXON_PRIMARY_RANKS else ("", "")
-            name = f"{bold[0]}{name}{bold[1]}"
-        elif with_rank:
-            name = f"{rank.capitalize()} {name}"
-    else:
-        if rank in TRINOMIAL_ABBR:
-            tri = name.split(" ")
-            if len(tri) == 3:
-                # Note: name already italicized, so close/reopen italics around insertion.
-                name = f"{tri[0]} {tri[1]}* {TRINOMIAL_ABBR[rank]} *{tri[2]}"
+    if with_italics:
+        if rank == "genus" or rank_level <= RANK_LEVELS["species"]:
+            name = f"*{name}*"
+        if rank_level > RANK_LEVELS["species"]:
+            if hierarchy:
+                bold = ("\n> **", "**") if rank in TAXON_PRIMARY_RANKS else ("", "")
+                name = f"{bold[0]}{name}{bold[1]}"
+            elif with_rank:
+                name = f"{rank.capitalize()} {name}"
+        else:
+            if rank in TRINOMIAL_ABBR:
+                tri = name.split(" ")
+                if len(tri) == 3:
+                    # Note: name already italicized, so close/reopen italics around insertion.
+                    name = f"{tri[0]} {tri[1]}* {TRINOMIAL_ABBR[rank]} *{tri[2]}"
     full_name = f"{name} ({common})" if common else name
     if not taxon.is_active:
         full_name += " \N{HEAVY EXCLAMATION MARK SYMBOL} Inactive Taxon"
@@ -1250,8 +1255,8 @@ class ObservationFormatter(BaseFormatter):
         # - FIXME: the inconsistent return type is confusing
         return result
 
-    def format_title_summary(self, with_link: bool = True):
-        title = self.format_title(with_link=with_link)
+    def format_title_summary(self, with_link: bool = True, with_italics: bool = True):
+        title = self.format_title(with_link=with_link, with_italics=with_italics)
         summary = self.format_summary(self.taxon, self.taxon_summary)
         title, summary = self.format_community_id(
             title, summary, self.community_taxon_summary
@@ -1273,9 +1278,9 @@ class ObservationFormatter(BaseFormatter):
             )
         return taxon_str
 
-    def format_title(self, with_link: bool = True):
+    def format_title(self, with_link: bool = True, with_italics: bool = True):
         title = ""
-        taxon_str = self.get_taxon_name(self.taxon)
+        taxon_str = self.get_taxon_name(self.taxon, with_italics=with_italics)
         if with_link and self.with_link:
             taxon_str = format_link(
                 taxon_str, f"{WWW_BASE_URL}/observations/{self.obs.id}"
@@ -1295,10 +1300,13 @@ class ObservationFormatter(BaseFormatter):
         delim = " " if self.compact else ", "
         return f"{delim}{ICONS[label]}" + (str(count) if count > 1 else "")
 
-    def get_taxon_name(self, taxon):
+    def get_taxon_name(self, taxon, with_italics: bool = True):
         if taxon:
             taxon_str = format_taxon_name(
-                taxon, with_rank=not self.compact, with_common=False
+                taxon,
+                with_rank=not self.compact,
+                with_common=False,
+                with_italics=with_italics,
             )
         else:
             taxon_str = "Unknown"
