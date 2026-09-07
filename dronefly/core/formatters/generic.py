@@ -515,14 +515,22 @@ def format_quality_grade(options: dict = {}):
 def format_obs_spp_count(
     count: Union[UserCount, PlaceCount],
     query_response: QueryResponse,
+    entries: list = None,
 ):
     """Format observation & species counts for a user or place."""
     obs_args = query_response.obs_args()
     if isinstance(count, UserCount):
         name = count.login
-        obs_args[count.countable_param] = count.id
+        if count.id == -1:
+            obs_args[count.countable_param] = ",".join(
+                [str(entry.id) for entry in entries[0:-1]]
+            )
+        else:
+            obs_args[count.countable_param] = count.id
     else:
         name = count.display_name
+        if count.id == -1:
+            obs_args["place_id"] = ",".join([str(entry.id) for entry in entries])
         obs_args["place_id"] = count.id
     url = obs_url_from_v1(obs_args)
     taxon = obs_args.get("taxon", None)
@@ -1051,7 +1059,14 @@ class CountsFormatter(ListFormatter):
 
         formatted_page = [header]
         for count in page:
-            formatted_entry = format_obs_spp_count(count, query_response)
+            if count.id == -1:
+                formatted_entry = format_obs_spp_count(
+                    count, query_response, entries=page
+                )
+            else:
+                formatted_entry = format_obs_spp_count(
+                    count, query_response, entries=page
+                )
             formatted_page.append(formatted_entry)
         return "\n".join(formatted_page)
 
