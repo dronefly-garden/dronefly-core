@@ -45,7 +45,7 @@ STATIC_URL_PAT = (
 _OBS_LINK_PAT = r"\b(?P<url>" + WWW_URL_PAT + r"/observations/(?P<obs_id>\d+))\b"
 PAT_OBS_LINK = re.compile(_OBS_LINK_PAT, re.I)
 
-QUERY_PAT = r"\??(?:&?[^\n=& ]*=[^\n=& ]*)*"
+QUERY_PAT = r"\?(?:&?[^\n=& ]*=[^\n=& ]*)*"
 _OBS_QUERY_PAT = r"(?P<url>" + WWW_URL_PAT + r"/observations" + QUERY_PAT + ")"
 PAT_OBS_QUERY = re.compile(_OBS_QUERY_PAT)
 _SELECTED_OBS_LINK_PAT = (
