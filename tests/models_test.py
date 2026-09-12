@@ -38,7 +38,7 @@ class TestModels:
         assert config.projects == {}
         assert config.users == {}
 
-    @pytest.mark.asyncio(scope="session")
+    @pytest.mark.asyncio(loop_scope="session")
     async def test_config(self, test_projects, test_places, test_users):
         config = Config(projects=test_projects, places=test_places, users=test_users)
         assert await config.place_id("ns") == test_places["ns"]
@@ -48,7 +48,7 @@ class TestModels:
         assert await config.user(1) == test_users.get("1")
         assert await config.user_id(1) == test_users.get("1").get("inat_user_id")
 
-    @pytest.mark.asyncio(scope="session")
+    @pytest.mark.asyncio(loop_scope="session")
     async def test_load_config(
         self, test_projects, test_places, test_users, test_config
     ):

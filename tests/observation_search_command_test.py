@@ -6,6 +6,7 @@
 import asyncio
 
 import pytest
+import pytest_asyncio
 from dronefly.core.commands.cli import CLICommands
 from dronefly.core.models.context import Context  # noqa: F401
 
@@ -17,23 +18,14 @@ def ctx():
     return ctx
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="module")
-def cmd(event_loop):
+@pytest_asyncio.fixture(loop_scope="session")
+async def cmd():
+    event_loop = asyncio.get_running_loop()
     return CLICommands(loop=event_loop)
 
 
 # TODO: Mock communication with iNatClient
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_obs_search_with_one_full_page(cmd, ctx):
     ctx.per_page = 3
     response = await cmd.obs_search(
@@ -50,7 +42,7 @@ async def test_obs_search_with_one_full_page(cmd, ctx):
     assert response == expected
 
 
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_obs_search_with_two_pages(cmd, ctx):
     ctx.per_page = 2
     response = await cmd.obs_search(
@@ -73,7 +65,7 @@ Page 2/2"""  # noqa: E501
     assert response == expected
 
 
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_obs_search_with_one_of_three_pages(cmd, ctx):
     response = await cmd.obs_search(
         ctx, "poecile by benarmstrong added until 2019-03-01"
@@ -89,7 +81,7 @@ Page 1/3"""  # noqa: E501
     assert response == expected
 
 
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_obs_search_with_no_result(cmd, ctx):
     with pytest.raises(LookupError) as err:
         await cmd.obs_search(ctx, "xyzzy")

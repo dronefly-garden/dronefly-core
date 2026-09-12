@@ -7,6 +7,7 @@ import asyncio
 import re
 
 import pytest
+import pytest_asyncio
 from dronefly.core.commands.exceptions import ArgumentError
 from dronefly.core.commands.cli import CLICommands
 from dronefly.core.models.context import Context  # noqa: F401
@@ -17,23 +18,14 @@ def ctx():
     return Context()
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="module")
-def cmd(event_loop):
+@pytest_asyncio.fixture(loop_scope="session")
+async def cmd():
+    event_loop = asyncio.get_running_loop()
     return CLICommands(loop=event_loop)
 
 
 # TODO: Mock communication with iNatClient
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_taxon_with_result(cmd, ctx):
     response = re.sub(r"\[[0-9,]*?\]", "[19,999,999]", await cmd.taxon(ctx, "birds"))
     assert response == (
@@ -45,21 +37,21 @@ async def test_taxon_with_result(cmd, ctx):
     )
 
 
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_taxon_with_no_result(cmd, ctx):
     with pytest.raises(LookupError) as err:
         await cmd.taxon(ctx, "xyzzy")
         assert str(err) == "Nothing found"
 
 
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_taxon_with_group_macro(cmd, ctx):
     with pytest.raises(ArgumentError) as err:
         await cmd.taxon(ctx, "herps")
         assert str(err) == "Not a taxon"
 
 
-@pytest.mark.asyncio(scope="session")
+@pytest.mark.asyncio(loop_scope="session")
 async def test_taxon_list_with_result(cmd, ctx):
     response = re.sub(
         r"`[0-9,]*?`(\N{BLACK RIGHT-POINTING SMALL TRIANGLE})",
