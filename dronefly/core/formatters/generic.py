@@ -450,7 +450,7 @@ def format_taxon_name(
     # - any abbreviated english keywords within italicized intraspecific ranks
     #   are not italicized (spp. var. f.)
     if rank and with_italics:
-        rank_level = RANK_LEVELS.get[rank]
+        rank_level = RANK_LEVELS[rank]
         if rank == "genus" or rank_level <= RANK_LEVELS["species"]:
             name = f"*{name}*"
         if rank_level > RANK_LEVELS["species"]:
