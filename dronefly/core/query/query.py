@@ -81,13 +81,26 @@ def _get_options(query_options: list):
     # Accept a limited selection of options:
     # - all of these to date apply only to observations, though others could
     #   be added later
-    # - all options and values are lowercased
-    for (key, *val) in map(lambda opt: opt.lower().split("="), query_options):
-        val = val[0] if val else "true"
+    # - all options and values are lowercased, with the exception of
+    #   iconic_taxa which has all values capitalized except for `unknown`!
+    for (key, *val) in map(lambda opt: opt.split("="), query_options):
+        if not val:
+            val = "true"
+        elif key == "iconic_taxa" and len(val) > 1:
+            iconic_taxa = []
+            for iconic_taxon in val[1].split(","):
+                iconic_taxa.append(
+                    iconic_taxon
+                    if iconic_taxon == "unknown"
+                    else iconic_taxon.capitalize()
+                )
+            val = ",".join(iconic_taxa)
+        else:
+            val = val[0]
         # - conservatively, only alphanumeric, comma, dash or
         #   underscore characters accepted in values so far
         # - TODO: proper validation per field type
-        if key in VALID_OBS_OPTS and re.match(r"^[a-z0-9,_-]*$", val):
+        if key in VALID_OBS_OPTS and re.match(r"^[A-Za-z0-9,_-]*$", val):
             options[key] = val
     return options
 
