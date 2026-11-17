@@ -38,48 +38,164 @@ MACROS = {
     "most": {"per": "species", "sort by": "obs"},
     "least": {"per": "species", "sort by": "obs", "asc": None},
 }
+# Keyword 'any' functions as a taxon name that means "no specific taxon"
+# in a query expression, e.g. when an observations search is performed
+# without a taxon_id parameter.
+ANY_TAXA = {
+    "any": {
+        "query_macro": {},
+        "taxon_params": {
+            "name": "Any",
+            "preferred_common_name": "",
+        },
+    },
+}
 # Groups of taxa:
 # - can't function in place of a single taxon, and are typically only used in
 #   observation searches & counts
 # - must not be expanded when adjacent to other taxon keywords in the query
-GROUP_MACROS = {
-    # Because there are no iconic taxa for these three taxa, they must be specifically
-    # excluded in order to match only actual unknowns (Bacteria, Archaea, & Viruses):
-    "unknown": {"opt": ["iconic_taxa=unknown", "without_taxon_id=67333,151817,131236"]},
-    "waspsonly": {"of": "apocrita", "opt": ["without_taxon_id=47336,630955"]},
-    "mothsonly": {"of": "lepidoptera", "opt": ["without_taxon_id=47224"]},
-    "herps": {"opt": ["taxon_ids=20978,26036"]},
+GROUP_TAXA = {
+    "unknown": {
+        "query_macro": {
+            "opt": [
+                "iconic_taxa=unknown",
+                "without_taxon_id=67333,151817,131236",
+            ]
+        },
+        "taxon_params": {
+            "name": "Unknown",
+            "preferred_common_name": "",
+        },
+    },
+    "waspsonly": {
+        "query_macro": {
+            "of": "124417",
+            "opt": ["without_taxon_id=47336,630955"],
+        },
+        "taxon_params": {
+            "name": "Apocrita without Formicidae, Anthophila",
+            "preferred_common_name": "Wasps without Ants and Bees",
+        },
+    },
+    "mothsonly": {
+        "query_macro": {"of": "47157", "opt": ["without_taxon_id=47224"]},
+        "taxon_params": {
+            "name": "Lepidoptera without Papilionoidea",
+            "preferred_common_name": "Moths",
+        },
+    },
+    "herps": {
+        "query_macro": {"opt": ["taxon_ids=20978,26036"]},
+        "taxon_params": {
+            "name": "Amphibia, Reptilia",
+            "preferred_common_name": "Amphibians & Reptiles aka Herps",
+        },
+    },
     "lichenish": {
-        "opt": [
-            "taxon_ids=152028,54743,152030,175541,127378,117881,117869,175246",
-            "without_taxon_id=372831,1040687,1040689,352459",
-        ]
+        "query_macro": {
+            "opt": [
+                "taxon_ids=152028,54743,152030,175541,127378,117881,117869,175246",
+                "without_taxon_id=372831,1040687,1040689,352459",
+            ]
+        },
+        "taxon_params": {
+            "name": "Lecanoromycetes, Arthoniomycetes, etc.",
+            "preferred_common_name": "Lichenized Fungi",
+        },
     },
     "nonflowering": {
-        "of": "plantae",
-        "opt": ["without_taxon_id=47125"],
+        "query_macro": {
+            "of": "47126",
+            "opt": ["without_taxon_id=47125"],
+        },
+        "taxon_params": {
+            "name": "Plantae without Angiospermae",
+            "preferred_common_name": "Non-flowering Plants",
+        },
     },
     "nonvascular": {
-        "of": "plantae",
-        "opt": ["without_taxon_id=211194"],
+        "query_macro": {
+            "of": "47126",
+            "opt": ["without_taxon_id=211194"],
+        },
+        "taxon_params": {
+            "name": "Plantae without Tracheophyta",
+            "preferred_common_name": "Non-vascular Plants",
+        },
     },
-    "inverts": {"of": "animalia", "opt": ["without_taxon_id=355675"]},
+    "inverts": {
+        "query_macro": {
+            "of": "1",
+            "opt": ["without_taxon_id=355675"],
+        },
+        "taxon_params": {
+            "name": "Animalia without Vertebrata",
+            "preferred_common_name": "Invertebrates",
+        },
+    },
     "seaslugs": {
-        "opt": [
-            (
-                "taxon_ids=130687,775798,775804,49784,500752,47113,775801,"
-                "775833,775805,495793,47801,801507"
-            ),
-        ],
+        "query_macro": {
+            "opt": [
+                (
+                    "taxon_ids=130687,775798,775804,49784,500752,47113,775801,"
+                    "775833,775805,495793,47801,801507"
+                ),
+            ],
+        },
+        "taxon_params": {
+            "name": "Nudibranchia, Aplysiida, etc.",
+            "preferred_common_name": "Nudibranchs, Sea Hares & Other Marine Slugs",
+        },
     },
     "allfish": {
-        "opt": ["taxon_ids=47178,47273,797045,85497"],
+        "query_macro": {
+            "opt": ["taxon_ids=47178,47273,797045,85497"],
+        },
+        "taxon_params": {
+            "name": "Actinopterygii, Agnatha, Elasmobranchii, Sarcopterygii",
+            "preferred_common_name": "Extant Fish",
+        },
     },
     "roachesonly": {
-        "of": "blattodea",
-        "opt": ["without_taxon_id=118903"],
+        "query_macro": {
+            "of": "81769",
+            "opt": ["without_taxon_id=118903"],
+        },
+        "taxon_params": {
+            "name": "Blattodea without Termitoidae",
+            "preferred_common_name": "Cockroaches without termites",
+        },
     },
 }
+VIRTUAL_TAXA = {
+    **ANY_TAXA,
+    **GROUP_TAXA,
+}
+GROUP_MACROS = {key: config["query_macro"] for key, config in GROUP_TAXA.items()}
+
+
+def taxon_group_members(params):
+    taxon_ids = params.get("taxon_ids")
+    without_taxon_id = params.get("without_taxon_id")
+    includes = set(taxon_ids.split(",") if taxon_ids else [])
+    excludes = set(without_taxon_id.split(",") if without_taxon_id else [])
+    iconic_taxa = params.get("iconic_taxa")
+    if iconic_taxa:
+        includes.add(iconic_taxa)
+    return includes, excludes
+
+
+def group_macro_taxon_ids(group_name, group_macro):
+    params = dict((option.split("=") + [""])[:2] for option in group_macro.get("opt"))
+    includes, excludes = taxon_group_members(params) if params else (set(), set())
+    of = group_macro.get("of")
+    if of:
+        includes.add(of)
+    return group_name, {"includes": includes, "excludes": excludes}
+
+
+GROUP_TAXON_IDS = dict(group_macro_taxon_ids(k, v) for k, v in GROUP_MACROS.items())
+
 VALID_OBS_OPTS = [
     "captive",
     "csi",
