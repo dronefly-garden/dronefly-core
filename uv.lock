@@ -285,7 +285,7 @@ requires-dist = [
     { name = "filelock", specifier = ">=3.13.3,<4" },
     { name = "html2markdown", specifier = ">=0.1.7,<0.2" },
     { name = "inflect", specifier = ">=5.3.0,<6" },
-    { name = "pyinaturalist", specifier = ">=0.21.1,<0.22" },
+    { name = "pyinaturalist", git = "https://github.com/pyinat/pyinaturalist.git?rev=main" },
     { name = "rich", specifier = ">=13.4" },
 ]
 
@@ -609,8 +609,8 @@ wheels = [
 
 [[package]]
 name = "pyinaturalist"
-version = "0.21.1"
-source = { registry = "https://pypi.org/simple" }
+version = "1.0.0"
+source = { git = "https://github.com/pyinat/pyinaturalist.git?rev=main#0336b0934072b88882e5dc6b85e207187bc97f6f" }
 dependencies = [
     { name = "attrs" },
     { name = "keyring" },
@@ -620,10 +620,6 @@ dependencies = [
     { name = "requests-cache" },
     { name = "requests-ratelimiter" },
     { name = "rich" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/21/d6/bb4c33401addc0fb2d276e946a6785f46c94f524554e8eeb69f12d08cd4d/pyinaturalist-0.21.1.tar.gz", hash = "sha256:1fdf879a3113a9ebbea7a1c0f1973dc6b79cba94bb32a50e810907b3b92480c7", size = 102922, upload-time = "2026-02-13T22:37:13.978Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/97/07/06f87a5a67691da9a4fddfc27f690520528c2c5e776e64025d90fa1a6d41/pyinaturalist-0.21.1-py3-none-any.whl", hash = "sha256:ea98977b2614ded9eef0afe4db3eb564f9e913824d4fd29e910cc0f21008abc5", size = 141100, upload-time = "2026-02-13T22:37:12.132Z" },
 ]
 
 [[package]]
@@ -646,11 +642,11 @@ wheels = [
 
 [[package]]
 name = "pyrate-limiter"
-version = "2.10.0"
+version = "4.5.1"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c0/a2/bb73c385e6d68cbe0ebe6ff16c22c96a79194c1298b2942005fcaf3eda9d/pyrate_limiter-2.10.0.tar.gz", hash = "sha256:98cc52cdbe058458e945ae87d4fd5a73186497ffa545ee6e98372f8599a5bd34", size = 49915, upload-time = "2023-02-26T16:03:08.883Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2b/0b/f69f1614940f29d51e31d4fe8de69b2b4d411094ba3c77f50da34dfb63c6/pyrate_limiter-4.5.1.tar.gz", hash = "sha256:7f03c6a9235b00a4ba3c7b1e8cb6b23fbacc9d40b09f326220917a12ef22cc09", size = 129966, upload-time = "2026-10-20T13:51:27.935Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4f/2e/cad6d72ca044bff3b0d53b491f5116582e0704fea59672906d44b9600514/pyrate_limiter-2.10.0-py3-none-any.whl", hash = "sha256:a99e52159f5ed5eb58118bed8c645e30818e7c0e0d127a0585c8277c776b0f7f", size = 16376, upload-time = "2023-02-26T16:03:06.447Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/72/bf7279ae5799e1b54cf137859c17755446b2d2b6194606bda41753a43f76/pyrate_limiter-4.5.1-py3-none-any.whl", hash = "sha256:bb8dd2926b0679e4ada6629a865e85daa5599268f930c61a8992dafa8bf3ba0d", size = 57873, upload-time = "2026-10-20T13:51:26.584Z" },
 ]
 
 [[package]]
@@ -845,15 +841,15 @@ wheels = [
 
 [[package]]
 name = "requests-ratelimiter"
-version = "0.8.0"
+version = "0.10.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyrate-limiter" },
     { name = "requests" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ee/ad/78e0022aaa5b9db1c6ca7ff6eb2d9f2dafb63508acad8de6c2b2031640ba/requests_ratelimiter-0.8.0.tar.gz", hash = "sha256:8b43c35dbf6fa2bee30b9814411baa44c3e5fe793248ec1ed15c0cb8c8844bfe", size = 10781, upload-time = "2026-01-03T17:40:29.518Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3a/71/aecc6307695ddad2d11f474cd79d79b111ee90dd123d697b76eaa1cd73a1/requests_ratelimiter-0.10.0.tar.gz", hash = "sha256:9c1a78d7646caa5ccf211a6c341abd16d329be2c8c35044a418aa9da7c0e7a33", size = 17190, upload-time = "2026-04-22T18:11:15.925Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/5e/ccd98e17b1f6500b36bdc787bb7ecbedc0c89fb127f8b6613a94a0a6a69d/requests_ratelimiter-0.8.0-py3-none-any.whl", hash = "sha256:13bf89ec2c6f64e06e2b883a30f3b1874ee8c15d9f054ed48daeb120e8d4bec2", size = 9186, upload-time = "2026-01-03T17:40:28.253Z" },
+    { url = "https://files.pythonhosted.org/packages/f1/87/c94855590fde39c87cf671d242e555984d93e76d2029a6a3ad3a67a072ad/requests_ratelimiter-0.10.0-py3-none-any.whl", hash = "sha256:79a3e44c13de8d72705512696b44b94265bd96d997580c73e480373814af228e", size = 11408, upload-time = "2026-04-22T18:11:14.398Z" },
 ]
 
 [[package]]
