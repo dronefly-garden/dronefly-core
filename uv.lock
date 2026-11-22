@@ -285,7 +285,7 @@ requires-dist = [
     { name = "filelock", specifier = ">=3.13.3,<4" },
     { name = "html2markdown", specifier = ">=0.1.7,<0.2" },
     { name = "inflect", specifier = ">=5.3.0,<6" },
-    { name = "pyinaturalist", git = "https://github.com/pyinat/pyinaturalist.git?rev=main" },
+    { name = "pyinaturalist", specifier = ">=1.0.0.dev2" },
     { name = "rich", specifier = ">=13.4" },
 ]
 
@@ -609,8 +609,8 @@ wheels = [
 
 [[package]]
 name = "pyinaturalist"
-version = "1.0.0"
-source = { git = "https://github.com/pyinat/pyinaturalist.git?rev=main#0336b0934072b88882e5dc6b85e207187bc97f6f" }
+version = "1.0.0.dev2"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
     { name = "keyring" },
@@ -620,6 +620,10 @@ dependencies = [
     { name = "requests-cache" },
     { name = "requests-ratelimiter" },
     { name = "rich" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/5b/10/5795acde16ec3348ba8a8148f2ab2a167e2d76b533be0d25a8129b7aabd8/pyinaturalist-1.0.0.dev2.tar.gz", hash = "sha256:b66573c0213bd80b45400a01871bee1a07a7e1f6fe121a892177c93a097dd2d4", size = 113193, upload-time = "2026-09-06T17:32:04.349Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8c/d1/1807ac95198292e1f3e28fe539d8d4248f1e2a63da2c29b044c4209b4cc6/pyinaturalist-1.0.0.dev2-py3-none-any.whl", hash = "sha256:6f1efdb2b19bbaffd598d0d35788f7d8cdd0133bce6950c46fcf900ba5a2319e", size = 154874, upload-time = "2026-09-06T17:32:03.103Z" },
 ]
 
 [[package]]
