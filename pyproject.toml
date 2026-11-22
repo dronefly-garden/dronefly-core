@@ -12,7 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "pyinaturalist>=0.21.1,<0.22",
+    "pyinaturalist @ git+https://github.com/pyinat/pyinaturalist.git@main",
     "dateparser>=1.1.1,<2",
     "filelock>=3.13.3,<4",
     "inflect>=5.3.0,<6",
