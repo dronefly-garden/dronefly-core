@@ -321,7 +321,7 @@ class CLICommands(Commands):
     async def _get_query_response_from_args(self, client, *args):
         taxon = None
         if len(args) == 0 or args[0] == "sel":
-            taxon = await self._get_selected_taxon(client.ctx)
+            taxon = await self._get_selected_taxon(client)
             query_response = QueryResponse(taxon=taxon)
         else:
             query_response = await self._get_taxon_query(client, *args)
