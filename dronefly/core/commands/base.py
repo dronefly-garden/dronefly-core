@@ -6,7 +6,7 @@ from typing import Union
 from rich.markdown import Markdown
 from ..parsers import NaturalParser
 from ..clients.inat import iNatClient
-from ..models import BaseFormatter, load_config, ListFormatter
+from ..models import BaseFormatter, load_workspace, ListFormatter
 from .constants import (
     Format,
     RICH_BQ_END_PAT,
@@ -42,7 +42,7 @@ class Commands:
         self.format = format
         self.inat_client = iNatClient(loop=loop)
         self.parser = NaturalParser()
-        self.dronefly_config = load_config()
+        self.workspace = load_workspace()
 
     def _parse(self, query_str):
         return self.parser.parse(query_str)

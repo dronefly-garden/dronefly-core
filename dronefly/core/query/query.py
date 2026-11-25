@@ -135,9 +135,9 @@ async def match_project(client, project_str):
     """Match project abbrev, place id, or first search result for text to search for."""
     project_id = None
     project = None
-    config = client.ctx.config if client.ctx else None
-    if config:
-        project_id = await config.project_id(project_str)
+    workspace = client.ctx.workspace if client.ctx else None
+    if workspace:
+        project_id = await workspace.project_id(project_str)
 
     if not project_id and project_str.isdigit():
         project_id = project_str
@@ -164,9 +164,9 @@ async def match_place(client, place_str):
     """Match place abbrev, place id, or first autocomplete result for text to search for."""
     place_id = None
     place = None
-    config = client.ctx.config if client.ctx else None
-    if config:
-        place_id = await config.place_id(place_str)
+    workspace = client.ctx.workspace if client.ctx else None
+    if workspace:
+        place_id = await workspace.place_id(place_str)
 
     if not place_id and place_str.isdigit():
         place_id = place_str
@@ -213,10 +213,10 @@ async def match_user(client, user_str):
         #   specified a number and instead, assume they meant an iNat user id?
         #   after all, the Dronefly user id is only to provide a unique key
         #   internally and doesn't have any use outside storing user settings
-        #   in the config
-        dronefly_config = client.ctx.config if client.ctx else None
-        if dronefly_config:
-            user_id = await dronefly_config.user_id(user_str)
+        #   in the workspace
+        workspace = client.ctx.workspace if client.ctx else None
+        if workspace:
+            user_id = await workspace.user_id(user_str)
     if not user_id:
         user_id = user_str
     try:

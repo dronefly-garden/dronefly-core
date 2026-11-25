@@ -469,7 +469,7 @@ class CLICommands(Commands):
             raise ArgumentError(
                 "Only `user add me <user-id>` is supported at this time."
             )
-        user_config = await self.dronefly_config.user(ctx.author.id)
+        user_config = await self.workspace.user(ctx.author.id)
         configured_user_id = None
         if user_config:
             configured_user_id = user_config.get("inat_user_id")

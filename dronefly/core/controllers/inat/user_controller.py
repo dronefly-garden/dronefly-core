@@ -21,7 +21,7 @@ class UserController(pyiNatUserController):
     ) -> Paginator[User]:
         """Get iNat users for list of dronefly users"""
         inat_user_ids = [
-            await self.client.ctx.config.user_id(dronefly_user)
+            await self.client.ctx.workspace.user_id(dronefly_user)
             for dronefly_user in dronefly_users
         ]
         return self.client.paginate(
@@ -29,5 +29,5 @@ class UserController(pyiNatUserController):
             User,
             cls=IDPaginator,
             ids=ensure_list(inat_user_ids),
-            **params
+            **params,
         )

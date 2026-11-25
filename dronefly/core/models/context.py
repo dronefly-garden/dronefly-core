@@ -1,9 +1,9 @@
 from typing import Union
 
-from attrs import define
+from attrs import define, field
 
 from ..constants import INAT_DEFAULTS, INAT_USER_DEFAULT_PARAMS
-from .config import Config
+from .workspace import Workspace
 from . import BaseFormatter, ListFormatter, User
 
 
@@ -12,7 +12,7 @@ class Context:
     """A Dronefly command context."""
 
     author: User = User()
-    config: Config = Config()
+    workspace: Workspace = field(factory=Workspace)
     # Optional page formatter and current page:
     # - Provides support for next & prev commands to navigate through
     #   paged command results.
