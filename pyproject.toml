@@ -1,6 +1,6 @@
 [project]
 name = "dronefly-core"
-version = "0.5.4.dev2"
+version = "0.5.4.dev3"
 description = "Core dronefly components"
 authors = [{ name = "Ben Armstrong", email = "synrg@debian.org" }]
 requires-python = ">=3.11,<3.13"
@@ -12,7 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "pyinaturalist>=1.0.0.dev2",
+    "pyinaturalist>=1.0.0.dev3",
     "dateparser>=1.1.1,<2",
     "filelock>=3.13.3,<4",
     "inflect>=5.3.0,<6",

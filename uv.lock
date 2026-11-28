@@ -258,7 +258,7 @@ wheels = [
 
 [[package]]
 name = "dronefly-core"
-version = "0.5.4.dev2"
+version = "0.5.4.dev3"
 source = { editable = "." }
 dependencies = [
     { name = "dateparser" },
@@ -285,7 +285,7 @@ requires-dist = [
     { name = "filelock", specifier = ">=3.13.3,<4" },
     { name = "html2markdown", specifier = ">=0.1.7,<0.2" },
     { name = "inflect", specifier = ">=5.3.0,<6" },
-    { name = "pyinaturalist", specifier = ">=1.0.0.dev2" },
+    { name = "pyinaturalist", specifier = ">=1.0.0.dev3" },
     { name = "rich", specifier = ">=13.4" },
 ]
 
@@ -609,7 +609,7 @@ wheels = [
 
 [[package]]
 name = "pyinaturalist"
-version = "1.0.0.dev2"
+version = "1.0.0.dev3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
@@ -621,9 +621,9 @@ dependencies = [
     { name = "requests-ratelimiter" },
     { name = "rich" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5b/10/5795acde16ec3348ba8a8148f2ab2a167e2d76b533be0d25a8129b7aabd8/pyinaturalist-1.0.0.dev2.tar.gz", hash = "sha256:b66573c0213bd80b45400a01871bee1a07a7e1f6fe121a892177c93a097dd2d4", size = 113193, upload-time = "2026-09-06T17:32:04.349Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/d6/c6/332b8886608db549149b7f401862f568b1d9eb116bcc79af14f53dd1a726/pyinaturalist-1.0.0.dev3.tar.gz", hash = "sha256:0084b8351ef4b4b22d1eb65ee14f57cde410714a7c589d09b714ad6bc587f1a5", size = 113193, upload-time = "2026-11-28T00:40:25.394Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/8c/d1/1807ac95198292e1f3e28fe539d8d4248f1e2a63da2c29b044c4209b4cc6/pyinaturalist-1.0.0.dev2-py3-none-any.whl", hash = "sha256:6f1efdb2b19bbaffd598d0d35788f7d8cdd0133bce6950c46fcf900ba5a2319e", size = 154874, upload-time = "2026-09-06T17:32:03.103Z" },
+    { url = "https://files.pythonhosted.org/packages/05/83/c162f7ec91cb916036ee6f6e139330e0d2c5d265ba350940b3abe01cd59f/pyinaturalist-1.0.0.dev3-py3-none-any.whl", hash = "sha256:866e55e13571797f7ff103e2cb45d213b1b1694a02c6788b1e14fba5cbbb66a9", size = 154876, upload-time = "2026-11-28T00:40:24.135Z" },
 ]
 
 [[package]]
